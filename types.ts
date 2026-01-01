@@ -22,6 +22,7 @@ export interface Track {
 export interface PlaylistItem {
   name: string;
   artist: string;
+  themeColor: string;
   url: string;
 }
 

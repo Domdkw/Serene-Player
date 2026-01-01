@@ -32,7 +32,7 @@ const App: React.FC = () => {
 
   // Load playlist on mount
   useEffect(() => {
-    fetch('./discList.json')
+    fetch('/discList.json')
       .then(res => {
         if (!res.ok) throw new Error("Playlist file (discList.json) not found.");
         return res.json();
@@ -453,35 +453,51 @@ const App: React.FC = () => {
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-white/[0.05] gap-6">
-                <div className="w-full max-w-md flex flex-col items-center">
+                <div className="w-[80%] max-w-4xl flex flex-col items-center">
                   <h2 className="text-xs font-black tracking-[0.4em] text-white/40 flex items-center gap-3 uppercase mb-6">
                     <ListMusic size={18} />
                     Music Library
                   </h2>
-                  <div className="space-y-2 max-h-[60vh] overflow-y-auto hide-scrollbar w-full">
-                    {playlist.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center text-white/10 text-center p-8 gap-6">
-                        <Music size={64} strokeWidth={0.5} />
-                        <p className="text-[10px] uppercase tracking-[0.3em] font-black">Empty Library</p>
-                      </div>
-                    ) : (
-                      playlist.map((item, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => loadMusicFromUrl(item, idx)}
-                          className={`w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group border bg-white/[0.03] text-white/40 hover:bg-white/[0.08] hover:text-white border-white/[0.05]`}
-                        >
-                          <div className="text-left overflow-hidden pr-6">
-                            <p className="text-sm font-black truncate leading-tight text-white">
+                  <div className="w-full">
+                    <div className="flex items-center px-4 py-3 border-b border-white/10 text-[10px] uppercase tracking-widest font-bold text-white">
+                      <span className="w-1/3 truncate">标题</span>
+                      <span className="w-1/3 truncate pl-4">作曲家</span>
+                      <span className="w-1/3 truncate pl-4">文件地址</span>
+                    </div>
+                    <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden playlist-scrollbar">
+                      {playlist.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center text-white text-center p-8 gap-6">
+                          <Music size={64} strokeWidth={0.5} />
+                          <p className="text-[10px] uppercase tracking-[0.3em] font-black">Empty Library</p>
+                        </div>
+                      ) : (
+                        playlist.map((item, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => loadMusicFromUrl(item, idx)}
+                            className={`w-full px-4 py-4 flex items-center transition-all group border-b border-white/5 ${
+                              currentIndex === idx 
+                                ? 'bg-white/10 text-white' 
+                                : 'text-white/80 hover:bg-white/[0.05] hover:text-white'
+                            }`}
+                          >
+                            <div 
+                              className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
+                              style={{ backgroundColor: item.themeColor }}
+                            />
+                            <span className={`w-1/3 truncate text-left ${currentIndex === idx ? 'font-black' : 'font-medium'}`}>
                               {item.name}
-                            </p>
-                            <p className="text-[10px] uppercase tracking-widest truncate font-bold opacity-60 mt-1">
+                            </span>
+                            <span className="w-1/3 truncate pl-4 text-sm opacity-60">
                               {item.artist}
-                            </p>
-                          </div>
-                        </button>
-                      ))
-                    )}
+                            </span>
+                            <span className="w-1/3 truncate pl-4 text-xs opacity-40 font-mono">
+                              {item.url}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -514,7 +530,7 @@ const App: React.FC = () => {
             </button>
           </div>
           
-          <div className="flex-1 overflow-y-auto hide-scrollbar space-y-2">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden playlist-scrollbar space-y-2">
             {playlist.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-white/10 text-center p-8 gap-6">
                 <Music size={64} strokeWidth={0.5} />
@@ -531,13 +547,19 @@ const App: React.FC = () => {
                       : 'bg-white/[0.03] text-white/40 hover:bg-white/[0.08] hover:text-white border-white/[0.05]'
                   }`}
                 >
-                  <div className="text-left overflow-hidden pr-6">
-                    <p className={`text-sm font-black truncate leading-tight ${currentIndex === idx ? 'text-black' : 'text-white'}`}>
-                      {item.name}
-                    </p>
-                    <p className={`text-[10px] uppercase tracking-widest truncate font-bold opacity-60 mt-1`}>
-                      {item.artist}
-                    </p>
+                  <div className="flex items-center flex-1 min-w-0 max-w-[calc(100%-40px)]">
+                    <div 
+                      className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
+                      style={{ backgroundColor: item.themeColor }}
+                    />
+                    <div className="text-left overflow-hidden flex-1 min-w-0">
+                      <p className={`text-sm font-black truncate leading-tight ${currentIndex === idx ? 'text-black' : 'text-white'}`}>
+                        {item.name}
+                      </p>
+                      <p className={`text-[10px] uppercase tracking-widest truncate font-bold opacity-60 mt-1`}>
+                        {item.artist}
+                      </p>
+                    </div>
                   </div>
                   {currentIndex === idx && isPlaying && (
                      <div className="flex gap-1 items-end h-4 shrink-0">

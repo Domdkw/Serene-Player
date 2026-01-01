@@ -23,6 +23,28 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        
+        /* Custom scrollbar for playlist */
+        .playlist-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .playlist-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        .playlist-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            transition: background 0.3s ease;
+        }
+        .playlist-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+        .playlist-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
+        }
+        
         .lyric-transition {
             transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
         }
