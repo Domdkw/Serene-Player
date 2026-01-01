@@ -4,7 +4,7 @@
 
 # Serene Player - 宁静播放器
 
-基于 React 和 TypeScript 构建的现代化优雅音乐播放器。
+基于 React 和 TypeScript 构建的现代化优雅音乐播放器。由Gemini 3 Flash+TRAE+Hand 开发
 
 ## 功能特性
 
