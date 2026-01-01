@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       base: '/Serene-Player/',
-      publicDir: '/Serene-Player/',
+      publicDir: 'public',
       server: {
         port: 3000,
         host: '0.0.0.0',

@@ -32,7 +32,7 @@ const App: React.FC = () => {
 
   // Load playlist on mount
   useEffect(() => {
-    fetch('/discList.json')
+    fetch('./discList.json')
       .then(res => {
         if (!res.ok) throw new Error("Playlist file (discList.json) not found.");
         return res.json();
