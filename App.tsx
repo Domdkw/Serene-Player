@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
+  const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Playlist states
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
@@ -277,10 +278,10 @@ const App: React.FC = () => {
                 <input type="file" accept="audio/mpeg" className="hidden" onChange={handleFileUpload} />
               </label>
               <button 
-                onClick={() => setIsSidebarOpen(true)}
-                className="p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all active:scale-95"
+                onClick={() => setIsSidebarOpen(prev => !prev)}
+                className={`p-2 rounded-full transition-all active:scale-95 ${isSidebarOpen ? 'bg-white text-black' : 'bg-white/5 hover:bg-white/10 border border-white/10'}`}
               >
-                <ListMusic size={14} className="text-white" />
+                <ListMusic size={14} className={isSidebarOpen ? 'text-black' : 'text-white'} />
               </button>
             </div>
           </div>
@@ -289,11 +290,11 @@ const App: React.FC = () => {
           <div className="flex-1 flex flex-col items-center justify-center space-y-6 md:space-y-10 min-h-0">
             {track ? (
               <>
-                <div className="relative group w-full aspect-square max-w-[240px] md:max-w-[320px] shrink-0">
+                <div className="relative group w-full aspect-square max-w-[200px] md:max-w-[280px] shrink-0">
                   <div className={`absolute -inset-4 md:-inset-8 opacity-20 blur-3xl rounded-full transition-all duration-1000 ${isPlaying ? 'scale-110' : 'scale-90'}`} style={{ backgroundColor: 'white' }} />
                   <div className="relative w-full h-full rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xl border border-white/20 bg-black/40">
                     {track.metadata.coverUrl ? (
-                      <img src={track.metadata.coverUrl} className={`w-full h-full object-cover transition-transform duration-[15s] ease-linear ${isPlaying ? 'scale-125' : 'scale-100'}`} />
+                      <img src={track.metadata.coverUrl} className={`w-full h-full object-cover transition-transform duration-[5s] ease-linear ${isPlaying ? 'scale-125' : 'scale-100'}`} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center"><Music size={64} className="text-white/10" /></div>
                     )}
@@ -393,11 +394,32 @@ const App: React.FC = () => {
           <div 
             ref={lyricsContainerRef}
             className="flex-1 overflow-y-auto px-6 md:px-20 py-[20vh] md:py-[45vh] hide-scrollbar"
-            onMouseEnter={() => setIsAutoScrolling(false)}
-            onMouseLeave={() => setIsAutoScrolling(true)}
+            onMouseEnter={() => {
+              setIsAutoScrolling(false);
+              if (autoScrollTimeoutRef.current) {
+                clearTimeout(autoScrollTimeoutRef.current);
+              }
+            }}
+            onMouseLeave={() => {
+              if (autoScrollTimeoutRef.current) {
+                clearTimeout(autoScrollTimeoutRef.current);
+              }
+              autoScrollTimeoutRef.current = setTimeout(() => {
+                setIsAutoScrolling(true);
+              }, 5000);
+            }}
+            onScroll={() => {
+              setIsAutoScrolling(false);
+              if (autoScrollTimeoutRef.current) {
+                clearTimeout(autoScrollTimeoutRef.current);
+              }
+              autoScrollTimeoutRef.current = setTimeout(() => {
+                setIsAutoScrolling(true);
+              }, 5000);
+            }}
           >
             {track && track.metadata.parsedLyrics.length > 0 ? (
-              <div className="flex flex-col">
+              <div className={`flex flex-col min-h-full transition-all duration-700 ${isSidebarOpen ? 'items-start' : 'items-center justify-center'}`}>
                 {track.metadata.parsedLyrics.map((line, idx) => {
                   const isActive = idx === activeIndex;
                   return (
@@ -429,12 +451,12 @@ const App: React.FC = () => {
                       
                       {/* Progress bar for active lyric */}
                       {isActive && track.metadata.parsedLyrics[idx + 1] && (
-                        <div className="mt-2 w-full h-px bg-white/20 relative overflow-hidden">
+                        <div className="mt-2 w-full h-[2px] bg-white/20 relative overflow-hidden">
                           <div 
                             className="absolute top-0 left-0 h-full bg-white transition-all duration-100"
                             style={{
                               width: `${((currentTime - line.time + 0.1) / (track.metadata.parsedLyrics[idx + 1].time - line.time)) * 100}%`
-                            }}
+                            }}//+0.1 是为了避免进度条到最后一个字时，进度条不显示，补上transition-all
                           />
                         </div>
                       )}
@@ -449,8 +471,37 @@ const App: React.FC = () => {
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-white/[0.05] gap-6">
-                <Music size={120} strokeWidth={0.5} className="animate-pulse" />
-                <p className="text-2xl md:text-4xl tracking-[0.8em] uppercase font-black opacity-10">Serenity</p>
+                <div className="w-full max-w-md flex flex-col items-center">
+                  <h2 className="text-xs font-black tracking-[0.4em] text-white/40 flex items-center gap-3 uppercase mb-6">
+                    <ListMusic size={18} />
+                    Music Library
+                  </h2>
+                  <div className="space-y-2 max-h-[60vh] overflow-y-auto hide-scrollbar w-full">
+                    {playlist.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center text-white/10 text-center p-8 gap-6">
+                        <Music size={64} strokeWidth={0.5} />
+                        <p className="text-[10px] uppercase tracking-[0.3em] font-black">Empty Library</p>
+                      </div>
+                    ) : (
+                      playlist.map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => loadMusicFromUrl(item, idx)}
+                          className={`w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group border bg-white/[0.03] text-white/40 hover:bg-white/[0.08] hover:text-white border-white/[0.05]`}
+                        >
+                          <div className="text-left overflow-hidden pr-6">
+                            <p className="text-sm font-black truncate leading-tight text-white">
+                              {item.name}
+                            </p>
+                            <p className="text-[10px] uppercase tracking-widest truncate font-bold opacity-60 mt-1">
+                              {item.artist}
+                            </p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -463,7 +514,7 @@ const App: React.FC = () => {
 
       {/* Playlist Sidebar */}
       <div 
-        className={`fixed inset-y-0 right-0 w-full md:w-80 lg:w-96 z-[70] bg-black/40 backdrop-blur-[40px] border-l border-white/10 shadow-2xl transition-transform duration-700 cubic-bezier(0.23, 1, 0.32, 1) ${
+        className={`fixed inset-y-0 right-0 w-full md:w-80 lg:w-96 z-[70] bg-black/40 backdrop-blur-[40px] border-l border-white/10 shadow-2xl transition-easeInOut duration-500 ${
           isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

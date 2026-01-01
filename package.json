@@ -9,11 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "audiomotion-analyzer": "^4.5.2",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "wavesurfer.js": "^7.12.1"
+    "react-dom": "^19.2.3"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
