@@ -14,7 +14,6 @@ const App: React.FC = () => {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
-  const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Playlist states
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
@@ -250,11 +249,13 @@ const App: React.FC = () => {
               backgroundImage: `url(${track.metadata.coverUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              filter: 'blur(100px) brightness(0.7)',
+              filter: 'blur(50px) brightness(0.7)',
             }}
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-black to-indigo-950 opacity-40" />
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 animate-rainbow-flow opacity-40" />
+          </div>
         )}
       </div>
 
@@ -394,29 +395,8 @@ const App: React.FC = () => {
           <div 
             ref={lyricsContainerRef}
             className="flex-1 overflow-y-auto px-6 md:px-20 py-[20vh] md:py-[45vh] hide-scrollbar"
-            onMouseEnter={() => {
-              setIsAutoScrolling(false);
-              if (autoScrollTimeoutRef.current) {
-                clearTimeout(autoScrollTimeoutRef.current);
-              }
-            }}
-            onMouseLeave={() => {
-              if (autoScrollTimeoutRef.current) {
-                clearTimeout(autoScrollTimeoutRef.current);
-              }
-              autoScrollTimeoutRef.current = setTimeout(() => {
-                setIsAutoScrolling(true);
-              }, 5000);
-            }}
-            onScroll={() => {
-              setIsAutoScrolling(false);
-              if (autoScrollTimeoutRef.current) {
-                clearTimeout(autoScrollTimeoutRef.current);
-              }
-              autoScrollTimeoutRef.current = setTimeout(() => {
-                setIsAutoScrolling(true);
-              }, 5000);
-            }}
+            onMouseEnter={() => setIsAutoScrolling(false)}
+            onMouseLeave={() => setIsAutoScrolling(true)}
           >
             {track && track.metadata.parsedLyrics.length > 0 ? (
               <div className={`flex flex-col min-h-full transition-all duration-700 ${isSidebarOpen ? 'items-start' : 'items-center justify-center'}`}>
@@ -444,7 +424,9 @@ const App: React.FC = () => {
                       <p className={`font-black leading-[1.1] md:leading-tight drop-shadow-2xl transition-all duration-700 select-none ${
                         isActive 
                           ? 'text-2xl md:text-[3vw] lg:text-[32px] opacity-100 scale-100 origin-center md:origin-left' 
-                          : 'text-lg md:text-[2vw] lg:text-[28px] opacity-80 hover:opacity-100 blur-[1px] hover:blur-0'
+                          : activeIndex !== -1 && (idx === activeIndex - 1 || idx === activeIndex + 1)
+                            ? 'text-lg text-white/50 md:text-[2vw] lg:text-[28px] opacity-100 hover:text-white blur-0'
+                            : 'text-lg md:text-[2vw] lg:text-[28px] opacity-80 hover:opacity-100 text-white/50  blur-0'
                       }`}>
                         {line.text}
                       </p>
@@ -586,6 +568,28 @@ const App: React.FC = () => {
         @keyframes music-bar {
           0%, 100% { height: 6px; }
           50% { height: 16px; }
+        }
+        @keyframes rainbow-flow {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .animate-rainbow-flow {
+          background: linear-gradient(
+            -45deg,
+            #ff0000,
+            #ff7300,
+            #fffb00,
+            #48ff00,
+            #00ffd5,
+            #002bff,
+            #7a00ff,
+            #ff00c8,
+            #ff0000
+          );
+          background-size: 200% 200%;
+          animation: rainbow-flow 10s ease infinite;
+          filter: blur(100px) brightness(0.8);
         }
         @media (max-width: 768px) {
            input[type="range"]::-webkit-slider-thumb {
