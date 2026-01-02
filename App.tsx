@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
+import { MusicLibrary } from './utils/MusicLibrary';
 
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
@@ -17,13 +18,16 @@ const App: React.FC = () => {
   
   // Playlist states
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
+  const [playlistFolders, setPlaylistFolders] = useState<Record<string, PlaylistItem[]>>({});
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('list');
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('single');
   
   // UI states
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -37,7 +41,11 @@ const App: React.FC = () => {
         if (!res.ok) throw new Error("Playlist file (discList.json) not found.");
         return res.json();
       })
-      .then(data => setPlaylist(data))
+      .then(data => {
+        setPlaylistFolders(data);
+        const allTracks = Object.values(data).flat();
+        setPlaylist(allTracks);
+      })
       .catch(err => {
         console.error("Failed to load playlist", err);
         setErrorMessage("Could not load playlist. Check if discList.json exists.");
@@ -46,6 +54,7 @@ const App: React.FC = () => {
 
   const loadMusicFromUrl = async (item: PlaylistItem, index: number) => {
     setErrorMessage(null);
+    setLyricsLoading(true);
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -57,7 +66,9 @@ const App: React.FC = () => {
     setIsPlaying(false);
     
     try {
-      const encodedUrl = encodeURI(item.url);
+      const encodedUrl = item.url.startsWith('http://') || item.url.startsWith('https://') 
+        ? item.url 
+        : encodeURI(item.url);
       const response = await fetch(encodedUrl, { signal });
       
       if (!response.ok) {
@@ -95,6 +106,7 @@ const App: React.FC = () => {
       
       setTrack({ objectUrl, metadata });
       setLoadingProgress(null);
+      setLyricsLoading(false);
       
       if (audioRef.current) {
         audioRef.current.pause();
@@ -113,6 +125,7 @@ const App: React.FC = () => {
       if (error.name === 'AbortError') return;
       console.error("Error loading music:", error);
       setLoadingProgress(null);
+      setLyricsLoading(false);
       setErrorMessage(error.message || "An error occurred while loading the track.");
       setIsPlaying(false);
     }
@@ -244,7 +257,7 @@ const App: React.FC = () => {
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-black">
         {track?.metadata.coverUrl ? (
           <div 
-            className="absolute -inset-[150%] w-[400%] h-[400%] animate-ambient transition-all duration-1000"
+            className="absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] animate-rotate-cover transition-all duration-1000"
             style={{
               backgroundImage: `url(${track.metadata.coverUrl})`,
               backgroundSize: 'cover',
@@ -253,7 +266,7 @@ const App: React.FC = () => {
             }}
           />
         ) : (
-          <div className="absolute inset-0">
+          <div className="absolute top-1/2 -translate-y-1/2 left-[-100vw] w-[200vw] h-[200vw] animate-rotate-rainbow">
             <div className="absolute inset-0 animate-rainbow-flow opacity-40" />
           </div>
         )}
@@ -425,8 +438,8 @@ const App: React.FC = () => {
                         isActive 
                           ? 'text-2xl md:text-[3vw] lg:text-[32px] opacity-100 scale-100 origin-center md:origin-left' 
                           : activeIndex !== -1 && (idx === activeIndex - 1 || idx === activeIndex + 1)
-                            ? 'text-lg text-white/50 md:text-[2vw] lg:text-[28px] opacity-100 hover:text-white blur-0'
-                            : 'text-lg md:text-[2vw] lg:text-[28px] opacity-80 hover:opacity-100 text-white/50  blur-0'
+                            ? 'text-lg text-white/80 md:text-[2vw] lg:text-[28px] opacity-100 hover:text-white blur-0'
+                            : 'text-lg md:text-[2vw] lg:text-[28px] opacity-80 blur-[0.5px] text-white/50 hover:opacity-100 hover:blur-0 hover:scale-105 hover:text-white'
                       }`}>
                         {line.text}
                       </p>
@@ -458,47 +471,17 @@ const App: React.FC = () => {
                     <ListMusic size={18} />
                     Music Library
                   </h2>
-                  <div className="w-full">
-                    <div className="flex items-center px-4 py-3 border-b border-white/10 text-[10px] uppercase tracking-widest font-bold text-white">
-                      <span className="w-1/3 truncate">标题</span>
-                      <span className="w-1/3 truncate pl-4">作曲家</span>
-                      <span className="w-1/3 truncate pl-4">文件地址</span>
-                    </div>
-                    <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden playlist-scrollbar">
-                      {playlist.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center text-white text-center p-8 gap-6">
-                          <Music size={64} strokeWidth={0.5} />
-                          <p className="text-[10px] uppercase tracking-[0.3em] font-black">Empty Library</p>
-                        </div>
-                      ) : (
-                        playlist.map((item, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => loadMusicFromUrl(item, idx)}
-                            className={`w-full px-4 py-4 flex items-center transition-all group border-b border-white/5 ${
-                              currentIndex === idx 
-                                ? 'bg-white/10 text-white' 
-                                : 'text-white/80 hover:bg-white/[0.05] hover:text-white'
-                            }`}
-                          >
-                            <div 
-                              className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
-                              style={{ backgroundColor: item.themeColor }}
-                            />
-                            <span className={`w-1/3 truncate text-left ${currentIndex === idx ? 'font-black' : 'font-medium'}`}>
-                              {item.name}
-                            </span>
-                            <span className="w-1/3 truncate pl-4 text-sm opacity-60">
-                              {item.artist}
-                            </span>
-                            <span className="w-1/3 truncate pl-4 text-xs opacity-40 font-mono">
-                              {item.url}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
+                  <MusicLibrary
+                    playlistFolders={playlistFolders}
+                    currentFolder={currentFolder}
+                    setCurrentFolder={setCurrentFolder}
+                    playlist={playlist}
+                    currentIndex={currentIndex}
+                    isPlaying={isPlaying}
+                    onTrackSelect={loadMusicFromUrl}
+                    isSidebar={false}
+                    isLoading={lyricsLoading}
+                  />
                 </div>
               </div>
             )}
@@ -530,48 +513,17 @@ const App: React.FC = () => {
             </button>
           </div>
           
-          <div className="flex-1 overflow-y-auto overflow-x-hidden playlist-scrollbar space-y-2">
-            {playlist.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-white/10 text-center p-8 gap-6">
-                <Music size={64} strokeWidth={0.5} />
-                <p className="text-[10px] uppercase tracking-[0.3em] font-black">Empty Library</p>
-              </div>
-            ) : (
-              playlist.map((item, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => loadMusicFromUrl(item, idx)}
-                  className={`w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group border ${
-                    currentIndex === idx 
-                      ? 'bg-white text-black border-transparent shadow-2xl scale-[1.01]' 
-                      : 'bg-white/[0.03] text-white/40 hover:bg-white/[0.08] hover:text-white border-white/[0.05]'
-                  }`}
-                >
-                  <div className="flex items-center flex-1 min-w-0 max-w-[calc(100%-40px)]">
-                    <div 
-                      className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
-                      style={{ backgroundColor: item.themeColor }}
-                    />
-                    <div className="text-left overflow-hidden flex-1 min-w-0">
-                      <p className={`text-sm font-black truncate leading-tight ${currentIndex === idx ? 'text-black' : 'text-white'}`}>
-                        {item.name}
-                      </p>
-                      <p className={`text-[10px] uppercase tracking-widest truncate font-bold opacity-60 mt-1`}>
-                        {item.artist}
-                      </p>
-                    </div>
-                  </div>
-                  {currentIndex === idx && isPlaying && (
-                     <div className="flex gap-1 items-end h-4 shrink-0">
-                        <div className="w-1 bg-current rounded-full animate-[music-bar_0.8s_ease-in-out_infinite]" />
-                        <div className="w-1 bg-current rounded-full animate-[music-bar_0.6s_ease-in-out_infinite_0.1s]" />
-                        <div className="w-1 bg-current rounded-full animate-[music-bar_0.9s_ease-in-out_infinite_0.2s]" />
-                     </div>
-                  )}
-                </button>
-              ))
-            )}
-          </div>
+          <MusicLibrary
+            playlistFolders={playlistFolders}
+            currentFolder={currentFolder}
+            setCurrentFolder={setCurrentFolder}
+            playlist={playlist}
+            currentIndex={currentIndex}
+            isPlaying={isPlaying}
+            onTrackSelect={loadMusicFromUrl}
+            isSidebar={true}
+            isLoading={lyricsLoading}
+          />
           
           <div className="mt-8 pt-6 border-t border-white/5 text-center">
              <p className="text-[9px] uppercase font-black tracking-[0.5em] text-white/10">Version 2.0 Lumina</p>
@@ -596,22 +548,91 @@ const App: React.FC = () => {
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
+        @keyframes rotate-cover {
+          0% { transform: translateY(-50%) rotate(0deg); }
+          100% { transform: translateY(-50%) rotate(360deg); }
+        }
+        @keyframes rotate-rainbow {
+          0% { transform: translateY(-50%) rotate(0deg); }
+          100% { transform: translateY(-50%) rotate(360deg); }
+        }
+        @keyframes shimmer {
+          0% { 
+            left: -100%; 
+          }
+          100% { 
+            left: 200%; 
+          }
+        }
+        @keyframes wave {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(0%); }
+        }
         .animate-rainbow-flow {
           background: linear-gradient(
-            -45deg,
-            #ff0000,
-            #ff7300,
+            90deg,
+            #ff5151ff,
+            #ff8f33ff,
             #fffb00,
-            #48ff00,
+            #7bff46ff,
             #00ffd5,
-            #002bff,
-            #7a00ff,
-            #ff00c8,
-            #ff0000
+            #4160ffff,
+            #9c3effff,
+            #ff43d6ff,
+            #ff0707ff
           );
-          background-size: 200% 200%;
-          animation: rainbow-flow 10s ease infinite;
+          background-size: 400% 100%;
+          animation: rainbow-flow 20s linear infinite;
           filter: blur(100px) brightness(0.8);
+        }
+        .animate-rotate-cover {
+          animation: rotate-cover 60s linear infinite;
+        }
+        .animate-rotate-rainbow {
+          animation: rotate-rainbow 30s linear infinite;
+        }
+        .shimmer-effect {
+          position: relative;
+          overflow: hidden;
+        }
+        .shimmer-effect::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.03) 40%,
+            rgba(255, 255, 255, 0.1) 50%,
+            rgba(255, 255, 255, 0.03) 60%,
+            transparent 100%
+          );
+          animation: shimmer 1.5s ease-in-out infinite;
+        }
+        .shimmer-item {
+          position: relative;
+          overflow: hidden;
+          background: white/5;
+        }
+        .shimmer-item::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            transparent 40%,
+            rgba(255, 255, 255, 0.15) 50%,
+            transparent 60%,
+            transparent 100%
+          );
+          animation: shimmer 1.2s ease-in-out infinite;
         }
         @media (max-width: 768px) {
            input[type="range"]::-webkit-slider-thumb {

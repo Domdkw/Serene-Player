@@ -1,62 +1,126 @@
-[
-  {
-    "name":"Alone",
-    "artist":"Marshmello",
-    "themeColor":"rgb(130, 124, 202)",
-    "url":"./music/Alone-Marshmello.mp3"
-  },
-  {
-    "name":"Dead Inside-АДЛИН",
-    "artist":"АДЛИН",
-    "themeColor":"rgb(27, 27, 27)",
-    "url":"./music/Dead Inside-АДЛИН.mp3"
-  },
-  {
-    "name":"《莫问归期＋辞九门回忆 》（dj×0.9）—DJ阿玄",
-    "artist":"DJ阿玄",
-    "themeColor":"rgb(212, 186, 188)",
-    "url":"./music/《莫问归期＋辞九门回忆 》（dj×0.9）—DJ阿玄.mp3"
-  },
-  {
-    "name":"Lighting(Phonk Drum)",
-    "artist":"MIRBRO&SEVENOP&XloveSF",
-    "themeColor":"rgb(196, 65, 97)",
-    "url":"./music/Lighting(Phonk Drum) - MIRBRO&SEVENOP&XloveSF.mp3"
-  },
-  {
-    "name":"My Love",
-    "artist":"Westlife",
-    "themeColor":"rgb(75, 82, 115)",
-    "url":"./music/My Love-Westlife.mp3"
-  },
-  {
-    "name":"Tek It (Sped Up)",
-    "artist":"Cafuné",
-    "themeColor":"rgb(159, 191, 212)",
-    "url":"./music/Tek It (Sped Up) - Cafuné.mp3"
-  },
-  {
-    "name":"Wasted(Murkish RemixExplicit)",
-    "artist":"Strangerboi24&Nightcore&Murkish&joseph rodgigo",
-    "themeColor":"rgb(3, 52, 190)",
-    "url":"./music/Wasted(Murkish RemixExplicit) - Strangerboi24&Nightcore&Murkish&joseph rodgigo.mp3"
-  },
-  {
-    "name":"Под луной (Silver Ace remix)",
-    "artist":"sunami",
-    "themeColor":"rgb(140, 29, 30)",
-    "url":"./music/Под луной (Silver Ace remix)-sunami.mp3"
-  },
-  {
-    "name":"弱水三千 (0.8xDJ苏熠鸣版)",
-    "artist":"苏熠鸣",
-    "themeColor":"rgb(192, 164, 140)",
-    "url":"./music/弱水三千 (0.8xDJ苏熠鸣版)-苏熠鸣.mp3"
-  },
-  {
-    "name":"游京 (我闻着饼香)",
-    "artist":"Dj阿农",
-    "themeColor":"rgb(218, 227, 213)",
-    "url":"./music/游京 (我闻着饼香)-Dj阿农.mp3"
-  }
-]
+{
+  "This Server":[
+    {
+      "name":"Alone",
+      "artist":"Marshmello",
+      "themeColor":"rgb(130, 124, 202)",
+      "url":"./music/Alone-Marshmello.mp3"
+    },
+    {
+      "name":"Dead Inside-АДЛИН",
+      "artist":"АДЛИН",
+      "themeColor":"rgb(27, 27, 27)",
+      "url":"./music/Dead Inside-АДЛИН.mp3"
+    },
+    {
+      "name":"《莫问归期＋辞九门回忆 》（dj×0.9）—DJ阿玄",
+      "artist":"DJ阿玄",
+      "themeColor":"rgb(212, 186, 188)",
+      "url":"./music/《莫问归期＋辞九门回忆 》（dj×0.9）—DJ阿玄.mp3"
+    },
+    {
+      "name":"Lighting(Phonk Drum)",
+      "artist":"MIRBRO&SEVENOP&XloveSF",
+      "themeColor":"rgb(196, 65, 97)",
+      "url":"./music/Lighting(Phonk Drum) - MIRBRO&SEVENOP&XloveSF.mp3"
+    },
+    {
+      "name":"My Love",
+      "artist":"Westlife",
+      "themeColor":"rgb(75, 82, 115)",
+      "url":"./music/My Love-Westlife.mp3"
+    },
+    {
+      "name":"Tek It (Sped Up)",
+      "artist":"Cafuné",
+      "themeColor":"rgb(159, 191, 212)",
+      "url":"./music/Tek It (Sped Up) - Cafuné.mp3"
+    },
+    {
+      "name":"Wasted(Murkish RemixExplicit)",
+      "artist":"Strangerboi24&Nightcore&Murkish&joseph rodgigo",
+      "themeColor":"rgb(3, 52, 190)",
+      "url":"./music/Wasted(Murkish RemixExplicit) - Strangerboi24&Nightcore&Murkish&joseph rodgigo.mp3"
+    },
+    {
+      "name":"Под луной (Silver Ace remix)",
+      "artist":"sunami",
+      "themeColor":"rgb(140, 29, 30)",
+      "url":"./music/Под луной (Silver Ace remix)-sunami.mp3"
+    },
+    {
+      "name":"弱水三千 (0.8xDJ苏熠鸣版)",
+      "artist":"苏熠鸣",
+      "themeColor":"rgb(192, 164, 140)",
+      "url":"./music/弱水三千 (0.8xDJ苏熠鸣版)-苏熠鸣.mp3"
+    },
+    {
+      "name":"游京 (我闻着饼香)",
+      "artist":"Dj阿农",
+      "themeColor":"rgb(218, 227, 213)",
+      "url":"./music/游京 (我闻着饼香)-Dj阿农.mp3"
+    }
+  ],
+  "gh-proxy(Recommend推荐)":[
+    {
+      "name":"Alone",
+      "artist":"Marshmello",
+      "themeColor":"rgb(130, 124, 202)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Alone-Marshmello.mp3"
+    },
+    {
+      "name":"Dead Inside-АДЛИН",
+      "artist":"АДЛИН",
+      "themeColor":"rgb(27, 27, 27)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Dead Inside-АДЛИН.mp3"
+    },
+    {
+      "name":"《莫问归期＋辞九门回忆 》（dj×0.9）—DJ阿玄",
+      "artist":"DJ阿玄",
+      "themeColor":"rgb(212, 186, 188)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/《莫问归期＋辞九门回忆 》（dj×0.9）—DJ阿玄.mp3"
+    },
+    {
+      "name":"Lighting(Phonk Drum)",
+      "artist":"MIRBRO&SEVENOP&XloveSF",
+      "themeColor":"rgb(196, 65, 97)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Lighting(Phonk Drum) - MIRBRO&SEVENOP&XloveSF.mp3"
+    },
+    {
+      "name":"My Love",
+      "artist":"Westlife",
+      "themeColor":"rgb(75, 82, 115)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/My Love-Westlife.mp3"
+    },
+    {
+      "name":"Tek It (Sped Up)",
+      "artist":"Cafuné",
+      "themeColor":"rgb(159, 191, 212)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Tek It (Sped Up) - Cafuné.mp3"
+    },
+    {
+      "name":"Wasted(Murkish RemixExplicit)",
+      "artist":"Strangerboi24&Nightcore&Murkish&joseph rodgigo",
+      "themeColor":"rgb(3, 52, 190)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Wasted(Murkish RemixExplicit) - Strangerboi24&Nightcore&Murkish&joseph rodgigo.mp3"
+    },
+    {
+      "name":"Под луной (Silver Ace remix)",
+      "artist":"sunami",
+      "themeColor":"rgb(140, 29, 30)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Под луной (Silver Ace remix)-sunami.mp3"
+    },
+    {
+      "name":"弱水三千 (0.8xDJ苏熠鸣版)",
+      "artist":"苏熠鸣",
+      "themeColor":"rgb(192, 164, 140)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/弱水三千 (0.8xDJ苏熠鸣版)-苏熠鸣.mp3"
+    },
+    {
+      "name":"游京 (我闻着饼香)",
+      "artist":"Dj阿农",
+      "themeColor":"rgb(218, 227, 213)",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/游京 (我闻着饼香)-Dj阿农.mp3"
+    }
+  ]
+}

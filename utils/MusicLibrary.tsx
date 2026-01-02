@@ -1,0 +1,186 @@
+import React from 'react';
+import { Music, Folder, ChevronLeft } from 'lucide-react';
+import { PlaylistItem } from '../types';
+
+interface MusicLibraryProps {
+  playlistFolders: Record<string, PlaylistItem[]>;
+  currentFolder: string | null;
+  setCurrentFolder: (folder: string | null) => void;
+  playlist: PlaylistItem[];
+  currentIndex: number;
+  isPlaying: boolean;
+  onTrackSelect: (item: PlaylistItem, index: number) => void;
+  isSidebar?: boolean;
+  isLoading?: boolean;
+}
+
+export const MusicLibrary: React.FC<MusicLibraryProps> = ({
+  playlistFolders,
+  currentFolder,
+  setCurrentFolder,
+  playlist,
+  currentIndex,
+  isPlaying,
+  onTrackSelect,
+  isSidebar = false,
+  isLoading = false
+}) => {
+  const getTrackIndex = (item: PlaylistItem) => playlist.findIndex(p => p.url === item.url);
+
+  const renderFolderView = () => {
+    if (Object.keys(playlistFolders).length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center text-white/10 text-center p-8 gap-6">
+          <Music size={64} strokeWidth={0.5} />
+          <p className="text-[10px] uppercase tracking-[0.3em] font-black">Empty Library</p>
+        </div>
+      );
+    }
+
+    return Object.keys(playlistFolders).map((folderName, idx) => (
+      <button
+        key={idx}
+        onClick={() => setCurrentFolder(folderName)}
+        className={`${isSidebar 
+          ? "w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group bg-white/[0.03] text-white/40 hover:bg-white/[0.08] hover:text-white border border-white/[0.05]"
+          : "w-full px-4 py-4 flex items-center transition-all group border-b border-white/5 text-white/80 hover:bg-white/[0.05] hover:text-white"
+        } ${isLoading ? 'shimmer-item' : ''}`}
+      >
+        <div className="flex items-center flex-1 min-w-0">
+          <Folder size={16} className="mr-3 flex-shrink-0" />
+          <div className="text-left overflow-hidden flex-1 min-w-0">
+            <p className="text-sm font-black truncate leading-tight">
+              {folderName}
+            </p>
+            <p className="text-[10px] uppercase tracking-widest truncate font-bold opacity-60 mt-1">
+              {playlistFolders[folderName]?.length || 0} tracks
+            </p>
+          </div>
+        </div>
+      </button>
+    ));
+  };
+
+  const renderTrackView = () => {
+    const tracks = playlistFolders[currentFolder] || [];
+    
+    if (tracks.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center text-white/10 text-center p-8 gap-6">
+          <Music size={64} strokeWidth={0.5} />
+          <p className="text-[10px] uppercase tracking-[0.3em] font-black">Empty Folder</p>
+        </div>
+      );
+    }
+
+    return tracks.map((item, idx) => {
+      const trackIndex = getTrackIndex(item);
+      const isActive = currentIndex === trackIndex;
+
+      if (isSidebar) {
+        return (
+          <button
+            key={idx}
+            onClick={() => onTrackSelect(item, trackIndex)}
+            className={`w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group border ${
+              isActive 
+                ? 'bg-white text-black border-transparent shadow-2xl scale-[1.01]' 
+                : 'bg-white/[0.03] text-white/40 hover:bg-white/[0.08] hover:text-white border-white/[0.05]'
+            } ${isLoading && !isActive ? 'shimmer-item' : ''}`}
+          >
+            <div className="flex items-center flex-1 min-w-0 max-w-[calc(100%-40px)]">
+              <div 
+                className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
+                style={{ backgroundColor: item.themeColor }}
+              />
+              <div className="text-left overflow-hidden flex-1 min-w-0">
+                <p className={`text-sm font-black truncate leading-tight ${isActive ? 'text-black' : 'text-white'}`}>
+                  {item.name}
+                </p>
+                <p className="text-[10px] uppercase tracking-widest truncate font-bold opacity-60 mt-1">
+                  {item.artist}
+                </p>
+              </div>
+            </div>
+            {isActive && isPlaying && (
+               <div className="flex gap-1 items-end h-4 shrink-0">
+                  <div className="w-1 bg-current rounded-full animate-[music-bar_0.8s_ease-in-out_infinite]" />
+                  <div className="w-1 bg-current rounded-full animate-[music-bar_0.6s_ease-in-out_infinite_0.1s]" />
+                  <div className="w-1 bg-current rounded-full animate-[music-bar_0.9s_ease-in-out_infinite_0.2s]" />
+               </div>
+            )}
+          </button>
+        );
+      }
+
+      return (
+        <button
+          key={idx}
+          onClick={() => onTrackSelect(item, trackIndex)}
+          className={`w-full px-4 py-4 flex items-center transition-all group border-b border-white/5 ${
+            isActive 
+              ? 'bg-white/10 text-white' 
+              : 'text-white/80 hover:bg-white/[0.05] hover:text-white'
+          } ${isLoading && !isActive ? 'shimmer-item' : ''}`}
+        >
+          <div 
+            className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
+            style={{ backgroundColor: item.themeColor }}
+          />
+          <span className={`w-1/3 truncate text-left ${isActive ? 'font-black' : 'font-medium'}`}>
+            {item.name}
+          </span>
+          <span className="w-1/3 truncate pl-4 text-sm opacity-60">
+            {item.artist}
+          </span>
+          <span className="w-1/3 truncate pl-4 text-xs opacity-40 font-mono">
+            {item.url}
+          </span>
+        </button>
+      );
+    });
+  };
+
+  if (isSidebar) {
+    return (
+      <div className="flex-1 overflow-y-auto overflow-x-hidden playlist-scrollbar space-y-2">
+        {currentFolder ? (
+          <>
+            <button 
+              onClick={() => setCurrentFolder(null)}
+              className="w-full px-5 py-3 rounded-2xl flex items-center gap-2 text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] transition-all"
+            >
+              <ChevronLeft size={14} />
+              <span className="text-[10px] uppercase tracking-widest font-bold">Back</span>
+            </button>
+            {renderTrackView()}
+          </>
+        ) : (
+          renderFolderView()
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      {currentFolder && (
+        <button 
+          onClick={() => setCurrentFolder(null)}
+          className="w-full px-4 py-3 border-b border-white/10 text-[10px] uppercase tracking-widest font-bold text-white/60 hover:text-white flex items-center gap-2 transition-all"
+        >
+          <ChevronLeft size={14} />
+          Back to Folders
+        </button>
+      )}
+      <div className="flex items-center px-4 py-3 border-b border-white/10 text-[10px] uppercase tracking-widest font-bold text-white">
+        <span className="w-1/3 truncate">标题</span>
+        <span className="w-1/3 truncate pl-4">作曲家</span>
+        <span className="w-1/3 truncate pl-4">文件地址</span>
+      </div>
+      <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden playlist-scrollbar">
+        {currentFolder ? renderTrackView() : renderFolderView()}
+      </div>
+    </div>
+  );
+};
