@@ -157,15 +157,41 @@ const App: React.FC = () => {
   };
 
   const handleNext = () => {
-    if (playlist.length === 0) return;
-    const nextIndex = (currentIndex + 1) % playlist.length;
-    loadMusicFromUrl(playlist[nextIndex], nextIndex);
+    if (currentFolder && playlistFolders[currentFolder]) {
+      const folderTracks = playlistFolders[currentFolder];
+      const currentTrack = playlist[currentIndex];
+      const currentFolderIndex = folderTracks.findIndex(t => t.url === currentTrack?.url);
+      
+      if (currentFolderIndex !== -1) {
+        const nextFolderIndex = (currentFolderIndex + 1) % folderTracks.length;
+        const nextTrack = folderTracks[nextFolderIndex];
+        const nextGlobalIndex = playlist.findIndex(p => p.url === nextTrack.url);
+        loadMusicFromUrl(nextTrack, nextGlobalIndex);
+      }
+    } else {
+      if (playlist.length === 0) return;
+      const nextIndex = (currentIndex + 1) % playlist.length;
+      loadMusicFromUrl(playlist[nextIndex], nextIndex);
+    }
   };
 
   const handlePrev = () => {
-    if (playlist.length === 0) return;
-    const prevIndex = (currentIndex - 1 + playlist.length) % playlist.length;
-    loadMusicFromUrl(playlist[prevIndex], prevIndex);
+    if (currentFolder && playlistFolders[currentFolder]) {
+      const folderTracks = playlistFolders[currentFolder];
+      const currentTrack = playlist[currentIndex];
+      const currentFolderIndex = folderTracks.findIndex(t => t.url === currentTrack?.url);
+      
+      if (currentFolderIndex !== -1) {
+        const prevFolderIndex = (currentFolderIndex - 1 + folderTracks.length) % folderTracks.length;
+        const prevTrack = folderTracks[prevFolderIndex];
+        const prevGlobalIndex = playlist.findIndex(p => p.url === prevTrack.url);
+        loadMusicFromUrl(prevTrack, prevGlobalIndex);
+      }
+    } else {
+      if (playlist.length === 0) return;
+      const prevIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+      loadMusicFromUrl(playlist[prevIndex], prevIndex);
+    }
   };
 
   const togglePlay = () => {
@@ -335,7 +361,7 @@ const App: React.FC = () => {
           </div>
 
           {/* Controls - Fixed at bottom but part of scroll on very small screens */}
-          <div className="mt-8 pt-6 border-t border-white/5 space-y-6 shrink-0">
+          <div className="mt-8 pt-6 space-y-6 shrink-0">
             <div className="space-y-3">
               <input 
                 type="range"

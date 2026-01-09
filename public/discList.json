@@ -13,6 +13,12 @@
       "url":"./music/Dead Inside-АДЛИН.mp3"
     },
     {
+      "name":"鸳鸯戏（DJ降速0.9x）",
+      "artist":"x77&邓寓君(等什么君)",
+      "themeColor":"#b44830",
+      "url":"./music/鸳鸯戏（DJ降速0.9x） - x77&邓寓君(等什么君).mp3"
+    },
+    {
       "name":"《莫问归期＋辞九门回忆 》（dj×0.9）—DJ阿玄",
       "artist":"DJ阿玄",
       "themeColor":"rgb(212, 186, 188)",
@@ -59,6 +65,42 @@
       "artist":"Dj阿农",
       "themeColor":"rgb(218, 227, 213)",
       "url":"./music/游京 (我闻着饼香)-Dj阿农.mp3"
+    },
+    {
+      "name":"精卫 (DJ戏腔版)",
+      "artist":"30年前，50年后",
+      "themeColor":"#908484",
+      "url":"./music/精卫 (DJ戏腔版)- 30年前，50年后.mp3"
+    },
+    {
+      "name":"LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix",
+      "artist":"Ninjago Music.The Fold",
+      "themeColor":"#84e448",
+      "url":"./music/LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix.-Ninjago Music.The Fold#2nVpBo.mp3"
+    },
+    {
+      "name":"Song After Midnight (Song For Denise)",
+      "artist":"Bon Entendeur&Piano Fantasia",
+      "themeColor":"#a85448",
+      "url":"./music/Song After Midnight (Song For Denise) - Bon Entendeur&Piano Fantasia.mp3"
+    },
+    {
+      "name":"dark beach - slowed + reverb",
+      "artist":"Tazzy",
+      "themeColor":"#0c3c54",
+      "url":"./music/dark beach - slowed + reverb - Tazzy.mp3"
+    },
+    {
+      "name":"渡月橋 ~君 想ふ~",
+      "artist":"倉木麻衣",
+      "themeColor":"#e46030",
+      "url":"./music/倉木麻衣 - 渡月橋 ~君 想ふ~.mp3"
+    },
+    {
+      "name":"GeekLogic Theme (Full Mix)",
+      "artist":"未来乐器研究所",
+      "themeColor":"#e4ccb4",
+      "url":"./music/未来乐器研究所 - GeekLogic Theme (Full Mix).mp3"
     }
   ],
   "gh-proxy(Recommend推荐)":[
@@ -73,6 +115,12 @@
       "artist":"АДЛИН",
       "themeColor":"rgb(27, 27, 27)",
       "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Dead Inside-АДЛИН.mp3"
+    },
+    {
+      "name":"鸳鸯戏（DJ降速0.9x）",
+      "artist":"x77&邓寓君(等什么君)",
+      "themeColor":"#b44830",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/鸳鸯戏（DJ降速0.9x） - x77&邓寓君(等什么君).mp3"
     },
     {
       "name":"《莫问归期＋辞九门回忆 》（dj×0.9）—DJ阿玄",
@@ -121,6 +169,42 @@
       "artist":"Dj阿农",
       "themeColor":"rgb(218, 227, 213)",
       "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/游京 (我闻着饼香)-Dj阿农.mp3"
+    },
+    {
+      "name":"精卫 (DJ戏腔版)",
+      "artist":"30年前，50年后",
+      "themeColor":"#908484",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/精卫 (DJ戏腔版)- 30年前，50年后.mp3"
+    },
+    {
+      "name":"LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix",
+      "artist":"Ninjago Music.The Fold",
+      "themeColor":"#84e448",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix.-Ninjago Music.The Fold#2nVpBo.mp3"
+    },
+    {
+      "name":"Song After Midnight (Song For Denise)",
+      "artist":"Bon Entendeur&Piano Fantasia",
+      "themeColor":"#a85448",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Song After Midnight (Song For Denise) - Bon Entendeur&Piano Fantasia.mp3"
+    },
+    {
+      "name":"dark beach - slowed + reverb",
+      "artist":"Tazzy",
+      "themeColor":"#0c3c54",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/dark beach - slowed + reverb - Tazzy.mp3"
+    },
+    {
+      "name":"渡月橋 ~君 想ふ~",
+      "artist":"倉木麻衣",
+      "themeColor":"#e46030",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/倉木麻衣 - 渡月橋 ~君 想ふ~.mp3"
+    },
+    {
+      "name":"GeekLogic Theme (Full Mix)",
+      "artist":"未来乐器研究所",
+      "themeColor":"#e4ccb4",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/未来乐器研究所 - GeekLogic Theme (Full Mix).mp3"
     }
   ]
 }
