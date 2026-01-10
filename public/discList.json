@@ -76,7 +76,7 @@
       "name":"LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix",
       "artist":"Ninjago Music.The Fold",
       "themeColor":"#84e448",
-      "url":"./music/LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix.-Ninjago Music.The Fold#2nVpBo.mp3"
+      "url":"./music/LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix.-Ninjago Music.The Fold.mp3"
     },
     {
       "name":"Song After Midnight (Song For Denise)",
@@ -101,6 +101,24 @@
       "artist":"未来乐器研究所",
       "themeColor":"#e4ccb4",
       "url":"./music/未来乐器研究所 - GeekLogic Theme (Full Mix).mp3"
+    },
+    {
+      "name":"Sea Of Problems (Explicit)",
+      "artist":"Glichery",
+      "themeColor":"#0c0c30",
+      "url":"./music/Glichery - Sea Of Problems (Explicit).mp3"
+    },
+    {
+      "name":"TIRED OF PROBLEMS",
+      "artist":"NUEKI,TOLCHONOV,Glichery",
+      "themeColor":"#0078cc",
+      "url":"./music/TIRED OF PROBLEMS - NUEKI,TOLCHONOV,Glichery.mp3"
+    },
+    {
+      "name":"Never Gonna Give You Up",
+      "artist":"Rick Astley",
+      "themeColor":"#fcf000",
+      "url":"./music/Rick Roll - Never Gonna Give You Up.mp3"
     }
   ],
   "gh-proxy(Recommend推荐)":[
@@ -180,7 +198,7 @@
       "name":"LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix",
       "artist":"Ninjago Music.The Fold",
       "themeColor":"#84e448",
-      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix.-Ninjago Music.The Fold#2nVpBo.mp3"
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/LEGO Ninjago WEEKEND WHIP.The Ghost Whip Remix.-Ninjago Music.The Fold.mp3"
     },
     {
       "name":"Song After Midnight (Song For Denise)",
@@ -205,6 +223,24 @@
       "artist":"未来乐器研究所",
       "themeColor":"#e4ccb4",
       "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/未来乐器研究所 - GeekLogic Theme (Full Mix).mp3"
+    },
+    {
+      "name":"Sea Of Problems (Explicit)",
+      "artist":"Glichery",
+      "themeColor":"#0c0c30",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Glichery - Sea Of Problems (Explicit).mp3"
+    },
+    {
+      "name":"TIRED OF PROBLEMS",
+      "artist":"NUEKI,TOLCHONOV,Glichery",
+      "themeColor":"#0078cc",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/TIRED OF PROBLEMS - NUEKI,TOLCHONOV,Glichery.mp3"
+    },
+    {
+      "name":"Never Gonna Give You Up",
+      "artist":"Rick Astley",
+      "themeColor":"#fcf000",
+      "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Rick Roll - Never Gonna Give You Up.mp3"
     }
   ]
 }
