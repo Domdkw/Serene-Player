@@ -7,6 +7,7 @@ import {
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
 import { MusicLibrary } from './utils/MusicLibrary';
+import fetchInChunks from 'fetch-in-chunks';
 
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
@@ -69,34 +70,19 @@ const App: React.FC = () => {
       const encodedUrl = item.url.startsWith('http://') || item.url.startsWith('https://') 
         ? item.url 
         : encodeURI(item.url);
-      const response = await fetch(encodedUrl, { signal });
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch audio: ${response.status}. Path: ${item.url}`);
-      }
-      
-      const contentLength = response.headers.get('content-length');
-      const total = contentLength ? parseInt(contentLength, 10) : 0;
-      
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No stream reader available.");
-
-      let receivedLength = 0;
-      const chunks: Uint8Array[] = [];
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        receivedLength += value.length;
-        if (total) {
-          setLoadingProgress(Math.round((receivedLength / total) * 100));
-        }
-      }
+      const blob = await fetchInChunks(encodedUrl, {
+        maxParallelRequests: 6,
+        progressCallback: (downloaded, total) => {
+          if (total > 0) {
+            setLoadingProgress(Math.round((downloaded / total) * 100));
+          }
+        },
+        signal
+      });
 
       if (signal.aborted) return;
 
-      const blob = new Blob(chunks as BlobPart[], { type: 'audio/mpeg' });
       const file = new File([blob], item.name, { type: 'audio/mpeg' });
       
       const metadata = await extractMetadata(file);

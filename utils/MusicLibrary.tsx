@@ -42,7 +42,7 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
         key={idx}
         onClick={() => setCurrentFolder(folderName)}
         className={`${isSidebar 
-          ? "w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group bg-white/[0.03] text-white/40 hover:bg-white/[0.08] hover:text-white border border-white/[0.05]"
+          ? "w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group bg-white/[0.03] text-white/70 hover:bg-white/[0.08] hover:text-white border border-white/[0.05]"
           : "w-full px-4 py-4 flex items-center transition-all group border-b border-white/5 text-white/80 hover:bg-white/[0.05] hover:text-white"
         } ${isLoading ? 'shimmer-item' : ''}`}
       >
