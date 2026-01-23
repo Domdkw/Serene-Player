@@ -122,6 +122,6 @@
     }
   ],
   "mirrors":{
-    "link":"./public/mirrors.json"
+    "link":"https://gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/mirrors.json"
   }
 }

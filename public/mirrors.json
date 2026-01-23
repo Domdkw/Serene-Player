@@ -120,13 +120,5 @@
     "themeColor":"#fcf000",
     "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Rick Roll - Never Gonna Give You Up.mp3"
 }
-    ],
-    "foldername":[
-        {
-            "name":"Alone",
-            "artist":"Marshmello",
-            "themeColor":"rgb(130, 124, 202)",
-            "url":"https://v6.gh-proxy.org/https://raw.githubusercontent.com/Domdkw/Serene-Player/refs/heads/main/public/music/Alone-Marshmello.mp3"
-        }
     ]
 }
