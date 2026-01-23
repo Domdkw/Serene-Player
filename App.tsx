@@ -20,6 +20,7 @@ const App: React.FC = () => {
   // Playlist states
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
   const [playlistFolders, setPlaylistFolders] = useState<Record<string, PlaylistItem[]>>({});
+  const [loadedLinks, setLoadedLinks] = useState<Set<string>>(new Set());
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -27,6 +28,7 @@ const App: React.FC = () => {
   
   // UI states
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
+  const [folderLoading, setFolderLoading] = useState<{name: string, progress: number} | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
 
@@ -43,8 +45,19 @@ const App: React.FC = () => {
         return res.json();
       })
       .then(data => {
-        setPlaylistFolders(data);
-        const allTracks = Object.values(data).flat();
+        const processedFolders: Record<string, PlaylistItem[] | { link?: string }> = {};
+        const allTracks: PlaylistItem[] = [];
+        
+        for (const [key, value] of Object.entries(data)) {
+          if (Array.isArray(value)) {
+            processedFolders[key] = value;
+            allTracks.push(...value);
+          } else if (value && typeof value === 'object' && 'link' in value) {
+            processedFolders[key] = value as { link?: string };
+          }
+        }
+        
+        setPlaylistFolders(processedFolders);
         setPlaylist(allTracks);
       })
       .catch(err => {
@@ -52,6 +65,109 @@ const App: React.FC = () => {
         setErrorMessage("Could not load playlist. Check if discList.json exists.");
       });
   }, []);
+
+  const loadLinkedFolder = async (folderName: string, linkUrl: string) => {
+    if (loadedLinks.has(linkUrl)) {
+      return;
+    }
+
+    try {
+      // 设置文件夹加载状态
+      setFolderLoading({name: folderName, progress: 0});
+      
+      const res = await fetch(linkUrl);
+      if (!res.ok) throw new Error(`Failed to load linked folder: ${linkUrl}`);
+      
+      // 更新加载进度
+      setFolderLoading({name: folderName, progress: 50});
+      
+      const data = await res.json();
+      
+      setPlaylistFolders(prev => {
+        const newFolders = { ...prev };
+        const folderData = prev[folderName];
+        
+        if (folderData && typeof folderData === 'object' && 'link' in folderData) {
+          // 创建新的文件夹对象，包含链接信息和加载的内容
+          const newFolderData: any = { ...folderData };
+          
+          if (Array.isArray(data)) {
+            // 如果是数组，直接作为 tracks
+            newFolderData.tracks = data;
+          } else if (typeof data === 'object' && data !== null) {
+            // 如果是对象，检查是否有空键名的数组
+            const emptyKeyData = data[""];
+            if (Array.isArray(emptyKeyData)) {
+              // 空键名的数组作为当前文件夹的 tracks
+              newFolderData.tracks = emptyKeyData;
+              
+              // 其他键名作为子文件夹
+              newFolderData.children = {};
+              for (const [key, value] of Object.entries(data)) {
+                if (key !== "" && Array.isArray(value)) {
+                  newFolderData.children[key] = value;
+                } else if (key !== "" && value && typeof value === 'object' && 'link' in value) {
+                  newFolderData.children[key] = value;
+                }
+              }
+            } else {
+              // 没有空键名，所有内容作为子文件夹
+              newFolderData.children = {};
+              for (const [key, value] of Object.entries(data)) {
+                if (Array.isArray(value)) {
+                  newFolderData.children[key] = value;
+                } else if (value && typeof value === 'object' && 'link' in value) {
+                  newFolderData.children[key] = value;
+                }
+              }
+            }
+          }
+          
+          newFolders[folderName] = newFolderData;
+        }
+        
+        return newFolders;
+      });
+      
+      setLoadedLinks(prev => new Set(prev).add(linkUrl));
+      
+      setPlaylist(prev => {
+        const existingUrls = new Set(prev.map(t => t.url));
+        const newTracks: PlaylistItem[] = [];
+        
+        if (Array.isArray(data)) {
+          for (const track of data) {
+            if (!existingUrls.has(track.url)) {
+              newTracks.push(track);
+              existingUrls.add(track.url);
+            }
+          }
+        } else if (typeof data === 'object' && data !== null) {
+          // 处理所有数组内容
+          for (const value of Object.values(data)) {
+            if (Array.isArray(value)) {
+              for (const track of value) {
+                if (!existingUrls.has(track.url)) {
+                  newTracks.push(track);
+                  existingUrls.add(track.url);
+                }
+              }
+            }
+          }
+        }
+        
+        return [...prev, ...newTracks];
+      });
+      
+      // 完成加载
+      setFolderLoading({name: folderName, progress: 100});
+      setTimeout(() => setFolderLoading(null), 300);
+    } catch (error) {
+      console.error("Failed to load linked folder:", error);
+      setErrorMessage(`Failed to load linked folder: ${folderName}`);
+      setFolderLoading(null);
+    }
+  };
 
   const loadMusicFromUrl = async (item: PlaylistItem, index: number) => {
     setErrorMessage(null);
@@ -245,10 +361,7 @@ const App: React.FC = () => {
       {/* Wave Loading Bar */}
       {loadingProgress !== null && (
         <div className="fixed top-0 left-0 w-full z-50 pointer-events-none">
-          <div className="relative h-1.5 md:h-2 bg-white/5 overflow-hidden">
-            <svg className="absolute w-[200%] h-full top-0 left-[-100%] animate-[wave_1.5s_linear_infinite]" viewBox="0 0 1200 24" preserveAspectRatio="none">
-              <path d="M0 12 C 150 24 300 0 450 12 C 600 24 750 0 900 12 C 1050 24 1200 0 1350 12 V 24 H 0 Z" fill="white" fillOpacity="0.4" />
-            </svg>
+          <div className="relative h-1.5 md:h-2 bg-white/5 overflow-hidden shimmer-effect">
             <div className="h-full bg-white transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.8)]" style={{ width: `${loadingProgress}%` }} />
           </div>
         </div>
@@ -493,6 +606,7 @@ const App: React.FC = () => {
                     onTrackSelect={loadMusicFromUrl}
                     isSidebar={false}
                     isLoading={lyricsLoading}
+                    onLoadLinkedFolder={loadLinkedFolder}
                   />
                 </div>
               </div>
@@ -535,6 +649,7 @@ const App: React.FC = () => {
             onTrackSelect={loadMusicFromUrl}
             isSidebar={true}
             isLoading={lyricsLoading}
+            onLoadLinkedFolder={loadLinkedFolder}
           />
           
           <div className="mt-8 pt-6 border-t border-white/5 text-center">
@@ -617,35 +732,14 @@ const App: React.FC = () => {
           background: linear-gradient(
             90deg,
             transparent 0%,
-            rgba(255, 255, 255, 0.03) 40%,
-            rgba(255, 255, 255, 0.1) 50%,
-            rgba(255, 255, 255, 0.03) 60%,
+            rgba(255, 255, 255, 0.1) 40%,
+            rgba(255, 255, 255, 0.3) 50%,
+            rgba(255, 255, 255, 0.1) 60%,
             transparent 100%
           );
-          animation: shimmer 1.5s ease-in-out infinite;
+          animation: shimmer 3s ease-in-out infinite;
         }
-        .shimmer-item {
-          position: relative;
-          overflow: hidden;
-          background: white/5;
-        }
-        .shimmer-item::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -100%;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(
-            90deg,
-            transparent 0%,
-            transparent 40%,
-            rgba(255, 255, 255, 0.15) 50%,
-            transparent 60%,
-            transparent 100%
-          );
-          animation: shimmer 1.2s ease-in-out infinite;
-        }
+        /* Removed shimmer-item styles as they are no longer used */
         @media (max-width: 768px) {
            input[type="range"]::-webkit-slider-thumb {
               height: 14px;

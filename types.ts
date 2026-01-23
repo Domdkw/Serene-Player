@@ -24,7 +24,16 @@ export interface PlaylistItem {
   artist: string;
   themeColor: string;
   url: string;
+  link?: string;
 }
+
+export interface PlaylistFolder {
+  link?: string;
+  tracks?: PlaylistItem[];
+  children?: Record<string, PlaylistItem[] | PlaylistFolder>;
+}
+
+export type PlaylistFolders = Record<string, PlaylistItem[] | PlaylistFolder>;
 
 export type PlaybackMode = 'single' | 'list';
 
