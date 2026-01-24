@@ -36,6 +36,7 @@ const App: React.FC = () => {
   const [lyricsLoading, setLyricsLoading] = useState(false);
   
   // Settings states
+  const [isHashMode, setIsHashMode] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [chunkCount, setChunkCount] = useState<number>(() => {
     const saved = localStorage.getItem('chunkCount');
@@ -47,11 +48,11 @@ const App: React.FC = () => {
   });
   const [letterSpacing, setLetterSpacing] = useState<number>(() => {
     const saved = localStorage.getItem('letterSpacing');
-    return saved ? parseFloat(saved) : 1;
+    return saved ? parseFloat(saved) : 0.5;
   });
   const [lineHeight, setLineHeight] = useState<number>(() => {
     const saved = localStorage.getItem('lineHeight');
-    return saved ? parseFloat(saved) : 1;
+    return saved ? parseFloat(saved) : 1.5;
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -86,6 +87,21 @@ const App: React.FC = () => {
         console.error("Failed to load playlist", err);
         setErrorMessage("Could not load playlist. Check if discList.json exists.");
       });
+  }, []);
+
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+
+    setIsHashMode(true);
+    const decodedUrl = decodeURIComponent(hash);
+    const mockItem: PlaylistItem = {
+      name: '', // 留空，从音乐元数据获取
+      artist: '', // 留空，从音乐元数据获取
+      themeColor: '#ffffff',
+      url: decodedUrl
+    };
+    loadMusicFromUrl(mockItem, -1);
   }, []);
 
   const loadLinkedFolder = async (folderName: string, linkUrl: string) => {
@@ -256,6 +272,9 @@ const App: React.FC = () => {
         }
       }
 
+      const hash = encodeURIComponent(item.url);
+      window.history.replaceState(null, '', `#${hash}`);
+
       if (oldUrl) URL.revokeObjectURL(oldUrl);
     } catch (error: any) {
       if (error.name === 'AbortError') return;
@@ -406,6 +425,40 @@ const App: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if ('mediaSession' in navigator && track) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.metadata.title,
+        artist: track.metadata.artist,
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (audioRef.current) {
+          audioRef.current.play();
+          setIsPlaying(true);
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          setIsPlaying(false);
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('previoustrack', handlePrev);
+      navigator.mediaSession.setActionHandler('nexttrack', handleNext);
+    }
+  }, [track, handlePrev, handleNext]);
+
+  useEffect(() => {
+    if (track) {
+      document.title = `${track.metadata.title} | Serene Player`;
+    } else {
+      document.title = 'Serene Player';
+    }
+  }, [track]);
+
   return (
     <div className="h-screen w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans">
       
@@ -530,11 +583,13 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-around">
-              <button 
-                onClick={handlePrev}
-                disabled={!playlist.length}
-                className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-              ><SkipBack size={28} /></button>
+              {!isHashMode && (
+                <button 
+                  onClick={handlePrev}
+                  disabled={!playlist.length}
+                  className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
+                ><SkipBack size={28} /></button>
+              )}
               
               <button 
                 onClick={togglePlay}
@@ -544,11 +599,13 @@ const App: React.FC = () => {
                 {isPlaying ? <Pause size={28} md:size={32} fill="currentColor" /> : <Play size={28} md:size={32} fill="currentColor" className="ml-1" />}
               </button>
               
-              <button 
-                onClick={handleNext}
-                disabled={!playlist.length}
-                className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-              ><SkipForward size={28} /></button>
+              {!isHashMode && (
+                <button 
+                  onClick={handleNext}
+                  disabled={!playlist.length}
+                  className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
+                ><SkipForward size={28} /></button>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-4 bg-white/[0.03] p-3 rounded-2xl border border-white/[0.05] backdrop-blur-md">
