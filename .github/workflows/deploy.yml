@@ -1,7 +1,10 @@
-name: Build Only
+name: Build and Deploy to Netlify
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
@@ -18,8 +21,10 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Deploy to Netlify
+        uses: netlify/actions/cli@master
         with:
-          name: dist
-          path: dist/
+          args: deploy --prod --dir=dist
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
