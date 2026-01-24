@@ -2,11 +2,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, Volume2, 
-  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle
+  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
 import { MusicLibrary } from './utils/MusicLibrary';
+import SettingsPanel from './components/SettingsPanel';
 import fetchInChunks from 'fetch-in-chunks';
 
 const App: React.FC = () => {
@@ -29,8 +30,29 @@ const App: React.FC = () => {
   // UI states
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [folderLoading, setFolderLoading] = useState<{name: string, progress: number} | null>(null);
+  const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set());
+  const [loadingTrackUrl, setLoadingTrackUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
+  
+  // Settings states
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [chunkCount, setChunkCount] = useState<number>(() => {
+    const saved = localStorage.getItem('chunkCount');
+    return saved ? parseInt(saved) : 4;
+  });
+  const [fontWeight, setFontWeight] = useState<string>(() => {
+    const saved = localStorage.getItem('fontWeight');
+    return saved || 'medium';
+  });
+  const [letterSpacing, setLetterSpacing] = useState<number>(() => {
+    const saved = localStorage.getItem('letterSpacing');
+    return saved ? parseFloat(saved) : 1;
+  });
+  const [lineHeight, setLineHeight] = useState<number>(() => {
+    const saved = localStorage.getItem('lineHeight');
+    return saved ? parseFloat(saved) : 1;
+  });
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -72,13 +94,12 @@ const App: React.FC = () => {
     }
 
     try {
-      // 设置文件夹加载状态
+      setLoadingFolders(prev => new Set(prev).add(folderName));
       setFolderLoading({name: folderName, progress: 0});
       
       const res = await fetch(linkUrl);
       if (!res.ok) throw new Error(`Failed to load linked folder: ${linkUrl}`);
       
-      // 更新加载进度
       setFolderLoading({name: folderName, progress: 50});
       
       const data = await res.json();
@@ -159,19 +180,31 @@ const App: React.FC = () => {
         return [...prev, ...newTracks];
       });
       
-      // 完成加载
       setFolderLoading({name: folderName, progress: 100});
-      setTimeout(() => setFolderLoading(null), 300);
+      setTimeout(() => {
+        setFolderLoading(null);
+        setLoadingFolders(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(folderName);
+          return newSet;
+        });
+      }, 300);
     } catch (error) {
       console.error("Failed to load linked folder:", error);
       setErrorMessage(`Failed to load linked folder: ${folderName}`);
       setFolderLoading(null);
+      setLoadingFolders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(folderName);
+        return newSet;
+      });
     }
   };
 
   const loadMusicFromUrl = async (item: PlaylistItem, index: number) => {
     setErrorMessage(null);
     setLyricsLoading(true);
+    setLoadingTrackUrl(item.url);
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -188,7 +221,7 @@ const App: React.FC = () => {
         : encodeURI(item.url);
       
       const blob = await fetchInChunks(encodedUrl, {
-        maxParallelRequests: 6,
+        maxParallelRequests: chunkCount,
         progressCallback: (downloaded, total) => {
           if (total > 0) {
             setLoadingProgress(Math.round((downloaded / total) * 100));
@@ -208,6 +241,7 @@ const App: React.FC = () => {
       
       setTrack({ objectUrl, metadata });
       setLoadingProgress(null);
+      setLoadingTrackUrl(null);
       setLyricsLoading(false);
       
       if (audioRef.current) {
@@ -227,6 +261,7 @@ const App: React.FC = () => {
       if (error.name === 'AbortError') return;
       console.error("Error loading music:", error);
       setLoadingProgress(null);
+      setLoadingTrackUrl(null);
       setLyricsLoading(false);
       setErrorMessage(error.message || "An error occurred while loading the track.");
       setIsPlaying(false);
@@ -343,6 +378,22 @@ const App: React.FC = () => {
       container.scrollTo({ top: scrollPos, behavior: 'smooth' });
     }
   }, [activeIndex, isAutoScrolling]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const settingsPanel = document.querySelector('[data-settings-panel]');
+      const settingsButton = document.querySelector('[data-settings-button]');
+      
+      if (isSettingsOpen && settingsPanel && settingsButton && 
+          !settingsPanel.contains(target) && !settingsButton.contains(target)) {
+        setIsSettingsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSettingsOpen]);
 
   const onEnded = () => {
     if (playbackMode === 'single') {
@@ -528,6 +579,29 @@ const App: React.FC = () => {
           </div>
         </section>
 
+        {/* Settings Icon - Bottom Right */}
+        <div className="fixed bottom-4 right-4 z-[65]">
+          <button 
+            data-settings-button
+            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-90 ${isSettingsOpen ? 'bg-white text-black' : 'hover:bg-white/10'}`}
+          >
+            <Settings size={18} className={isSettingsOpen ? 'text-black' : 'text-white/70 hover:text-white transition-colors'} />
+          </button>
+        </div>
+
+        <SettingsPanel
+          isOpen={isSettingsOpen}
+          chunkCount={chunkCount}
+          fontWeight={fontWeight}
+          letterSpacing={letterSpacing}
+          lineHeight={lineHeight}
+          onChunkCountChange={setChunkCount}
+          onFontWeightChange={setFontWeight}
+          onLetterSpacingChange={setLetterSpacing}
+          onLineHeightChange={setLineHeight}
+        />
+
         {/* Right Column: Lyrics (65% on Desktop) */}
         <section className="flex-1 relative overflow-hidden flex flex-col bg-transparent h-[40vh] md:h-full">
           <div 
@@ -559,13 +633,20 @@ const App: React.FC = () => {
                         {formatTime(line.time)}
                       </div>
                       
-                      <p className={`font-black leading-[1.1] md:leading-tight drop-shadow-2xl transition-all duration-700 select-none ${
-                        isActive 
-                          ? 'text-2xl md:text-[3vw] lg:text-[32px] opacity-100 scale-100 origin-center md:origin-left' 
-                          : activeIndex !== -1 && (idx === activeIndex - 1 || idx === activeIndex + 1)
-                            ? 'text-lg text-white/80 md:text-[2vw] lg:text-[28px] opacity-100 hover:text-white blur-0'
-                            : 'text-lg md:text-[2vw] lg:text-[28px] opacity-80 blur-[0.5px] text-white/50 hover:opacity-100 hover:blur-0 hover:scale-105 hover:text-white'
-                      }`}>
+                      <p 
+                        className={`font-black leading-[1.1] md:leading-tight drop-shadow-2xl transition-all duration-700 select-none ${
+                          isActive 
+                            ? 'text-2xl md:text-[3vw] lg:text-[32px] opacity-100 scale-100 origin-center md:origin-left' 
+                            : activeIndex !== -1 && (idx === activeIndex - 1 || idx === activeIndex + 1)
+                              ? 'text-lg text-white/80 md:text-[2vw] lg:text-[28px] opacity-100 hover:text-white blur-0'
+                              : 'text-lg md:text-[2vw] lg:text-[28px] opacity-80 blur-[0.5px] text-white/50 hover:opacity-100 hover:blur-0 hover:scale-105 hover:text-white'
+                        }`}
+                        style={{
+                          fontWeight: fontWeight === 'light' ? '300' : fontWeight === 'medium' ? '500' : '700',
+                          letterSpacing: `${letterSpacing}px`,
+                          lineHeight: lineHeight
+                        }}
+                      >
                         {line.text}
                       </p>
                       
@@ -607,6 +688,8 @@ const App: React.FC = () => {
                     isSidebar={false}
                     isLoading={lyricsLoading}
                     onLoadLinkedFolder={loadLinkedFolder}
+                    loadingTrackUrl={loadingTrackUrl}
+                    loadingFolders={loadingFolders}
                   />
                 </div>
               </div>
@@ -650,6 +733,8 @@ const App: React.FC = () => {
             isSidebar={true}
             isLoading={lyricsLoading}
             onLoadLinkedFolder={loadLinkedFolder}
+            loadingTrackUrl={loadingTrackUrl}
+            loadingFolders={loadingFolders}
           />
           
           <div className="mt-8 pt-6 border-t border-white/5 text-center">

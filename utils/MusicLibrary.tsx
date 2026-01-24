@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Music, ChevronLeft } from 'lucide-react';
 import { PlaylistItem } from '../types';
 import { FolderDisplay } from './FolderDisplay';
@@ -14,6 +14,8 @@ interface MusicLibraryProps {
   isSidebar?: boolean;
   isLoading?: boolean;
   onLoadLinkedFolder?: (folderName: string, linkUrl: string) => void;
+  loadingTrackUrl?: string | null;
+  loadingFolders?: Set<string>;
 }
 
 export const MusicLibrary: React.FC<MusicLibraryProps> = ({
@@ -26,9 +28,10 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
   onTrackSelect,
   isSidebar = false,
   isLoading = false,
-  onLoadLinkedFolder
+  onLoadLinkedFolder,
+  loadingTrackUrl = null,
+  loadingFolders = new Set<string>()
 }) => {
-  const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set());
   const getTrackIndex = (item: PlaylistItem) => playlist.findIndex(p => p.url === item.url);
 
   const folderDisplay = FolderDisplay({
@@ -61,6 +64,7 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
         {tracks.map((item, idx) => {
           const trackIndex = getTrackIndex(item);
           const isActive = currentIndex === trackIndex;
+          const isTrackLoading = loadingTrackUrl === item.url;
 
           if (isSidebar) {
             return (
@@ -74,16 +78,23 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
                 }`}
               >
                 <div className="flex items-center flex-1 min-w-0 max-w-[calc(100%-40px)]">
-                  <div 
-                    className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
-                    style={{ backgroundColor: item.themeColor }}
-                  />
+                  {isTrackLoading ? (
+                    <div className="mr-3 flex-shrink-0 relative w-3 h-3">
+                      <div className="absolute inset-0 border-2 border-white/20 rounded-full" />
+                      <div className="absolute inset-0 border-2 border-transparent border-t-white/60 rounded-full animate-spin" />
+                    </div>
+                  ) : (
+                    <div 
+                      className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
+                      style={{ backgroundColor: item.themeColor }}
+                    />
+                  )}
                   <div className="text-left overflow-hidden flex-1 min-w-0">
                     <p className={`text-sm font-black truncate leading-tight ${isActive ? 'text-black' : 'text-white'}`}>
                       {item.name}
                     </p>
                     <p className="text-[10px] uppercase tracking-widest truncate font-bold opacity-60 mt-1">
-                      {item.artist}
+                      {isTrackLoading ? 'Loading...' : item.artist}
                     </p>
                   </div>
                 </div>
@@ -108,15 +119,22 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
                   : 'text-white/80 hover:bg-white/[0.05] hover:text-white'
               }`}
             >
-              <div 
-                className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
-                style={{ backgroundColor: item.themeColor }}
-              />
+              {isTrackLoading ? (
+                <div className="mr-3 flex-shrink-0 relative w-3 h-3">
+                  <div className="absolute inset-0 border-2 border-white/20 rounded-full" />
+                  <div className="absolute inset-0 border-2 border-transparent border-t-white/60 rounded-full animate-spin" />
+                </div>
+              ) : (
+                <div 
+                  className="w-3 h-3 rounded-full mr-3 flex-shrink-0 transition-all"
+                  style={{ backgroundColor: item.themeColor }}
+                />
+              )}
               <span className={`w-1/3 truncate text-left ${isActive ? 'font-black' : 'font-medium'}`}>
                 {item.name}
               </span>
               <span className="w-1/3 truncate pl-4 text-sm opacity-60">
-                {item.artist}
+                {isTrackLoading ? 'Loading...' : item.artist}
               </span>
               <span className="w-1/3 truncate pl-4 text-xs opacity-40 font-mono">
                 {item.url}

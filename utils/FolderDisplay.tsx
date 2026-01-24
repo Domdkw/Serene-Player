@@ -1,5 +1,5 @@
 import React from 'react';
-import { Folder, ExternalLink, Link, Loader2 } from 'lucide-react';
+import { Folder, ExternalLink, Link } from 'lucide-react';
 import { PlaylistItem } from '../types';
 
 interface FolderDisplayProps {
@@ -12,7 +12,7 @@ interface FolderDisplayProps {
   onLoadLinkedFolder?: (folderName: string, linkUrl: string) => void;
 }
 
-export const FolderDisplay: React.FC<FolderDisplayProps> = ({
+export const FolderDisplay = ({
   playlistFolders,
   currentFolder,
   setCurrentFolder,
@@ -20,7 +20,7 @@ export const FolderDisplay: React.FC<FolderDisplayProps> = ({
   isSidebar = false,
   isLoading = false,
   onLoadLinkedFolder
-}) => {
+}: FolderDisplayProps) => {
   const handleFolderClick = async (folderName: string) => {
     const folderData = playlistFolders[folderName];
     const isLinkedFolder = folderData && typeof folderData === 'object' && 'link' in folderData;
@@ -67,7 +67,10 @@ export const FolderDisplay: React.FC<FolderDisplayProps> = ({
         >
           <div className="flex items-center flex-1 min-w-0">
             {isLoadingFolder ? (
-              <Loader2 size={16} className="mr-3 flex-shrink-0 animate-spin text-white/60" />
+              <div className="mr-3 flex-shrink-0 relative w-4 h-4">
+                <div className="absolute inset-0 border-2 border-white/20 rounded-full" />
+                <div className="absolute inset-0 border-2 border-transparent border-t-white/60 rounded-full animate-spin" />
+              </div>
             ) : isLinkedFolder ? (
               <Link size={16} className="mr-3 flex-shrink-0 text-blue-400" />
             ) : (
@@ -130,7 +133,7 @@ export const FolderDisplay: React.FC<FolderDisplayProps> = ({
         tracks = folderData.tracks;
       }
       if ('children' in folderData && folderData.children && typeof folderData.children === 'object') {
-        children = folderData.children;
+        children = folderData.children as Record<string, PlaylistItem[] | { link?: string }>;
       }
     }
     
