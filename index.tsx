@@ -17,7 +17,7 @@ const App = isMobile() ? React.lazy(() => import('./mobile/App')) : React.lazy((
 
 root.render(
   <React.StrictMode>
-    <React.Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-black text-white">Loading...</div>}>
+    <React.Suspense fallback={null}>
       <App />
     </React.Suspense>
   </React.StrictMode>

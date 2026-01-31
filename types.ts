@@ -22,9 +22,10 @@ export interface Track {
 export interface PlaylistItem {
   name: string;
   artist: string;
-  themeColor: string;
+  themeColor?: string;
   url: string;
   link?: string;
+  file?: File;
 }
 
 export interface PlaylistFolder {

@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, Volume2, 
-  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download
+  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata } from '../utils/metadata';
@@ -50,6 +50,7 @@ const App: React.FC = () => {
   // Settings states
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   const [chunkCount, setChunkCount] = useState<number>(() => {
     const saved = localStorage.getItem('chunkCount');
     return saved ? parseInt(saved) : 4;
@@ -73,6 +74,9 @@ const App: React.FC = () => {
   const activeLyricRef = useRef<HTMLDivElement | null>(null);
   const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const manualScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadMenuRef = useRef<HTMLDivElement | null>(null);
   const [isManualScrolling, setIsManualScrolling] = useState(false);
 
   // Load playlist on mount
@@ -101,10 +105,19 @@ const App: React.FC = () => {
         if (allTracks.length === 0) {
           setCurrentPage(0);
         }
+        
+        // 通知 index.html 隐藏加载动画
+        if ((window as any).hideAppLoader) {
+          (window as any).hideAppLoader();
+        }
       })
       .catch(err => {
         console.error("Failed to load playlist", err);
         setErrorMessage("Could not load playlist. Check if discList.json exists.");
+        // 即使加载失败也要隐藏加载动画
+        if ((window as any).hideAppLoader) {
+          (window as any).hideAppLoader();
+        }
       });
   }, []);
 
@@ -242,30 +255,49 @@ const App: React.FC = () => {
     setIsPlaying(false);
     
     try {
-      const encodedUrl = item.url.startsWith('http://') || item.url.startsWith('https://') 
-        ? item.url 
-        : encodeURI(item.url);
+      let file: File;
+      let objectUrl: string;
       
-      const blob = await fetchInChunks(encodedUrl, {
-        maxParallelRequests: chunkCount,
-        progressCallback: (downloaded, total) => {
-          if (total > 0) {
-            setLoadingProgress(Math.round((downloaded / total) * 100));
-          }
-        },
-        signal
-      });
+      // 检查是否是本地文件（通过文件夹上传的）
+      if (item.file) {
+        // 直接使用已上传的文件
+        file = item.file;
+        objectUrl = item.url; // blob URL
+        setLoadingProgress(100);
+      } else if (item.url.startsWith('blob:')) {
+        // blob URL 但没有 file 对象，尝试直接获取
+        const response = await fetch(item.url);
+        const blob = await response.blob();
+        file = new File([blob], item.name, { type: blob.type || 'audio/mpeg' });
+        objectUrl = item.url;
+        setLoadingProgress(100);
+      } else {
+        // 远程 URL，使用 fetchInChunks 下载
+        const encodedUrl = item.url.startsWith('http://') || item.url.startsWith('https://') 
+          ? item.url 
+          : encodeURI(item.url);
+        
+        const blob = await fetchInChunks(encodedUrl, {
+          maxParallelRequests: chunkCount,
+          progressCallback: (downloaded, total) => {
+            if (total > 0) {
+              setLoadingProgress(Math.round((downloaded / total) * 100));
+            }
+          },
+          signal
+        });
 
-      if (signal.aborted) return;
+        if (signal.aborted) return;
 
-      const file = new File([blob], item.name, { type: 'audio/mpeg' });
+        file = new File([blob], item.name, { type: 'audio/mpeg' });
+        objectUrl = URL.createObjectURL(file);
+      }
       
       const metadata = await extractMetadata(file);
-      const objectUrl = URL.createObjectURL(file);
       
       const oldUrl = track?.objectUrl;
       
-      setTrack({ objectUrl, metadata });
+      setTrack({ file, objectUrl, metadata });
       setLoadingProgress(null);
       setLoadingTrackUrl(null);
       setLyricsLoading(false);
@@ -283,7 +315,10 @@ const App: React.FC = () => {
         }
       }
 
-      if (oldUrl) URL.revokeObjectURL(oldUrl);
+      // 只清理非 blob URL 的旧 URL
+      if (oldUrl && !oldUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(oldUrl);
+      }
     } catch (error: any) {
       if (error.name === 'AbortError') return;
       console.error("Error loading music:", error);
@@ -318,7 +353,110 @@ const App: React.FC = () => {
         setLoadingProgress(null);
       }
     }
+    // 重置 input 以便可以再次选择同一文件
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
+
+  // 支持的音频格式
+  const supportedAudioFormats = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma', '.ape', '.opus'];
+
+  const isAudioFile = (filename: string): boolean => {
+    const lowerName = filename.toLowerCase();
+    return supportedAudioFormats.some(ext => lowerName.endsWith(ext));
+  };
+
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setErrorMessage(null);
+    const audioFiles: File[] = [];
+
+    // 筛选出音频文件
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (isAudioFile(file.name)) {
+        audioFiles.push(file);
+      }
+    }
+
+    if (audioFiles.length === 0) {
+      setErrorMessage("No supported audio files found in the selected folder.");
+      if (folderInputRef.current) {
+        folderInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // 按文件名排序
+    audioFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+    // 创建播放列表项
+    const newTracks: PlaylistItem[] = audioFiles.map((file, index) => ({
+      name: file.name.replace(/\.[^/.]+$/, ''), // 移除扩展名
+      url: URL.createObjectURL(file),
+      artist: 'Unknown Artist',
+      file: file
+    }));
+
+    // 添加到播放列表
+    setPlaylist(prev => [...prev, ...newTracks]);
+
+    // 创建一个新的文件夹分组
+    const folderName = `Local Folder ${new Date().toLocaleTimeString()}`;
+    setPlaylistFolders(prev => ({
+      ...prev,
+      [folderName]: newTracks
+    }));
+
+    // 播放第一首
+    if (newTracks.length > 0) {
+      const firstTrack = newTracks[0];
+      const file = audioFiles[0];
+      setLoadingProgress(100);
+      try {
+        const metadata = await extractMetadata(file);
+        const objectUrl = URL.createObjectURL(file);
+        const oldUrl = track?.objectUrl;
+        setTrack({ file, objectUrl, metadata });
+        setCurrentIndex(playlist.length); // 新添加的第一首的索引
+        setLoadingProgress(null);
+        if (audioRef.current) {
+          audioRef.current.src = objectUrl;
+          audioRef.current.load();
+          audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+        }
+        if (oldUrl) URL.revokeObjectURL(oldUrl);
+      } catch (err) {
+        setErrorMessage("Failed to process the uploaded file.");
+        setLoadingProgress(null);
+      }
+    }
+
+    // 重置 input
+    if (folderInputRef.current) {
+      folderInputRef.current.value = '';
+    }
+  };
+
+  // 点击外部关闭上传菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (uploadMenuRef.current && !uploadMenuRef.current.contains(event.target as Node)) {
+        setIsUploadMenuOpen(false);
+      }
+    };
+
+    if (isUploadMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUploadMenuOpen]);
 
   const handleNext = () => {
     if (currentFolder && playlistFolders[currentFolder]) {
@@ -568,8 +706,8 @@ const App: React.FC = () => {
       )}
 
       {/* Dynamic Animated Ambient Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-black">
-        {track?.metadata.coverUrl ? (
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-neutral-800">
+        {track?.metadata.coverUrl && (
           <div 
             className="absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] animate-rotate-cover transition-all duration-1000"
             style={{
@@ -579,10 +717,6 @@ const App: React.FC = () => {
               filter: 'blur(50px) brightness(0.7)',
             }}
           />
-        ) : (
-          <div className="absolute top-1/2 -translate-y-1/2 left-[-100vw] w-[200vw] h-[200vw] animate-rotate-rainbow">
-            <div className="absolute inset-0 animate-rainbow-flow opacity-40" />
-          </div>
         )}
       </div>
 
@@ -616,11 +750,62 @@ const App: React.FC = () => {
                 </div>
                 <span className="font-extrabold tracking-tighter text-white uppercase text-sm drop-shadow-lg">Serene</span>
               </div>
-              <label className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-all cursor-pointer border border-white/10 active:scale-95">
-                <Upload size={12} className="text-white" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Local</span>
-                <input type="file" accept="audio/mpeg" className="hidden" onChange={handleFileUpload} />
-              </label>
+              {/* Upload Menu */}
+              <div className="relative" ref={uploadMenuRef}>
+                <button
+                  onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-all cursor-pointer border border-white/10 active:scale-95"
+                >
+                  <Upload size={12} className="text-white" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">Local</span>
+                </button>
+                
+                {/* Dropdown Menu */}
+                {isUploadMenuOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-40 bg-black/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => {
+                        fileInputRef.current?.click();
+                        setIsUploadMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors text-left"
+                    >
+                      <FileAudio size={16} className="text-white/80" />
+                      <span className="text-xs font-medium text-white/90">上传文件</span>
+                    </button>
+                    <div className="h-px bg-white/10 mx-2" />
+                    <button
+                      onClick={() => {
+                        folderInputRef.current?.click();
+                        setIsUploadMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors text-left"
+                    >
+                      <FolderOpen size={16} className="text-white/80" />
+                      <span className="text-xs font-medium text-white/90">上传文件夹</span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* Hidden File Inputs */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.wma,.ape,.opus,audio/*"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <input
+                  ref={folderInputRef}
+                  type="file"
+                  accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.wma,.ape,.opus,audio/*"
+                  className="hidden"
+                  webkitdirectory=""
+                  directory=""
+                  multiple
+                  onChange={handleFolderUpload}
+                />
+              </div>
               {track && (
                 <a
                   href={track.objectUrl}

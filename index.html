@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Serene Player</title>
+    <link rel="shortcut icon" href="favicon.png" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -110,16 +111,10 @@
         }
 
         .loader {
-            width: 60px;
-            height: 60px;
-            border: 3px solid rgba(255, 255, 255, 0.1);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.8);
+            font-family: monospace;
+            animation: none;
         }
 
         .loader-text {
@@ -142,18 +137,37 @@
 </head>
 <body>
     <div id="loader" class="loader-container">
-        <div class="loader"></div>
+        <div class="loader" id="loader-spinner">⠋</div>
         <div class="loader-text">正在加载 Serene Player...</div>
     </div>
     <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
 <script>
-    window.addEventListener('load', () => {
-        const loader = document.getElementById('loader');
-        if (loader) {
-            loader.classList.add('hidden');
-        }
-    });
+    (function() {
+        const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        let frameIndex = 0;
+        const spinnerEl = document.getElementById('loader-spinner');
+        const spinnerInterval = setInterval(() => {
+            frameIndex = (frameIndex + 1) % spinnerFrames.length;
+            if (spinnerEl) {
+                spinnerEl.textContent = spinnerFrames[frameIndex];
+            }
+        }, 80);
+
+        window.hideAppLoader = function() {
+            console.log('[Loader] hideAppLoader called');
+            clearInterval(spinnerInterval);
+            const loader = document.getElementById('loader');
+            if (loader) {
+                console.log('[Loader] Hiding loader...');
+                loader.classList.add('hidden');
+            } else {
+                console.warn('[Loader] Loader element not found');
+            }
+        };
+
+        console.log('[Loader] hideAppLoader registered');
+    })();
 </script>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>
