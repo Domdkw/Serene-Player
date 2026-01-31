@@ -35,8 +35,13 @@ const App: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   
+  // 3D cover effect states
+  const [coverMousePos, setCoverMousePos] = useState({ x: 0, y: 0 });
+  const [isCoverHovered, setIsCoverHovered] = useState(false);
+  const coverRef = useRef<HTMLDivElement>(null);
+  
   // Settings states
-  const [isHashMode, setIsHashMode] = useState(false);
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [chunkCount, setChunkCount] = useState<number>(() => {
     const saved = localStorage.getItem('chunkCount');
@@ -89,20 +94,7 @@ const App: React.FC = () => {
       });
   }, []);
 
-  useEffect(() => {
-    const hash = window.location.hash.slice(1);
-    if (!hash) return;
 
-    setIsHashMode(true);
-    const decodedUrl = decodeURIComponent(hash);
-    const mockItem: PlaylistItem = {
-      name: '', // 留空，从音乐元数据获取
-      artist: '', // 留空，从音乐元数据获取
-      themeColor: '#ffffff',
-      url: decodedUrl
-    };
-    loadMusicFromUrl(mockItem, -1);
-  }, []);
 
   const loadLinkedFolder = async (folderName: string, linkUrl: string) => {
     if (loadedLinks.has(linkUrl)) {
@@ -271,9 +263,6 @@ const App: React.FC = () => {
           console.warn("Autoplay was prevented.", e);
         }
       }
-
-      const hash = encodeURIComponent(item.url);
-      window.history.replaceState(null, '', `#${hash}`);
 
       if (oldUrl) URL.revokeObjectURL(oldUrl);
     } catch (error: any) {
@@ -533,11 +522,37 @@ const App: React.FC = () => {
           <div className="flex-1 flex flex-col items-center justify-center space-y-6 md:space-y-10 min-h-0">
             {track ? (
               <>
-                <div className="relative group w-full aspect-square max-w-[200px] md:max-w-[280px] shrink-0">
+                <div 
+                  ref={coverRef}
+                  className="relative group w-full aspect-square max-w-[200px] md:max-w-[280px] shrink-0"
+                  onMouseMove={(e) => {
+                    if (!coverRef.current) return;
+                    const rect = coverRef.current.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / rect.width - 0.5;
+                    const y = (e.clientY - rect.top) / rect.height - 0.5;
+                    setCoverMousePos({ x, y });
+                  }}
+                  onMouseEnter={() => setIsCoverHovered(true)}
+                  onMouseLeave={() => {
+                    setIsCoverHovered(false);
+                    setCoverMousePos({ x: 0, y: 0 });
+                  }}
+                >
                   <div className={`absolute -inset-4 md:-inset-8 opacity-20 blur-3xl rounded-full transition-all duration-1000 ${isPlaying ? 'scale-110' : 'scale-90'}`} style={{ backgroundColor: 'white' }} />
-                  <div className="relative w-full h-full rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xl border border-white/20 bg-black/40">
+                  <div 
+                    className="relative w-full h-full rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xl border border-white/20 bg-black/40 transition-transform duration-125 ease-out"
+                    style={{
+                      transform: isCoverHovered 
+                        ? `perspective(1000px) rotateX(${-coverMousePos.y * 25}deg) rotateY(${coverMousePos.x * 25}deg) scale3d(1.05, 1.05, 1.05)` 
+                        : 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
+                      willChange: 'transform'
+                    }}
+                  >
                     {track.metadata.coverUrl ? (
-                      <img src={track.metadata.coverUrl} className={`w-full h-full object-cover transition-transform duration-[5s] ease-linear ${isPlaying ? 'scale-125' : 'scale-100'}`} />
+                      <img 
+                        src={track.metadata.coverUrl} 
+                        className={`w-full h-full object-cover transition-transform duration-[5s] ease-linear ${isPlaying ? 'scale-125' : 'scale-100'}`} 
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center"><Music size={64} className="text-white/10" /></div>
                     )}
@@ -583,13 +598,11 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-around">
-              {!isHashMode && (
-                <button 
-                  onClick={handlePrev}
-                  disabled={!playlist.length}
-                  className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-                ><SkipBack size={28} /></button>
-              )}
+              <button 
+                onClick={handlePrev}
+                disabled={!playlist.length}
+                className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
+              ><SkipBack size={28} /></button>
               
               <button 
                 onClick={togglePlay}
@@ -599,13 +612,11 @@ const App: React.FC = () => {
                 {isPlaying ? <Pause size={28} md:size={32} fill="currentColor" /> : <Play size={28} md:size={32} fill="currentColor" className="ml-1" />}
               </button>
               
-              {!isHashMode && (
-                <button 
-                  onClick={handleNext}
-                  disabled={!playlist.length}
-                  className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-                ><SkipForward size={28} /></button>
-              )}
+              <button 
+                onClick={handleNext}
+                disabled={!playlist.length}
+                className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
+              ><SkipForward size={28} /></button>
             </div>
 
             <div className="flex items-center justify-between gap-4 bg-white/[0.03] p-3 rounded-2xl border border-white/[0.05] backdrop-blur-md">
