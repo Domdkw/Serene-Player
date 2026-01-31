@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, Volume2, 
-  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings
+  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, Download, MoreVertical
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
@@ -43,6 +43,7 @@ const App: React.FC = () => {
   // Settings states
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [chunkCount, setChunkCount] = useState<number>(() => {
     const saved = localStorage.getItem('chunkCount');
     return saved ? parseInt(saved) : 4;
@@ -64,6 +65,8 @@ const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lyricsContainerRef = useRef<HTMLDivElement | null>(null);
   const activeLyricRef = useRef<HTMLDivElement | null>(null);
+  const manualScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isManualScrolling, setIsManualScrolling] = useState(false);
 
   // Load playlist on mount
   useEffect(() => {
@@ -378,14 +381,33 @@ const App: React.FC = () => {
     return index;
   }, [track, currentTime]);
 
+  // 处理用户交互的函数
+  const handleUserInteraction = () => {
+    // 1. 设为手动模式，停止自动滚动
+    setIsManualScrolling(true);
+
+    // 2. 清除之前的计时器
+    if (manualScrollTimerRef.current) {
+      clearTimeout(manualScrollTimerRef.current);
+    }
+
+    // 3. 设置 5 秒后恢复自动滚动
+    manualScrollTimerRef.current = setTimeout(() => {
+      setIsManualScrolling(false);
+    }, 5000);
+  };
+
   useEffect(() => {
+    // 增加判断：如果处于手动操作期间，直接跳过自动滚动逻辑
+    if (isManualScrolling) return;
+
     if (isAutoScrolling && activeLyricRef.current && lyricsContainerRef.current) {
       const container = lyricsContainerRef.current;
       const activeElement = activeLyricRef.current;
       const scrollPos = activeElement.offsetTop - container.offsetHeight / 2 + activeElement.offsetHeight / 2;
       container.scrollTo({ top: scrollPos, behavior: 'smooth' });
     }
-  }, [activeIndex, isAutoScrolling]);
+  }, [activeIndex, isAutoScrolling, isManualScrolling]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -494,7 +516,7 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden z-10">
         
         {/* Left Column: Fixed/Scrollable Sidebar (35% on Desktop) */}
-        <section className="w-full md:w-[35%] lg:w-[30%] flex flex-col p-4 md:p-8 md:border-r border-white/10 bg-black/20 backdrop-blur-xl relative overflow-y-auto hide-scrollbar shrink-0 h-[60vh] md:h-full">
+        <section className="w-full md:w-[35%] lg:w-[30%] flex flex-col p-4 md:p-6 md:border-r border-white/10 bg-black/20 backdrop-blur-xl relative overflow-y-auto hide-scrollbar shrink-0 h-[60vh] md:h-full">
           {/* Header */}
           <div className="flex items-center justify-between mb-6 md:mb-10 shrink-0">
             <div className="flex items-center gap-2">
@@ -637,7 +659,7 @@ const App: React.FC = () => {
                 />
               </div>
               
-              <button 
+              <button
                 onClick={() => setPlaybackMode(prev => prev === 'list' ? 'single' : 'list')}
                 className={`p-2 rounded-xl transition-all ${playbackMode === 'single' ? 'bg-white text-black' : 'bg-white/5 text-white/40 hover:text-white'}`}
               >
@@ -647,9 +669,34 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        {/* Settings Icon - Bottom Right */}
-        <div className="fixed bottom-4 right-4 z-[65]">
-          <button 
+        {/* More Menu & Settings Icon - Bottom Right */}
+        <div className="fixed bottom-4 right-4 z-[65] flex flex-col items-center gap-2">
+          {/* 更多选项菜单 */}
+          {track && (
+            <div className="relative">
+              <button
+                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all text-white/40 hover:text-white"
+                title="更多选项"
+              >
+                <MoreVertical size={18} />
+              </button>
+              {isMoreMenuOpen && (
+                <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl p-2 min-w-[120px] shadow-xl z-50">
+                  <a
+                    href={track.objectUrl}
+                    download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition-all text-white/80 hover:text-white text-sm"
+                    onClick={() => setIsMoreMenuOpen(false)}
+                  >
+                    <Download size={14} />
+                    <span>下载</span>
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+          <button
             data-settings-button
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-90 ${isSettingsOpen ? 'bg-white text-black' : 'hover:bg-white/10'}`}
@@ -672,11 +719,12 @@ const App: React.FC = () => {
 
         {/* Right Column: Lyrics (65% on Desktop) */}
         <section className="flex-1 relative overflow-hidden flex flex-col bg-transparent h-[40vh] md:h-full">
-          <div 
+          <div
             ref={lyricsContainerRef}
             className="flex-1 overflow-y-auto px-6 md:px-20 py-[20vh] md:py-[45vh] hide-scrollbar"
-            onMouseEnter={() => setIsAutoScrolling(false)}
-            onMouseLeave={() => setIsAutoScrolling(true)}
+            onWheel={handleUserInteraction}
+            onTouchMove={handleUserInteraction}
+            onMouseDown={handleUserInteraction}
           >
             {track && track.metadata.parsedLyrics.length > 0 ? (
               <div className={`flex flex-col min-h-full transition-all duration-700 ${isSidebarOpen ? 'items-start' : 'items-center justify-center'}`}>

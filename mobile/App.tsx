@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, Volume2, 
-  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight
+  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata } from '../utils/metadata';
@@ -72,6 +72,8 @@ const App: React.FC = () => {
   const lyricsContainerRef = useRef<HTMLDivElement | null>(null);
   const activeLyricRef = useRef<HTMLDivElement | null>(null);
   const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const manualScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isManualScrolling, setIsManualScrolling] = useState(false);
 
   // Load playlist on mount
   useEffect(() => {
@@ -395,6 +397,53 @@ const App: React.FC = () => {
     return index;
   }, [track, currentTime]);
 
+  /**
+   * 滚动到当前激活的歌词位置
+   * 
+   * 此函数负责将歌词容器滚动到当前正在播放的歌词行，使该行始终显示在屏幕中央。
+   * 只有在启用自动滚动模式时才会执行滚动操作。
+   * 
+   * 滚动逻辑：
+   * 1. 计算目标滚动位置 = 当前歌词行距离顶部的高度 - 容器高度的一半 + 歌词行高度的一半
+   * 2. 这样可以确保当前歌词行始终显示在容器的垂直中央位置
+   * 3. 使用平滑滚动动画效果，提升用户体验
+   */
+  // 处理用户交互的函数
+  const handleUserInteraction = () => {
+    // 1. 设为手动模式，停止自动滚动
+    setIsManualScrolling(true);
+
+    // 2. 清除之前的计时器
+    if (manualScrollTimerRef.current) {
+      clearTimeout(manualScrollTimerRef.current);
+    }
+
+    // 3. 设置 5 秒后恢复自动滚动
+    manualScrollTimerRef.current = setTimeout(() => {
+      setIsManualScrolling(false);
+    }, 5000);
+  };
+
+  const scrollToActiveLyric = () => {
+    // 增加判断：如果处于手动操作期间，直接跳过自动滚动逻辑
+    if (isManualScrolling) return;
+
+    // 检查是否启用自动滚动以及必要的DOM元素是否存在
+    if (isAutoScrolling && activeLyricRef.current && lyricsContainerRef.current) {
+      const container = lyricsContainerRef.current;      // 歌词容器元素
+      const activeElement = activeLyricRef.current;      // 当前激活的歌词行元素
+      
+      // 计算滚动位置：使当前歌词行居中显示
+      // 公式：当前元素顶部位置 - 容器高度的一半 + 当前元素高度的一半
+      const scrollPos = activeElement.offsetTop - container.offsetHeight / 2 + activeElement.offsetHeight / 2;
+      
+      // 执行平滑滚动
+      container.scrollTo({ top: scrollPos, behavior: 'smooth' });
+    }
+  };
+
+  
+
   // Page navigation handlers
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     setIsDragging(true);
@@ -406,7 +455,17 @@ const App: React.FC = () => {
   const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
     if (!isDragging) return;
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const offset = clientX - dragStartX;
+    let offset = clientX - dragStartX;
+    
+    // 在第0页（最左）时禁止向右滑动（offset > 0）
+    if (currentPage === 0 && offset > 0) {
+      offset = 0;
+    }
+    // 在第2页（最右）时禁止向左滑动（offset < 0）
+    if (currentPage === 2 && offset < 0) {
+      offset = 0;
+    }
+    
     setDragOffset(offset);
   };
 
@@ -437,12 +496,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isAutoScrolling && activeLyricRef.current && lyricsContainerRef.current) {
-      const container = lyricsContainerRef.current;
-      const activeElement = activeLyricRef.current;
-      const scrollPos = activeElement.offsetTop - container.offsetHeight / 2 + activeElement.offsetHeight / 2;
-      container.scrollTo({ top: scrollPos, behavior: 'smooth' });
-    }
+    scrollToActiveLyric();
   }, [activeIndex, isAutoScrolling]);
 
   const onEnded = () => {
@@ -567,6 +621,17 @@ const App: React.FC = () => {
                 <span className="text-[10px] font-bold uppercase tracking-widest">Local</span>
                 <input type="file" accept="audio/mpeg" className="hidden" onChange={handleFileUpload} />
               </label>
+              {track && (
+                <a
+                  href={track.objectUrl}
+                  download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-all cursor-pointer border border-white/10 active:scale-95"
+                  title="下载当前歌曲"
+                >
+                  <Download size={12} className="text-white" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">下载</span>
+                </a>
+              )}
             </div>
             
             {/* Music Library Content */}
@@ -749,15 +814,9 @@ const App: React.FC = () => {
             <div
               ref={lyricsContainerRef}
               className="flex-1 overflow-y-auto px-6 md:px-20 py-[20vh] md:py-[45vh] hide-scrollbar"
-              onScroll={() => {
-                setIsAutoScrolling(false);
-                if (autoScrollTimerRef.current) {
-                  clearTimeout(autoScrollTimerRef.current);
-                }
-                autoScrollTimerRef.current = setTimeout(() => {
-                  setIsAutoScrolling(true);
-                }, 5000);
-              }}
+              onWheel={handleUserInteraction}
+              onTouchMove={handleUserInteraction}
+              onMouseDown={handleUserInteraction}
             >
               {track && track.metadata.parsedLyrics.length > 0 ? (
                 <div className={`flex flex-col min-h-full transition-all duration-700 items-center justify-center`}>
