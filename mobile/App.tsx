@@ -9,6 +9,7 @@ import { extractMetadata } from '../utils/metadata';
 import { MusicLibrary } from '../utils/MusicLibrary';
 import SettingsPanel from './SettingsPanel';
 import fetchInChunks from 'fetch-in-chunks';
+import { getFontFamily, getFontUrl } from '../utils/fontUtils';
 
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
@@ -67,6 +68,32 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('lineHeight');
     return saved ? parseFloat(saved) : 1.5;
   });
+  const [selectedFont, setSelectedFont] = useState<string>(() => {
+    const saved = localStorage.getItem('selectedFont');
+    return saved || 'default';
+  });
+
+  // 加载字体
+  useEffect(() => {
+    // 移除所有已存在的字体链接
+    const existingFontLinks = document.querySelectorAll('link[rel="stylesheet"][href*="fonts.font.im"]');
+    existingFontLinks.forEach(link => link.remove());
+    
+    if (selectedFont !== 'default') {
+      const fontUrl = getFontUrl(selectedFont);
+      if (fontUrl) {
+        const fontLink = document.createElement('link');
+        fontLink.rel = 'stylesheet';
+        fontLink.href = fontUrl;
+        
+        document.head.appendChild(fontLink);
+        
+        return () => {
+          document.head.removeChild(fontLink);
+        };
+      }
+    }
+  }, [selectedFont]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -693,7 +720,7 @@ const App: React.FC = () => {
   }, [track]);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans">
+    <div className="h-screen w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans" style={{ fontFamily: getFontFamily(selectedFont) }}>
       
       {/* Wave Loading Bar */}
       {loadingProgress !== null && (
@@ -1047,7 +1074,8 @@ const App: React.FC = () => {
                           style={{
                             fontWeight: fontWeight === 'light' ? '300' : fontWeight === 'medium' ? '500' : '700',
                             letterSpacing: `${letterSpacing}px`,
-                            lineHeight: lineHeight
+                            lineHeight: lineHeight,
+                            fontFamily: getFontFamily(selectedFont)
                           }}
                         >
                           {line.text}
@@ -1105,17 +1133,19 @@ const App: React.FC = () => {
 
         {/* Global Settings Panel */}
         <SettingsPanel
-          isOpen={isSettingsOpen}
-          chunkCount={chunkCount}
-          fontWeight={fontWeight}
-          letterSpacing={letterSpacing}
-          lineHeight={lineHeight}
-          onChunkCountChange={setChunkCount}
-          onFontWeightChange={setFontWeight}
-          onLetterSpacingChange={setLetterSpacing}
-          onLineHeightChange={setLineHeight}
-          onClose={() => setIsSettingsOpen(false)}
-        />
+        isOpen={isSettingsOpen}
+        chunkCount={chunkCount}
+        fontWeight={fontWeight}
+        letterSpacing={letterSpacing}
+        lineHeight={lineHeight}
+        selectedFont={selectedFont}
+        onChunkCountChange={setChunkCount}
+        onFontWeightChange={setFontWeight}
+        onLetterSpacingChange={setLetterSpacing}
+        onLineHeightChange={setLineHeight}
+        onFontChange={setSelectedFont}
+        onClose={() => setIsSettingsOpen(false)}
+      />
 
         {/* Navigation Hints */}
         {currentPage === 1 && (

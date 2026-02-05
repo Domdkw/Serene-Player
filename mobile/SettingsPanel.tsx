@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, SlidersHorizontal } from 'lucide-react';
+import { FONT_CONFIGS, getFontFamily } from '../utils/fontUtils';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -7,10 +8,12 @@ interface SettingsPanelProps {
   fontWeight: string;
   letterSpacing: number;
   lineHeight: number;
+  selectedFont: string;
   onChunkCountChange: (value: number) => void;
   onFontWeightChange: (value: string) => void;
   onLetterSpacingChange: (value: number) => void;
   onLineHeightChange: (value: number) => void;
+  onFontChange: (value: string) => void;
   onClose: () => void;
 }
 
@@ -20,10 +23,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   fontWeight,
   letterSpacing,
   lineHeight,
+  selectedFont,
   onChunkCountChange,
   onFontWeightChange,
   onLetterSpacingChange,
   onLineHeightChange,
+  onFontChange,
   onClose
 }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -198,6 +203,29 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </div>
           </div>
 
+          {/* Font Selection */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+              歌词字体
+            </label>
+            <select
+              value={selectedFont}
+              onChange={(e) => {
+                onFontChange(e.target.value);
+                localStorage.setItem('selectedFont', e.target.value);
+              }}
+              className="w-full py-3 px-4 text-sm bg-white/10 text-white rounded-xl border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+              style={{ fontFamily: getFontFamily(selectedFont) }}
+            >
+              {FONT_CONFIGS.map((font) => (
+                <option key={font.value} value={font.value} style={{ fontFamily: font.family }}>
+                  {font.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Preview Section */}
           <div className="space-y-3 pt-2">
             <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
@@ -208,10 +236,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <p
                 className="text-center text-white/80 transition-all duration-300"
                 style={{
-                  fontWeight: fontWeight === 'light' ? '300' : fontWeight === 'medium' ? '500' : '700',
-                  letterSpacing: `${letterSpacing}px`,
-                  lineHeight: lineHeight
-                }}
+                fontWeight: fontWeight === 'light' ? '300' : fontWeight === 'medium' ? '500' : '700',
+                letterSpacing: `${letterSpacing}px`,
+                lineHeight: lineHeight,
+                fontFamily: getFontFamily(selectedFont)
+              }}
               >
                 这是一行示例歌词
               </p>
