@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
-  Upload, Play, Pause, SkipBack, SkipForward, Volume2, 
+  Upload, Play, Pause, SkipBack, SkipForward, 
   Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, Download, MoreVertical, FileAudio, FolderOpen, Shuffle
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
@@ -16,7 +16,6 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.8);
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
   
   // Playlist states
@@ -314,6 +313,12 @@ const App: React.FC = () => {
       setLoadingProgress(null);
       setLoadingTrackUrl(null);
       setLyricsLoading(false);
+      // 重置自动滚动
+      setIsManualScrolling(false);
+      if (manualScrollTimerRef.current) {
+        clearTimeout(manualScrollTimerRef.current);
+        manualScrollTimerRef.current = null;
+      }
       
       if (audioRef.current) {
         audioRef.current.pause();
@@ -352,14 +357,20 @@ const App: React.FC = () => {
         const objectUrl = URL.createObjectURL(file);
         const oldUrl = track?.objectUrl;
         setTrack({ file, objectUrl, metadata });
-        setCurrentIndex(-1);
-        setLoadingProgress(null);
-        if (audioRef.current) {
-          audioRef.current.src = objectUrl;
-          audioRef.current.load();
-          audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-        }
-        if (oldUrl) URL.revokeObjectURL(oldUrl);
+      setLoadingProgress(null);
+      // 重置自动滚动
+      setIsManualScrolling(false);
+      if (manualScrollTimerRef.current) {
+        clearTimeout(manualScrollTimerRef.current);
+        manualScrollTimerRef.current = null;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = objectUrl;
+        audioRef.current.load();
+        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+      if (oldUrl) URL.revokeObjectURL(oldUrl);
       } catch (err) {
         setErrorMessage("Failed to process the uploaded file.");
         setLoadingProgress(null);
@@ -433,14 +444,21 @@ const App: React.FC = () => {
         const objectUrl = URL.createObjectURL(file);
         const oldUrl = track?.objectUrl;
         setTrack({ file, objectUrl, metadata });
-        setCurrentIndex(playlist.length); // 新添加的第一首的索引
-        setLoadingProgress(null);
-        if (audioRef.current) {
-          audioRef.current.src = objectUrl;
-          audioRef.current.load();
-          audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-        }
-        if (oldUrl) URL.revokeObjectURL(oldUrl);
+      setCurrentIndex(playlist.length); // 新添加的第一首的索引
+      setLoadingProgress(null);
+      // 重置自动滚动
+      setIsManualScrolling(false);
+      if (manualScrollTimerRef.current) {
+        clearTimeout(manualScrollTimerRef.current);
+        manualScrollTimerRef.current = null;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = objectUrl;
+        audioRef.current.load();
+        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+      if (oldUrl) URL.revokeObjectURL(oldUrl);
       } catch (err) {
         setErrorMessage("Failed to process the uploaded file.");
         setLoadingProgress(null);
@@ -864,30 +882,22 @@ const App: React.FC = () => {
               ><SkipForward size={28} /></button>
             </div>
 
-            <div className="flex items-center justify-between gap-4 bg-white/[0.03] p-3 rounded-2xl border border-white/[0.05] backdrop-blur-md">
-              <div className="flex items-center gap-3 flex-1 px-1">
-                <Volume2 size={16} className="text-white/30" />
-                <input 
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={volume}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    setVolume(v);
-                    if (audioRef.current) audioRef.current.volume = v;
-                  }}
-                  className="flex-1 cursor-pointer accent-white/30 h-1"
-                />
-              </div>
-              
+            <div className="flex items-center justify-start gap-4  p-3">
               <button
                 onClick={() => setPlaybackMode(prev => prev === 'single' ? 'list' : prev === 'list' ? 'shuffle' : 'single')}
                 className={`p-2 rounded-xl transition-all ${playbackMode === 'single' ? 'bg-white text-black' : 'bg-white/5 text-white/40 hover:text-white'}`}
               >
                 {playbackMode === 'shuffle' ? <Shuffle size={16} /> : playbackMode === 'list' ? <Repeat size={16} /> : <Repeat1 size={16} />}
               </button>
+              {track && (
+                <a
+                  href={track.objectUrl}
+                  download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition-all text-white/80 hover:text-white text-sm"
+                >
+                  <Download size={14} />
+                </a>
+              )}
             </div>
           </div>
         </section>
