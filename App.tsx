@@ -902,33 +902,8 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        {/* More Menu & Settings Icon - Bottom Right */}
+        {/* Settings Icon - Bottom Right */}
         <div className="fixed bottom-4 right-4 z-[65] flex flex-col items-center gap-2">
-          {/* 更多选项菜单 */}
-          {track && (
-            <div className="relative">
-              <button
-                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all text-white/40 hover:text-white"
-                title="更多选项"
-              >
-                <MoreVertical size={18} />
-              </button>
-              {isMoreMenuOpen && (
-                <div className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl p-2 min-w-[120px] shadow-xl z-50">
-                  <a
-                    href={track.objectUrl}
-                    download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition-all text-white/80 hover:text-white text-sm"
-                    onClick={() => setIsMoreMenuOpen(false)}
-                  >
-                    <Download size={14} />
-                    <span>下载</span>
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
           <button
             data-settings-button
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
