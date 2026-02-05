@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, Volume2, 
-  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, Download, MoreVertical, FileAudio, FolderOpen
+  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, Download, MoreVertical, FileAudio, FolderOpen, Shuffle
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
@@ -444,7 +444,14 @@ const App: React.FC = () => {
   }, [isUploadMenuOpen]);
 
   const handleNext = () => {
-    if (currentFolder && playlistFolders[currentFolder]) {
+    if (playbackMode === 'shuffle') {
+      if (playlist.length === 0) return;
+      let randomIndex;
+      do {
+        randomIndex = Math.floor(Math.random() * playlist.length);
+      } while (playlist.length > 1 && randomIndex === currentIndex);
+      loadMusicFromUrl(playlist[randomIndex], randomIndex);
+    } else if (currentFolder && playlistFolders[currentFolder]) {
       const folderTracks = playlistFolders[currentFolder];
       const currentTrack = playlist[currentIndex];
       const currentFolderIndex = folderTracks.findIndex(t => t.url === currentTrack?.url);
@@ -463,7 +470,10 @@ const App: React.FC = () => {
   };
 
   const handlePrev = () => {
-    if (currentFolder && playlistFolders[currentFolder]) {
+    if (playbackMode === 'shuffle') {
+      // In shuffle mode, prev is same as next (random)
+      handleNext();
+    } else if (currentFolder && playlistFolders[currentFolder]) {
       const folderTracks = playlistFolders[currentFolder];
       const currentTrack = playlist[currentIndex];
       const currentFolderIndex = folderTracks.findIndex(t => t.url === currentTrack?.url);
@@ -846,10 +856,10 @@ const App: React.FC = () => {
               </div>
               
               <button
-                onClick={() => setPlaybackMode(prev => prev === 'list' ? 'single' : 'list')}
+                onClick={() => setPlaybackMode(prev => prev === 'single' ? 'list' : prev === 'list' ? 'shuffle' : 'single')}
                 className={`p-2 rounded-xl transition-all ${playbackMode === 'single' ? 'bg-white text-black' : 'bg-white/5 text-white/40 hover:text-white'}`}
               >
-                {playbackMode === 'list' ? <Repeat size={16} /> : <Repeat1 size={16} />}
+                {playbackMode === 'shuffle' ? <Shuffle size={16} /> : playbackMode === 'list' ? <Repeat size={16} /> : <Repeat1 size={16} />}
               </button>
             </div>
           </div>

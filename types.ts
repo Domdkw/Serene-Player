@@ -36,7 +36,7 @@ export interface PlaylistFolder {
 
 export type PlaylistFolders = Record<string, PlaylistItem[] | PlaylistFolder>;
 
-export type PlaybackMode = 'single' | 'list';
+export type PlaybackMode = 'single' | 'list' | 'shuffle';
 
 // Global declaration for jsmediatags which is loaded via CDN
 declare global {
