@@ -2,12 +2,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, 
-  Music, Clock, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle
+  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata } from '../utils/metadata';
 import { MusicLibrary } from '../utils/MusicLibrary';
 import SettingsPanel from './SettingsPanel';
+import LyricLine from '../components/LyricLine';
 import fetchInChunks from 'fetch-in-chunks';
 import { getFontFamily, getFontUrl } from '../utils/fontUtils';
 
@@ -591,11 +592,30 @@ const App: React.FC = () => {
   }, [track, currentTime]);
 
   /**
+   * 判断当前歌词类型
+   * @returns 'word' - 逐字歌词, 'line' - 逐行歌词, 'none' - 无歌词
+   *
+   * 判断逻辑：
+   * - 逐字歌词：歌词行包含 chars 数组，且数组长度大于0
+   * - 逐行歌词：歌词行不包含 chars 数组，或 chars 数组为空
+   */
+  const lyricsType = useMemo(() => {
+    if (!track?.metadata.parsedLyrics.length) return 'none';
+
+    // 检查是否有任意一行包含逐字信息
+    const hasWordLevelLyrics = track.metadata.parsedLyrics.some(
+      line => line.chars && line.chars.length > 0
+    );
+
+    return hasWordLevelLyrics ? 'word' : 'line';
+  }, [track]);
+
+  /**
    * 滚动到当前激活的歌词位置
-   * 
+   *
    * 此函数负责将歌词容器滚动到当前正在播放的歌词行，使该行始终显示在屏幕中央。
    * 只有在启用自动滚动模式时才会执行滚动操作。
-   * 
+   *
    * 滚动逻辑：
    * 1. 计算目标滚动位置 = 当前歌词行距离顶部的高度 - 容器高度的一半 + 歌词行高度的一半
    * 2. 这样可以确保当前歌词行始终显示在容器的垂直中央位置
@@ -611,9 +631,11 @@ const App: React.FC = () => {
       clearTimeout(manualScrollTimerRef.current);
     }
 
-    // 3. 设置 5 秒后恢复自动滚动
+    // 3. 设置 5 秒后恢复自动滚动（仅在音乐播放时）
     manualScrollTimerRef.current = setTimeout(() => {
-      setIsManualScrolling(false);
+      if (isPlaying) {
+        setIsManualScrolling(false);
+      }
     }, 5000);
   };
 
@@ -702,6 +724,26 @@ const App: React.FC = () => {
       handleNext();
     }
   };
+
+  // 逐字歌词检测时间
+  useEffect(() => {
+    const setupInterval = () => {
+      if (!audioRef.current) {
+        setTimeout(setupInterval, 100);
+        return;
+      }
+
+      const interval = setInterval(() => {
+        if (audioRef.current && !audioRef.current.paused) {
+          setCurrentTime(audioRef.current.currentTime);
+        }
+      }, 100);
+
+      return () => clearInterval(interval);
+    };
+
+    setupInterval();
+  }, []);
 
   useEffect(() => {
     if ('mediaSession' in navigator && track) {
@@ -1043,6 +1085,21 @@ const App: React.FC = () => {
 
           {/* Page 2: Lyrics (Right) */}
           <section className="w-full h-full flex-shrink-0 relative overflow-hidden flex flex-col bg-transparent">
+            {/* Lyric Tags Header - AR & AL */}
+            {(track?.metadata.lyricArtist || track?.metadata.lyricAlbum) && (
+              <div className="absolute top-4 left-0 right-0 z-20 flex items-center justify-center gap-4 px-6 md:px-20">
+                {track.metadata.lyricArtist && (
+                  <span className="text-xs md:text-sm text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                    AR: {track.metadata.lyricArtist}
+                  </span>
+                )}
+                {track.metadata.lyricAlbum && (
+                  <span className="text-xs md:text-sm text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                    AL: {track.metadata.lyricAlbum}
+                  </span>
+                )}
+              </div>
+            )}
             <div
               ref={lyricsContainerRef}
               className="flex-1 overflow-y-auto px-6 md:px-20 py-[20vh] md:py-[45vh] hide-scrollbar"
@@ -1052,59 +1109,27 @@ const App: React.FC = () => {
             >
               {track && track.metadata.parsedLyrics.length > 0 ? (
                 <div className={`flex flex-col min-h-full transition-all duration-700 items-center justify-center`}>
-                  {track.metadata.parsedLyrics.map((line, idx) => {
-                    const isActive = idx === activeIndex;
-                    return (
-                      <div 
-                        key={idx}
-                        ref={isActive ? activeLyricRef : null}
-                        onClick={() => handleSeek(line.time)}
-                        className={`group relative py-2 md:py-4 cursor-pointer transition-all duration-700 text-center ${
-                          isActive ? 'text-white' : 'text-white/20'
-                        }`}
-                        style={{ 
-                          marginBottom: isActive ? '2rem' : '1rem',
-                          marginTop: isActive ? '2rem' : '1rem'
-                        }}
-                      >
-                        {/* Precise Time Tag */}
-                        <div className="absolute left-1/2 -top-6 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-[10px] text-white/80 font-mono bg-white/10 px-2 py-1 rounded-lg border border-white/10 backdrop-blur-xl z-20">
-                          <Clock size={10} />
-                          {formatTime(line.time)}
-                        </div>
-                        
-                        <p 
-                          className={`font-black leading-[1.1] md:leading-tight drop-shadow-2xl transition-all duration-700 select-none ${
-                            isActive 
-                              ? 'text-3xl md:text-[3vw] lg:text-[36px] opacity-100 scale-100 origin-center' 
-                              : activeIndex !== -1 && (idx === activeIndex - 1 || idx === activeIndex + 1)
-                                ? 'text-2xl text-white/80 md:text-[3vw] lg:text-[32px] opacity-100 hover:text-white blur-0'
-                                : 'text-2xl md:text-[3vw] lg:text-[32px] opacity-80 blur-[0.5px] text-white/50 hover:opacity-100 hover:blur-0 hover:scale-105 hover:text:white'
-                          }`}
-                          style={{
-                            fontWeight: fontWeight === 'light' ? '300' : fontWeight === 'medium' ? '500' : '700',
-                            letterSpacing: `${letterSpacing}px`,
-                            lineHeight: lineHeight,
-                            fontFamily: getFontFamily(selectedFont)
-                          }}
-                        >
-                          {line.text}
-                        </p>
-                        
-                        {/* Progress bar for active lyric */}
-                        {isActive && track.metadata.parsedLyrics[idx + 1] && (
-                          <div className="mt-2 w-full h-[2px] bg-white/20 relative overflow-hidden">
-                            <div 
-                              className="absolute top-0 left-0 h-full bg-white transition-all duration-100"
-                              style={{
-                                width: `${((currentTime - line.time + 0.1) / (track.metadata.parsedLyrics[idx + 1].time - line.time)) * 100}%`
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {track.metadata.parsedLyrics.map((line, idx) => (
+                    <LyricLine
+                      key={idx}
+                      line={line}
+                      idx={idx}
+                      isActive={idx === activeIndex}
+                      lyricsType={lyricsType}
+                      currentTime={currentTime}
+                      nextLineTime={track.metadata.parsedLyrics[idx + 1]?.time}
+                      fontWeight={fontWeight}
+                      letterSpacing={letterSpacing}
+                      lineHeight={lineHeight}
+                      selectedFont={selectedFont}
+                      activeIndex={activeIndex}
+                      isSidebarOpen={false}
+                      onSeek={handleSeek}
+                      activeLyricRef={activeLyricRef}
+                      formatTime={formatTime}
+                      getFontFamily={getFontFamily}
+                    />
+                  ))}
                 </div>
               ) : track ? (
                 <div className="h-full flex flex-col items-center justify-center text-white/20 gap-4">
@@ -1172,9 +1197,8 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <audio 
+      <audio
         ref={audioRef}
-        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
         onEnded={onEnded}
       />

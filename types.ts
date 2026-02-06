@@ -17,6 +17,8 @@ export interface TrackMetadata {
   coverUrl: string | null;
   lyrics: string | null;
   parsedLyrics: LyricLine[];
+  lyricArtist?: string | null;
+  lyricAlbum?: string | null;
 }
 
 export interface Track {
