@@ -575,6 +575,25 @@ const App: React.FC = () => {
     return index;
   }, [track, currentTime]);
 
+  /**
+   * 检测歌词类型
+   * @returns 'word' - 逐字歌词, 'line' - 逐行歌词, 'none' - 无歌词
+   * 
+   * 判断逻辑：
+   * - 逐字歌词：歌词行包含 chars 数组，且数组长度大于0
+   * - 逐行歌词：歌词行不包含 chars 数组，或 chars 数组为空
+   */
+  const lyricsType = useMemo(() => {
+    if (!track?.metadata.parsedLyrics.length) return 'none';
+    
+    // 检查是否有任意一行包含逐字信息
+    const hasWordLevelLyrics = track.metadata.parsedLyrics.some(
+      line => line.chars && line.chars.length > 0
+    );
+    
+    return hasWordLevelLyrics ? 'word' : 'line';
+  }, [track]);
+
   // 处理用户交互的函数
   const handleUserInteraction = () => {
     // 1. 设为手动模式，停止自动滚动
@@ -993,23 +1012,40 @@ const App: React.FC = () => {
                           fontFamily: getFontFamily(selectedFont)
                         }}
                       >
-                        {isActive && line.chars && line.chars.length > 0 && (() => {
+                        {isActive && lyricsType === 'word' && line.chars && line.chars.length > 0 && (() => {
                           let progress = 0;
+                          // 遍历当前行的所有字符，计算播放进度
                           for (let i = 0; i < line.chars.length; i++) {
                             const char = line.chars[i];
-                            const nextCharTime = line.chars[i + 1]?.time || track.metadata.parsedLyrics[idx + 1]?.time || char.time;
+                            const nextChar = line.chars[i + 1];
+
+                            let nextCharTime;
+                            if (nextChar) {
+                              nextCharTime = nextChar.time;
+                            } else {
+                              const nextLineTime = track.metadata.parsedLyrics[idx + 1]?.time;
+                              if (nextLineTime && nextLineTime > char.time) {
+                                nextCharTime = nextLineTime;
+                              } else {
+                                nextCharTime = char.time + 1;
+                              }
+                            }
+
                             if (currentTime >= char.time) {
+                              // 判断当前播放时间是否还在该字符的显示时段内
                               if (currentTime < nextCharTime) {
-                                progress = ((i + (currentTime - char.time) / (nextCharTime - char.time)) / line.chars.length) * 100;
+                                // 计算当前字符内的播放进度（0-1之间）
+                                const charProgress = (currentTime - char.time) / (nextCharTime - char.time);
+                                progress = ((i + charProgress) / line.chars.length) * 100;
                                 break;
-                              } else if (i === line.chars.length - 1) {
-                                progress = 100;
+                              } else {
+                                progress = ((i + 1) / line.chars.length) * 100;
                               }
                             }
                           }
                           return (
                             <span 
-                              className="absolute left-0 top-0 bottom-0 bg-white/10 rounded-lg -z-10 transition-all duration-50 ease-linear"
+                              className="absolute left-0 top-0 bottom-0 bg-white/20 rounded-lg -z-10 transition-all duration-50 ease-linear"
                               style={{
                                 width: `${Math.min(100, Math.max(0, progress))}%`
                               }}
@@ -1018,6 +1054,17 @@ const App: React.FC = () => {
                         })()}
                         {line.text}
                       </p>
+                      {isActive && lyricsType === 'line' && track.metadata.parsedLyrics[idx + 1] && (
+                        <div className="mt-2 w-full h-[2px] bg-white/20 relative overflow-hidden">
+                          <div 
+                            className="absolute top-0 left-0 h-full bg-white transition-all duration-100"
+                            style={{
+                              // +0.1 是为了避免进度条到最后一个字时不显示，补上 transition-all
+                              width: `${((currentTime - line.time + 0.1) / (track.metadata.parsedLyrics[idx + 1].time - line.time)) * 100}%`
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
