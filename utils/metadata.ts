@@ -17,6 +17,9 @@ export const parseLyrics = (rawLyrics: string | null): ParsedLyricsResult => {
   const tagRegex = /\[(ar|al):([^\]]*)\]/i;
 
   const splitLines = rawLyrics.split(/\r?\n/);
+  
+  // 用于检测翻译行的临时映射
+  const timeToLineMap = new Map<number, number>(); // time -> index in lines
 
   splitLines.forEach(line => {
     const tagMatch = line.match(tagRegex);
@@ -35,44 +38,55 @@ export const parseLyrics = (rawLyrics: string | null): ParsedLyricsResult => {
     const text = line.replace(timeRegex, '').trim();
 
     if (times && text) {
-      if (times.length > 1) {
-        const lyricLine: LyricLine = { time: -1, text };
-        const chars: LyricChar[] = [];
+      // 解析时间戳
+      const matches = timeRegex.exec(times[0]);
+      if (matches) {
+        const minutes = parseInt(matches[1]);
+        const seconds = parseInt(matches[2]);
+        const ms = parseInt(matches[3]);
+        const time = minutes * 60 + seconds + ms / (matches[3].length === 3 ? 1000 : 100);
 
-        timeRegex.lastIndex = 0;
-        let match;
-        let charIndex = 0;
+        // 检查这个时间戳是否已经存在（可能是翻译行）
+        const existingIndex = timeToLineMap.get(time);
+        if (existingIndex !== undefined) {
+          // 这是翻译行，添加到已有行的 translation 字段
+          lines[existingIndex].translation = text;
+        } else if (times.length > 1) {
+          // 逐字歌词
+          const lyricLine: LyricLine = { time: -1, text };
+          const chars: LyricChar[] = [];
 
-        while ((match = timeRegex.exec(line)) !== null) {
-          const minutes = parseInt(match[1]);
-          const seconds = parseInt(match[2]);
-          const ms = parseInt(match[3]);
-          const time = minutes * 60 + seconds + ms / (match[3].length === 3 ? 1000 : 100);
+          timeRegex.lastIndex = 0;
+          let match;
+          let charIndex = 0;
 
-          if (charIndex < text.length) {
-            chars.push({
-              time: time,
-              text: text[charIndex]
-            });
-            charIndex++;
+          while ((match = timeRegex.exec(line)) !== null) {
+            const m = parseInt(match[1]);
+            const s = parseInt(match[2]);
+            const millis = parseInt(match[3]);
+            const charTime = m * 60 + s + millis / (match[3].length === 3 ? 1000 : 100);
+
+            if (charIndex < text.length) {
+              chars.push({
+                time: charTime,
+                text: text[charIndex]
+              });
+              charIndex++;
+            }
           }
-        }
 
-        if (chars.length > 0) {
-          lyricLine.time = chars[0].time;
-          lyricLine.chars = chars;
-        }
+          if (chars.length > 0) {
+            lyricLine.time = chars[0].time;
+            lyricLine.chars = chars;
+            timeToLineMap.set(lyricLine.time, lines.length);
+          }
 
-        lines.push(lyricLine);
-      } else {
-        const matches = timeRegex.exec(times[0]);
-        if (matches) {
-          const minutes = parseInt(matches[1]);
-          const seconds = parseInt(matches[2]);
-          const ms = parseInt(matches[3]);
-          const time = minutes * 60 + seconds + ms / (matches[3].length === 3 ? 1000 : 100);
-
-          lines.push({ time, text });
+          lines.push(lyricLine);
+        } else {
+          // 普通歌词行
+          const newLine: LyricLine = { time, text };
+          timeToLineMap.set(time, lines.length);
+          lines.push(newLine);
         }
       }
     } else if (text && !line.match(/\[\w+:/)) {

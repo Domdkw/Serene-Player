@@ -130,14 +130,11 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
                   style={{ backgroundColor: item.themeColor }}
                 />
               )}
-              <span className={`w-1/3 truncate text-left ${isActive ? 'font-black' : 'font-medium'}`}>
+              <span className={`w-1/2 truncate text-left ${isActive ? 'font-black' : 'font-medium'}`}>
                 {item.name}
               </span>
-              <span className="w-1/3 truncate pl-4 text-sm opacity-60">
+              <span className="w-1/2 truncate pl-4 text-sm opacity-60">
                 {isTrackLoading ? 'Loading...' : item.artist}
-              </span>
-              <span className="w-1/3 truncate pl-4 text-xs opacity-40 font-mono">
-                {item.url}
               </span>
             </button>
           );
@@ -182,9 +179,8 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
         </button>
       )}
       <div className="flex items-center px-4 py-3 border-b border-white/10 text-[10px] uppercase tracking-widest font-bold text-white">
-        <span className="w-1/3 truncate">标题</span>
-        <span className="w-1/3 truncate pl-4">作曲家</span>
-        <span className="w-1/3 truncate pl-4">文件地址</span>
+        <span className="w-1/2 truncate">标题</span>
+        <span className="w-1/2 truncate pl-4">作曲家</span>
       </div>
       <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden playlist-scrollbar">
         {currentFolder ? renderTrackView() : folderDisplay.renderFolderView()}

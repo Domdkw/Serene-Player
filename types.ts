@@ -7,6 +7,7 @@ export interface LyricChar {
 export interface LyricLine {
   time: number;
   text: string;
+  translation?: string;
   chars?: LyricChar[];
 }
 

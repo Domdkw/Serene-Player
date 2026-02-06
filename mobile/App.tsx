@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, 
-  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle
+  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata } from '../utils/metadata';
@@ -72,6 +72,15 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('selectedFont');
     return saved || 'default';
   });
+  const [showTranslation, setShowTranslation] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showTranslation');
+    return saved ? saved === 'true' : true;
+  });
+
+  // 保存翻译显示设置到 LocalStorage
+  useEffect(() => {
+    localStorage.setItem('showTranslation', showTranslation.toString());
+  }, [showTranslation]);
 
   // 加载字体
   useEffect(() => {
@@ -1083,70 +1092,93 @@ const App: React.FC = () => {
 
           </section>
 
-          {/* Page 2: Lyrics (Right) */}
+          {/* Page 2: Lyrics (Right) - Conditionally rendered for performance */}
           <section className="w-full h-full flex-shrink-0 relative overflow-hidden flex flex-col bg-transparent">
-            {/* Lyric Tags Header - AR & AL */}
-            {(track?.metadata.lyricArtist || track?.metadata.lyricAlbum) && (
-              <div className="absolute top-4 left-0 right-0 z-20 flex items-center justify-center gap-4 px-6 md:px-20">
-                {track.metadata.lyricArtist && (
-                  <span className="text-xs md:text-sm text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
-                    AR: {track.metadata.lyricArtist}
-                  </span>
-                )}
-                {track.metadata.lyricAlbum && (
-                  <span className="text-xs md:text-sm text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
-                    AL: {track.metadata.lyricAlbum}
-                  </span>
-                )}
-              </div>
+            {/* Only render lyrics content when currently on lyrics page */}
+            {currentPage === 2 && (
+              <>
+                {/* Lyric Tags Header - AR & AL & Translation Toggle */}
+                <div className="absolute top-4 left-0 right-0 z-20 flex items-center justify-center gap-4 px-6 md:px-20">
+                  {(track?.metadata.lyricArtist || track?.metadata.lyricAlbum) && (
+                    <>
+                      {track.metadata.lyricArtist && (
+                        <span className="text-xs md:text-sm text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                          AR: {track.metadata.lyricArtist}
+                        </span>
+                      )}
+                      {track.metadata.lyricAlbum && (
+                        <span className="text-xs md:text-sm text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                          AL: {track.metadata.lyricAlbum}
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {/* Translation Toggle Button - Only show if lyrics have translation */}
+                  {track?.metadata.parsedLyrics.some(line => line.translation) && (
+                    <button
+                      onClick={() => setShowTranslation(!showTranslation)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-sm border transition-all ${
+                        showTranslation
+                          ? 'bg-white/20 text-white border-white/30'
+                          : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'
+                      }`}
+                      title={showTranslation ? '隐藏翻译' : '显示翻译'}
+                    >
+                      <Languages size={14} />
+                      <span className="text-xs font-medium">{showTranslation ? '译' : '原'}</span>
+                    </button>
+                  )}
+                </div>
+                <div
+                  ref={lyricsContainerRef}
+                  className="flex-1 overflow-y-auto px-6 md:px-20 py-[20vh] md:py-[45vh] hide-scrollbar"
+                  onWheel={handleUserInteraction}
+                  onTouchMove={handleUserInteraction}
+                  onMouseDown={handleUserInteraction}
+                >
+                  {track && track.metadata.parsedLyrics.length > 0 ? (
+                    <div className={`flex flex-col min-h-full transition-all duration-700 items-center justify-center`}>
+                      {track.metadata.parsedLyrics.map((line, idx) => (
+                        <LyricLine
+                          key={idx}
+                          line={line}
+                          idx={idx}
+                          isActive={idx === activeIndex}
+                          lyricsType={lyricsType}
+                          currentTime={currentTime}
+                          nextLineTime={track.metadata.parsedLyrics[idx + 1]?.time}
+                          fontWeight={fontWeight}
+                          letterSpacing={letterSpacing}
+                          lineHeight={lineHeight}
+                          selectedFont={selectedFont}
+                          activeIndex={activeIndex}
+                          isSidebarOpen={false}
+                          showTranslation={showTranslation}
+                          onSeek={handleSeek}
+                          activeLyricRef={activeLyricRef}
+                          formatTime={formatTime}
+                          getFontFamily={getFontFamily}
+                        />
+                      ))}
+                    </div>
+                  ) : track ? (
+                    <div className="h-full flex flex-col items-center justify-center text-white/20 gap-4">
+                      <Loader2 size={32} className="animate-spin opacity-20" />
+                      <p className="text-sm md:text-xl italic font-medium tracking-tight opacity-40">No synchronized lyrics available</p>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-white/[0.05] gap-6">
+                      <div className="p-12 rounded-[2.5rem] border-2 border-dashed border-white/5 bg-white/[0.02]"><Music size={48} strokeWidth={1} /></div>
+                      <p className="text-[10px] uppercase tracking-[0.4em] font-black">Select Audio</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Top/Bottom Masking Gradients */}
+                <div className="absolute top-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-b from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
+                <div className="absolute bottom-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-t from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
+              </>
             )}
-            <div
-              ref={lyricsContainerRef}
-              className="flex-1 overflow-y-auto px-6 md:px-20 py-[20vh] md:py-[45vh] hide-scrollbar"
-              onWheel={handleUserInteraction}
-              onTouchMove={handleUserInteraction}
-              onMouseDown={handleUserInteraction}
-            >
-              {track && track.metadata.parsedLyrics.length > 0 ? (
-                <div className={`flex flex-col min-h-full transition-all duration-700 items-center justify-center`}>
-                  {track.metadata.parsedLyrics.map((line, idx) => (
-                    <LyricLine
-                      key={idx}
-                      line={line}
-                      idx={idx}
-                      isActive={idx === activeIndex}
-                      lyricsType={lyricsType}
-                      currentTime={currentTime}
-                      nextLineTime={track.metadata.parsedLyrics[idx + 1]?.time}
-                      fontWeight={fontWeight}
-                      letterSpacing={letterSpacing}
-                      lineHeight={lineHeight}
-                      selectedFont={selectedFont}
-                      activeIndex={activeIndex}
-                      isSidebarOpen={false}
-                      onSeek={handleSeek}
-                      activeLyricRef={activeLyricRef}
-                      formatTime={formatTime}
-                      getFontFamily={getFontFamily}
-                    />
-                  ))}
-                </div>
-              ) : track ? (
-                <div className="h-full flex flex-col items-center justify-center text-white/20 gap-4">
-                  <Loader2 size={32} className="animate-spin opacity-20" />
-                  <p className="text-sm md:text-xl italic font-medium tracking-tight opacity-40">No synchronized lyrics available</p>
-                </div>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-white/[0.05] gap-6">
-                  <div className="p-12 rounded-[2.5rem] border-2 border-dashed border-white/5 bg-white/[0.02]"><Music size={48} strokeWidth={1} /></div>
-                  <p className="text-[10px] uppercase tracking-[0.4em] font-black">Select Audio</p>
-                </div>
-              )}
-            </div>
-            
-            {/* Top/Bottom Masking Gradients */}
-            <div className="absolute top-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-b from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
-            <div className="absolute bottom-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-t from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
           </section>
         </div>
 

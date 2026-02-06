@@ -1,8 +1,8 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, 
-  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, Download, MoreVertical, FileAudio, FolderOpen, Shuffle
+  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, Download, MoreVertical, FileAudio, FolderOpen, Shuffle, Languages
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
@@ -66,28 +66,37 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('selectedFont');
     return saved || 'default';
   });
+  const [showTranslation, setShowTranslation] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showTranslation');
+    return saved ? saved === 'true' : true;
+  });
 
   // 加载字体
   useEffect(() => {
     // 移除所有已存在的字体链接
     const existingFontLinks = document.querySelectorAll('link[rel="stylesheet"][href*="fonts.font.im"]');
     existingFontLinks.forEach(link => link.remove());
-    
+
     if (selectedFont !== 'default') {
       const fontUrl = getFontUrl(selectedFont);
       if (fontUrl) {
         const fontLink = document.createElement('link');
         fontLink.rel = 'stylesheet';
         fontLink.href = fontUrl;
-        
+
         document.head.appendChild(fontLink);
-        
+
         return () => {
           document.head.removeChild(fontLink);
         };
       }
     }
   }, [selectedFont]);
+
+  // 保存翻译显示设置到 LocalStorage
+  useEffect(() => {
+    localStorage.setItem('showTranslation', showTranslation.toString());
+  }, [showTranslation]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -549,19 +558,19 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSeek = (time: number) => {
+  const handleSeek = useCallback((time: number) => {
     if (audioRef.current && time >= 0) {
       audioRef.current.currentTime = time;
       setCurrentTime(time);
     }
-  };
+  }, []);
 
-  const formatTime = (time: number) => {
+  const formatTime = useCallback((time: number) => {
     if (time < 0) return "--:--";
     const mins = Math.floor(time / 60);
     const secs = Math.floor(time % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
   const activeIndex = useMemo(() => {
     if (!track?.metadata.parsedLyrics.length) return -1;
@@ -586,17 +595,23 @@ const App: React.FC = () => {
    */
   const lyricsType = useMemo(() => {
     if (!track?.metadata.parsedLyrics.length) return 'none';
-    
+
     // 检查是否有任意一行包含逐字信息
     const hasWordLevelLyrics = track.metadata.parsedLyrics.some(
       line => line.chars && line.chars.length > 0
     );
-    
+
     return hasWordLevelLyrics ? 'word' : 'line';
   }, [track]);
 
+  // 缓存歌词列表渲染配置，避免每次渲染都重新计算
+  const lyricsList = useMemo(() => {
+    if (!track?.metadata.parsedLyrics.length) return [];
+    return track.metadata.parsedLyrics;
+  }, [track?.metadata.parsedLyrics]);
+
   // 处理用户交互的函数
-  const handleUserInteraction = () => {
+  const handleUserInteraction = useCallback(() => {
     // 1. 设为手动模式，停止自动滚动
     setIsManualScrolling(true);
 
@@ -607,11 +622,11 @@ const App: React.FC = () => {
 
     // 3. 设置 5 秒后恢复自动滚动（仅在音乐播放时）
     manualScrollTimerRef.current = setTimeout(() => {
-      if (isPlaying) {
+      if (audioRef.current && !audioRef.current.paused) {
         setIsManualScrolling(false);
       }
     }, 5000);
-  };
+  }, []);
 
   useEffect(() => {
     // 增加判断：如果处于手动操作期间，直接跳过自动滚动逻辑
@@ -868,12 +883,6 @@ const App: React.FC = () => {
                   <h1 className="text-xl md:text-2xl font-black text-white truncate drop-shadow-xl tracking-tight leading-tight">{track.metadata.title}</h1>
                   <p className="text-xs md:text-sm text-white/50 truncate font-bold tracking-[0.2em] uppercase">{track.metadata.artist}</p>
                 </div>
-
-                <div className="h-4 md:h-6 w-full text-center px-4">
-                  <p className="text-[10px] md:text-xs font-bold text-white/70 italic line-clamp-1 drop-shadow-md tracking-wide">
-                    {activeIndex !== -1 ? track.metadata.parsedLyrics[activeIndex].text : ""}
-                  </p>
-                </div>
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center gap-6 text-white/20 text-center opacity-50">
@@ -946,6 +955,16 @@ const App: React.FC = () => {
 
         {/* Settings Icon - Bottom Right */}
         <div className="fixed bottom-4 right-4 z-[65] flex flex-col items-center gap-2">
+          {/* Translation Toggle Button - Only show if lyrics have translation */}
+          {track?.metadata.parsedLyrics.some(line => line.translation) && (
+            <button
+              onClick={() => setShowTranslation(!showTranslation)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-90 ${showTranslation ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-white/50'}`}
+              title={showTranslation ? '隐藏翻译' : '显示翻译'}
+            >
+              <Languages size={18} />
+            </button>
+          )}
           <button
             data-settings-button
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -993,9 +1012,9 @@ const App: React.FC = () => {
             onTouchMove={handleUserInteraction}
             onMouseDown={handleUserInteraction}
           >
-            {track && track.metadata.parsedLyrics.length > 0 ? (
+            {track && lyricsList.length > 0 ? (
               <div className={`flex flex-col min-h-full transition-all duration-700 ${isSidebarOpen ? 'items-start' : 'items-center justify-center'}`}>
-                {track.metadata.parsedLyrics.map((line, idx) => (
+                {lyricsList.map((line, idx) => (
                   <LyricLine
                     key={idx}
                     line={line}
@@ -1003,13 +1022,14 @@ const App: React.FC = () => {
                     isActive={idx === activeIndex}
                     lyricsType={lyricsType}
                     currentTime={currentTime}
-                    nextLineTime={track.metadata.parsedLyrics[idx + 1]?.time}
+                    nextLineTime={lyricsList[idx + 1]?.time}
                     fontWeight={fontWeight}
                     letterSpacing={letterSpacing}
                     lineHeight={lineHeight}
                     selectedFont={selectedFont}
                     activeIndex={activeIndex}
                     isSidebarOpen={isSidebarOpen}
+                    showTranslation={showTranslation}
                     onSeek={handleSeek}
                     activeLyricRef={activeLyricRef}
                     formatTime={formatTime}
