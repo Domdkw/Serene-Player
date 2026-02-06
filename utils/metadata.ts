@@ -1,5 +1,5 @@
 
-import { TrackMetadata, LyricLine } from '../types';
+import { TrackMetadata, LyricLine, LyricChar } from '../types';
 
 export const parseLyrics = (rawLyrics: string | null): LyricLine[] => {
   if (!rawLyrics) return [];
@@ -13,21 +13,48 @@ export const parseLyrics = (rawLyrics: string | null): LyricLine[] => {
     const times = line.match(timeRegex);
     const text = line.replace(timeRegex, '').trim();
     
-    if (times) {
-      times.forEach(timeStr => {
-        const matches = timeRegex.exec(timeStr);
+    if (times && text) {
+      if (times.length > 1) {
+        const lyricLine: LyricLine = { time: -1, text };
+        const chars: LyricChar[] = [];
+        
+        timeRegex.lastIndex = 0;
+        let match;
+        let charIndex = 0;
+        
+        while ((match = timeRegex.exec(line)) !== null) {
+          const minutes = parseInt(match[1]);
+          const seconds = parseInt(match[2]);
+          const ms = parseInt(match[3]);
+          const time = minutes * 60 + seconds + ms / (match[3].length === 3 ? 1000 : 100);
+          
+          if (charIndex < text.length) {
+            chars.push({
+              time: time,
+              text: text[charIndex]
+            });
+            charIndex++;
+          }
+        }
+        
+        if (chars.length > 0) {
+          lyricLine.time = chars[0].time;
+          lyricLine.chars = chars;
+        }
+        
+        lines.push(lyricLine);
+      } else {
+        const matches = timeRegex.exec(times[0]);
         if (matches) {
           const minutes = parseInt(matches[1]);
           const seconds = parseInt(matches[2]);
           const ms = parseInt(matches[3]);
           const time = minutes * 60 + seconds + ms / (matches[3].length === 3 ? 1000 : 100);
+          
           lines.push({ time, text });
         }
-        // Reset regex state due to 'g' flag
-        timeRegex.lastIndex = 0;
-      });
+      }
     } else if (text) {
-      // For unsynchronized lyrics, assign a sequential time or handle as plain text
       lines.push({ time: -1, text });
     }
   });

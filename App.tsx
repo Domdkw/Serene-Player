@@ -631,6 +631,25 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    const setupInterval = () => {
+      if (!audioRef.current) {
+        setTimeout(setupInterval, 100);
+        return;
+      }
+
+      const interval = setInterval(() => {
+        if (audioRef.current && !audioRef.current.paused) {
+          setCurrentTime(audioRef.current.currentTime);
+        }
+      }, 100);
+
+      return () => clearInterval(interval);
+    };
+
+    setupInterval();
+  }, []);
+
+  useEffect(() => {
     if ('mediaSession' in navigator && track) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.metadata.title,
@@ -960,7 +979,7 @@ const App: React.FC = () => {
                       </div>
                       
                       <p 
-                        className={`font-black leading-[1.1] md:leading-tight drop-shadow-2xl transition-all duration-700 select-none ${
+                        className={`font-black leading-[1.1] md:leading-tight drop-shadow-2xl transition-all duration-700 select-none relative ${
                           isActive 
                             ? 'text-2xl md:text-[3vw] lg:text-[32px] opacity-100 scale-100 origin-center md:origin-left' 
                             : activeIndex !== -1 && (idx === activeIndex - 1 || idx === activeIndex + 1)
@@ -974,20 +993,31 @@ const App: React.FC = () => {
                           fontFamily: getFontFamily(selectedFont)
                         }}
                       >
+                        {isActive && line.chars && line.chars.length > 0 && (() => {
+                          let progress = 0;
+                          for (let i = 0; i < line.chars.length; i++) {
+                            const char = line.chars[i];
+                            const nextCharTime = line.chars[i + 1]?.time || track.metadata.parsedLyrics[idx + 1]?.time || char.time;
+                            if (currentTime >= char.time) {
+                              if (currentTime < nextCharTime) {
+                                progress = ((i + (currentTime - char.time) / (nextCharTime - char.time)) / line.chars.length) * 100;
+                                break;
+                              } else if (i === line.chars.length - 1) {
+                                progress = 100;
+                              }
+                            }
+                          }
+                          return (
+                            <span 
+                              className="absolute left-0 top-0 bottom-0 bg-white/10 rounded-lg -z-10 transition-all duration-50 ease-linear"
+                              style={{
+                                width: `${Math.min(100, Math.max(0, progress))}%`
+                              }}
+                            />
+                          );
+                        })()}
                         {line.text}
                       </p>
-                      
-                      {/* Progress bar for active lyric */}
-                      {isActive && track.metadata.parsedLyrics[idx + 1] && (
-                        <div className="mt-2 w-full h-[2px] bg-white/20 relative overflow-hidden">
-                          <div 
-                            className="absolute top-0 left-0 h-full bg-white transition-all duration-100"
-                            style={{
-                              width: `${((currentTime - line.time + 0.1) / (track.metadata.parsedLyrics[idx + 1].time - line.time)) * 100}%`
-                            }}//+0.1 是为了避免进度条到最后一个字时，进度条不显示，补上transition-all
-                          />
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -1072,7 +1102,6 @@ const App: React.FC = () => {
 
       <audio 
         ref={audioRef}
-        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
         onEnded={onEnded}
       />
@@ -1106,6 +1135,9 @@ const App: React.FC = () => {
         @keyframes wave {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(0%); }
+        }
+        .inline-block {
+          will-change: background-size, transform;
         }
         .animate-rainbow-flow {
           background: linear-gradient(

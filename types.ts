@@ -1,7 +1,13 @@
 
+export interface LyricChar {
+  time: number;
+  text: string;
+}
+
 export interface LyricLine {
   time: number;
   text: string;
+  chars?: LyricChar[];
 }
 
 export interface TrackMetadata {
