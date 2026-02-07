@@ -28,7 +28,7 @@ interface MusicPlayerProps {
 
 // 流光加载条组件
 const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
-  <div className="fixed top-0 left-0 right-0 h-[2px] bg-white/5 z-[100] overflow-hidden">
+  <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/5 z-[100] overflow-hidden">
     <div 
       className="h-full relative overflow-hidden transition-all duration-300 ease-out"
       style={{ width: `${progress}%` }}
@@ -41,7 +41,7 @@ const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
 
 // 背景动画组件
 const AnimatedBackground = memo(({ coverUrl }: { coverUrl?: string | null }) => (
-  <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-neutral-900">
+  <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-neutral-900">
     {coverUrl && (
       <div 
         className="absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] animate-rotate-cover transition-all duration-1000"
@@ -130,7 +130,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   }, [activeIndex]);
 
   return (
-    <div className="fixed inset-0 bg-black text-white flex flex-col z-[60] pb-[80px]">
+    <div className="w-full h-full bg-black text-white flex flex-col pb-[80px]">
       {/* 背景动画 */}
       <AnimatedBackground coverUrl={track.metadata.coverUrl} />
       
@@ -138,7 +138,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
       {loadingProgress !== null && <ShimmerLoadingBar progress={loadingProgress} />}
 
       {/* Top Bar */}
-      <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between">
+      <header className="absolute top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
@@ -146,7 +146,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           >
             <ChevronLeft size={20} />
           </button>
-          <span className="text-sm text-white/60">返回列表</span>
+          <span className="text-sm text-white/60">关闭播放页</span>
         </div>
       </header>
 

@@ -16,6 +16,7 @@ interface MiniPlayerBarProps {
   onToggleTranslation: () => void;
   onSeek: (time: number) => void;
   onOpenPlayer: () => void;
+  isFullPlayerOpen: boolean;
   formatTime: (time: number) => string;
 }
 
@@ -39,6 +40,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   onToggleTranslation,
   onSeek,
   onOpenPlayer,
+  isFullPlayerOpen,
   formatTime
 }) => {
   const hasTrack = track !== null;
@@ -51,6 +53,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
           className={`flex items-center gap-4 w-1/4 rounded-xl p-2 -ml-2 transition-colors ${
             hasTrack ? 'cursor-pointer hover:bg-white/5' : 'cursor-default'
           }`}
+          title={isFullPlayerOpen ? '关闭播放页' : '打开播放页'}
         >
           {hasTrack && track.metadata.coverUrl ? (
             <img

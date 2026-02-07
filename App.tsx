@@ -1014,28 +1014,37 @@ const App: React.FC = () => {
         onCyclePlaybackMode={cyclePlaybackMode}
         onToggleTranslation={() => setShowTranslation(!showTranslation)}
         onSeek={handleSeek}
-        onOpenPlayer={() => setShowFullPlayer(true)}
+        onOpenPlayer={() => setShowFullPlayer(!showFullPlayer)}
+        isFullPlayerOpen={showFullPlayer}
         formatTime={formatTime}
       />
 
       {/* Full Player - overlay when showFullPlayer is true */}
-      {showFullPlayer && track && (
-        <MusicPlayer
-          track={track}
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          showTranslation={showTranslation}
-          setShowTranslation={setShowTranslation}
-          onBack={() => setShowFullPlayer(false)}
-          loadingProgress={loadingProgress}
-          fontWeight={fontWeight}
-          letterSpacing={letterSpacing}
-          lineHeight={lineHeight}
-          selectedFont={selectedFont}
-          onSeek={handleSeek}
-          formatTime={formatTime}
-        />
+      {track && (
+        <div 
+          className={`fixed inset-0 z-[60] transition-all duration-300 ease-out ${
+            showFullPlayer 
+              ? 'opacity-100 translate-y-0 pointer-events-auto' 
+              : 'opacity-0 translate-y-full pointer-events-none'
+          }`}
+        >
+          <MusicPlayer
+            track={track}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            showTranslation={showTranslation}
+            setShowTranslation={setShowTranslation}
+            onBack={() => setShowFullPlayer(false)}
+            loadingProgress={loadingProgress}
+            fontWeight={fontWeight}
+            letterSpacing={letterSpacing}
+            lineHeight={lineHeight}
+            selectedFont={selectedFont}
+            onSeek={handleSeek}
+            formatTime={formatTime}
+          />
+        </div>
       )}
 
       <style>{`
