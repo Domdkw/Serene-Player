@@ -749,43 +749,6 @@ const App: React.FC = () => {
         />
       </nav>
 
-      {/* Upload Section */}
-      <div className="p-4 border-t border-white/[0.05]">
-        <div className="relative" ref={uploadMenuRef}>
-          <button
-            onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all duration-200 text-sm font-medium"
-          >
-            <Upload size={16} />
-            导入音乐
-          </button>
-          
-          {isUploadMenuOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 bg-[#1a1a1f] rounded-xl border border-white/[0.05] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
-              <button
-                onClick={() => {
-                  fileInputRef.current?.click();
-                  setIsUploadMenuOpen(false);
-                }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
-              >
-                <FileAudio size={16} />
-                导入文件
-              </button>
-              <button
-                onClick={() => {
-                  folderInputRef.current?.click();
-                  setIsUploadMenuOpen(false);
-                }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
-              >
-                <FolderOpen size={16} />
-                导入文件夹
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
     </aside>
   ), [activeTab, handleTabChange, playlist.length, artistsByLetter, isUploadMenuOpen]);
 
@@ -860,15 +823,52 @@ const App: React.FC = () => {
           </p>
         </div>
         
-        <button
-          onClick={cyclePlaybackMode}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all duration-200 text-sm"
-        >
-          {getPlaybackModeIcon()}
-          <span>
-            {playbackMode === 'single' ? '单曲循环' : playbackMode === 'list' ? '列表循环' : '随机播放'}
-          </span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={cyclePlaybackMode}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all duration-200 text-sm"
+          >
+            {getPlaybackModeIcon()}
+            <span>
+              {playbackMode === 'single' ? '单曲循环' : playbackMode === 'list' ? '列表循环' : '随机播放'}
+            </span>
+          </button>
+          
+          <div className="relative" ref={uploadMenuRef}>
+            <button
+              onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
+              className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all duration-200"
+              title="导入音乐"
+            >
+              <Upload size={18} />
+            </button>
+            
+            {isUploadMenuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-40 bg-[#1a1a1f] rounded-xl border border-white/[0.05] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+                <button
+                  onClick={() => {
+                    fileInputRef.current?.click();
+                    setIsUploadMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
+                >
+                  <FileAudio size={16} />
+                  导入文件
+                </button>
+                <button
+                  onClick={() => {
+                    folderInputRef.current?.click();
+                    setIsUploadMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
+                >
+                  <FolderOpen size={16} />
+                  导入文件夹
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       
       {/* Folder Loading Indicator */}
@@ -894,7 +894,7 @@ const App: React.FC = () => {
         />
       </div>
     </div>
-  ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl]);
+  ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef]);
 
   // 渲染设置视图
   const renderSettingsView = useCallback(() => (

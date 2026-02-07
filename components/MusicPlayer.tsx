@@ -177,7 +177,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
       {/* Main Content */}
       <main className="flex-1 flex relative z-10">
         {/* Left: Cover Art - 40% 宽度，缩小尺寸 */}
-        <section className="w-[40%] h-screen flex items-center justify-center p-8 lg:p-12">
+        <section className="w-[40%] h-screen flex items-center justify-center p-8 lg:p-12 bg-transparent">
           <div
             ref={coverRef}
             onMouseMove={handleCoverMouseMove}
@@ -194,10 +194,10 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
               <img
                 src={track.metadata.coverUrl}
                 alt="Cover"
-                className="w-full h-full object-cover rounded-2xl shadow-2xl"
+                className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center">
                 <Music size={48} className="text-white/20" />
               </div>
             )}
@@ -205,7 +205,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
         </section>
 
         {/* Right: Lyrics - 60% 宽度 */}
-        <section className="w-[60%] h-screen relative">
+        <section className="w-[60%] h-screen relative bg-transparent">
           {/* Track Info */}
           <div className="absolute top-20 left-0 right-0 text-center z-20 px-8">
             <h1 className="text-xl lg:text-2xl font-black text-white mb-2 tracking-tight">
@@ -254,14 +254,12 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             )}
           </div>
 
-          {/* Gradient Masks */}
-          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black to-transparent pointer-events-none z-10" />
-          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black to-transparent pointer-events-none z-10" />
+
         </section>
       </main>
 
       {/* Bottom Player Bar */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-2xl border-t border-white/10 px-6 py-4 z-50">
+      <footer className="fixed bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-t border-white/10 px-6 py-4 z-50">
         <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
           {/* Track Info */}
           <div className="flex items-center gap-4 w-1/4">
