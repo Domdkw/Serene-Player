@@ -1,16 +1,152 @@
-
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { 
-  Upload, Play, Pause, SkipBack, SkipForward, 
-  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, Download, MoreVertical, FileAudio, FolderOpen, Shuffle, Languages
+  Upload, Music, X, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
 import { MusicLibrary } from './utils/MusicLibrary';
 import SettingsPanel from './components/SettingsPanel';
-import LyricLine from './components/LyricLine';
+import MusicPlayer from './components/MusicPlayer';
 import fetchInChunks from 'fetch-in-chunks';
-import { getFontFamily, getFontUrl } from './utils/fontUtils';
+import { getFontUrl } from './utils/fontUtils';
+
+type NavTab = 'songs' | 'artists' | 'settings';
+
+// 使用memo优化子组件，避免不必要的重渲染
+const SidebarItem = memo(({ 
+  icon: Icon, 
+  label, 
+  isActive, 
+  onClick,
+  badge
+}: { 
+  icon: React.ElementType; 
+  label: string; 
+  isActive: boolean; 
+  onClick: () => void;
+  badge?: number;
+}) => (
+  <button
+    onClick={onClick}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ease-out group relative overflow-hidden ${
+      isActive 
+        ? 'bg-white text-black' 
+        : 'text-white/60 hover:text-white hover:bg-white/5'
+    }`}
+  >
+    <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+    <span className="font-medium text-sm">{label}</span>
+    {badge !== undefined && badge > 0 && (
+      <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
+        isActive ? 'bg-black/10 text-black' : 'bg-white/10 text-white/60'
+      }`}>
+        {badge}
+      </span>
+    )}
+  </button>
+));
+
+// 流光加载条组件
+const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
+  <div className="fixed top-0 left-0 right-0 h-[2px] bg-white/5 z-[100] overflow-hidden">
+    <div 
+      className="h-full relative overflow-hidden transition-all duration-300 ease-out"
+      style={{ width: `${progress}%` }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-shimmer" />
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-80" />
+    </div>
+  </div>
+));
+
+// 文件夹加载指示器
+const FolderLoadingIndicator = memo(({ name, progress }: { name: string; progress: number }) => (
+  <div className="mb-6 p-4 bg-white/[0.03] rounded-2xl border border-white/[0.05] backdrop-blur-sm">
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+          <Loader2 size={16} className="text-white/60 animate-spin" />
+        </div>
+        <div>
+          <span className="text-sm text-white font-medium">Loading {name}</span>
+          <span className="text-xs text-white/40 ml-2">{progress}%</span>
+        </div>
+      </div>
+    </div>
+    <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+      <div 
+        className="h-full relative overflow-hidden rounded-full transition-all duration-300"
+        style={{ width: `${progress}%` }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer" />
+      </div>
+    </div>
+  </div>
+));
+
+// 艺术家字母分组
+const ArtistLetterGroup = memo(({ 
+  letter, 
+  artists, 
+  onSelect 
+}: { 
+  letter: string; 
+  artists: string[]; 
+  onSelect: (artist: string) => void;
+}) => (
+  <div className="mb-6">
+    <div className="sticky top-0 z-10 px-4 py-2 bg-[#121214]/95 backdrop-blur-sm">
+      <span className="text-2xl font-black text-white/20">{letter}</span>
+    </div>
+    <div className="space-y-1 px-2">
+      {artists.map((artist, idx) => (
+        <button
+          key={idx}
+          onClick={() => onSelect(artist)}
+          className="w-full text-left px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white rounded-xl transition-all duration-200 text-sm font-medium"
+        >
+          {artist}
+        </button>
+      ))}
+    </div>
+  </div>
+));
+
+// 内容切换动画包装器
+const AnimatedContent = memo(({ 
+  children, 
+  activeTab,
+  className = ''
+}: { 
+  children: React.ReactNode; 
+  activeTab: NavTab;
+  className?: string;
+}) => {
+  const [displayTab, setDisplayTab] = useState(activeTab);
+  const [isAnimating, setIsAnimating] = useState(false);
+  
+  useEffect(() => {
+    if (displayTab !== activeTab) {
+      setIsAnimating(true);
+      const timer = setTimeout(() => {
+        setDisplayTab(activeTab);
+        setIsAnimating(false);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, displayTab]);
+
+  return (
+    <div 
+      className={`transition-all duration-300 ease-out ${
+        isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+      } ${className}`}
+    >
+      {children}
+    </div>
+  );
+});
 
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
@@ -25,8 +161,12 @@ const App: React.FC = () => {
   const [loadedLinks, setLoadedLinks] = useState<Set<string>>(new Set());
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('single');
+  
+  // Navigation state
+  const [activeTab, setActiveTab] = useState<NavTab>('songs');
+  const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   
   // UI states
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
@@ -36,15 +176,9 @@ const App: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   
-  // 3D cover effect states
-  const [coverMousePos, setCoverMousePos] = useState({ x: 0, y: 0 });
-  const [isCoverHovered, setIsCoverHovered] = useState(false);
-  const coverRef = useRef<HTMLDivElement>(null);
+
   
   // Settings states
-
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   const [chunkCount, setChunkCount] = useState<number>(() => {
     const saved = localStorage.getItem('chunkCount');
@@ -71,9 +205,15 @@ const App: React.FC = () => {
     return saved ? saved === 'true' : true;
   });
 
+  // Refs
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadMenuRef = useRef<HTMLDivElement | null>(null);
+
   // 加载字体
   useEffect(() => {
-    // 移除所有已存在的字体链接
     const existingFontLinks = document.querySelectorAll('link[rel="stylesheet"][href*="fonts.font.im"]');
     existingFontLinks.forEach(link => link.remove());
 
@@ -83,9 +223,7 @@ const App: React.FC = () => {
         const fontLink = document.createElement('link');
         fontLink.rel = 'stylesheet';
         fontLink.href = fontUrl;
-
         document.head.appendChild(fontLink);
-
         return () => {
           document.head.removeChild(fontLink);
         };
@@ -98,15 +236,16 @@ const App: React.FC = () => {
     localStorage.setItem('showTranslation', showTranslation.toString());
   }, [showTranslation]);
 
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const lyricsContainerRef = useRef<HTMLDivElement | null>(null);
-  const activeLyricRef = useRef<HTMLDivElement | null>(null);
-  const manualScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const folderInputRef = useRef<HTMLInputElement | null>(null);
-  const uploadMenuRef = useRef<HTMLDivElement | null>(null);
-  const [isManualScrolling, setIsManualScrolling] = useState(false);
+  // 性能优化：使用useCallback缓存函数
+  const handleTabChange = useCallback((tab: NavTab) => {
+    if (tab === activeTab) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setActiveTab(tab);
+      setSelectedArtist(null);
+      setIsTransitioning(false);
+    }, 200);
+  }, [activeTab]);
 
   // Load playlist on mount
   useEffect(() => {
@@ -131,8 +270,6 @@ const App: React.FC = () => {
         setPlaylistFolders(processedFolders);
         setPlaylist(allTracks);
         
-        // 通知 index.html 隐藏加载动画
-        console.log('[App] Trying to hide loader, hideAppLoader exists:', !!(window as any).hideAppLoader);
         if ((window as any).hideAppLoader) {
           (window as any).hideAppLoader();
         }
@@ -140,16 +277,32 @@ const App: React.FC = () => {
       .catch(err => {
         console.error("Failed to load playlist", err);
         setErrorMessage("Could not load playlist. Check if discList.json exists.");
-        // 即使加载失败也要隐藏加载动画
         if ((window as any).hideAppLoader) {
           (window as any).hideAppLoader();
         }
       });
   }, []);
 
+  // 性能优化：使用useMemo缓存计算结果
+  const artistsByLetter = useMemo(() => {
+    const artistSet = new Set<string>();
+    playlist.forEach(item => {
+      if (item.artist) artistSet.add(item.artist);
+    });
+    
+    const grouped: Record<string, string[]> = {};
+    Array.from(artistSet).sort((a, b) => a.localeCompare(b, 'zh-CN')).forEach(artist => {
+      const firstLetter = artist.charAt(0).toUpperCase();
+      if (!grouped[firstLetter]) {
+        grouped[firstLetter] = [];
+      }
+      grouped[firstLetter].push(artist);
+    });
+    
+    return grouped;
+  }, [playlist]);
 
-
-  const loadLinkedFolder = async (folderName: string, linkUrl: string) => {
+  const loadLinkedFolder = useCallback(async (folderName: string, linkUrl: string) => {
     if (loadedLinks.has(linkUrl)) {
       return;
     }
@@ -170,20 +323,14 @@ const App: React.FC = () => {
         const folderData = prev[folderName];
         
         if (folderData && typeof folderData === 'object' && 'link' in folderData) {
-          // 创建新的文件夹对象，包含链接信息和加载的内容
           const newFolderData: any = { ...folderData };
           
           if (Array.isArray(data)) {
-            // 如果是数组，直接作为 tracks
             newFolderData.tracks = data;
           } else if (typeof data === 'object' && data !== null) {
-            // 如果是对象，检查是否有空键名的数组
             const emptyKeyData = data[""];
             if (Array.isArray(emptyKeyData)) {
-              // 空键名的数组作为当前文件夹的 tracks
               newFolderData.tracks = emptyKeyData;
-              
-              // 其他键名作为子文件夹
               newFolderData.children = {};
               for (const [key, value] of Object.entries(data)) {
                 if (key !== "" && Array.isArray(value)) {
@@ -193,7 +340,6 @@ const App: React.FC = () => {
                 }
               }
             } else {
-              // 没有空键名，所有内容作为子文件夹
               newFolderData.children = {};
               for (const [key, value] of Object.entries(data)) {
                 if (Array.isArray(value)) {
@@ -225,7 +371,6 @@ const App: React.FC = () => {
             }
           }
         } else if (typeof data === 'object' && data !== null) {
-          // 处理所有数组内容
           for (const value of Object.values(data)) {
             if (Array.isArray(value)) {
               for (const track of value) {
@@ -260,9 +405,9 @@ const App: React.FC = () => {
         return newSet;
       });
     }
-  };
+  }, [loadedLinks]);
 
-  const loadMusicFromUrl = async (item: PlaylistItem, index: number) => {
+  const loadMusicFromUrl = useCallback(async (item: PlaylistItem, index: number) => {
     setErrorMessage(null);
     setLyricsLoading(true);
     setLoadingTrackUrl(item.url);
@@ -280,21 +425,17 @@ const App: React.FC = () => {
       let file: File;
       let objectUrl: string;
       
-      // 检查是否是本地文件（通过文件夹上传的）
       if (item.file) {
-        // 直接使用已上传的文件
         file = item.file;
-        objectUrl = item.url; // blob URL
+        objectUrl = item.url;
         setLoadingProgress(100);
       } else if (item.url.startsWith('blob:')) {
-        // blob URL 但没有 file 对象，尝试直接获取
         const response = await fetch(item.url);
         const blob = await response.blob();
         file = new File([blob], item.name, { type: blob.type || 'audio/mpeg' });
         objectUrl = item.url;
         setLoadingProgress(100);
       } else {
-        // 远程 URL，使用 fetchInChunks 下载
         const encodedUrl = item.url.startsWith('http://') || item.url.startsWith('https://') 
           ? item.url 
           : encodeURI(item.url);
@@ -312,7 +453,7 @@ const App: React.FC = () => {
         if (signal.aborted) return;
 
         file = new File([blob], item.name, { type: 'audio/mpeg' });
-        objectUrl = URL.createObjectURL(file);
+        objectUrl = URL.createObjectURL(blob);
       }
       
       const metadata = await extractMetadata(file);
@@ -323,28 +464,26 @@ const App: React.FC = () => {
       setLoadingProgress(null);
       setLoadingTrackUrl(null);
       setLyricsLoading(false);
-      // 重置自动滚动
-      setIsManualScrolling(false);
-      if (manualScrollTimerRef.current) {
-        clearTimeout(manualScrollTimerRef.current);
-        manualScrollTimerRef.current = null;
-      }
       
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = objectUrl;
-        audioRef.current.load();
-        try {
-          await audioRef.current.play();
-          setIsPlaying(true);
-        } catch (e) {
-          console.warn("Autoplay was prevented.", e);
+      // 延迟播放以避免 AbortError
+      setTimeout(async () => {
+        if (audioRef.current) {
+          audioRef.current.src = objectUrl;
+          audioRef.current.load();
+          try {
+            await audioRef.current.play();
+            setIsPlaying(true);
+          } catch (e) {
+            console.warn("Autoplay was prevented.", e);
+          }
         }
-      }
+      }, 100);
 
-      // 只清理非 blob URL 的旧 URL
+      // 延迟释放旧 URL
       if (oldUrl && !oldUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(oldUrl);
+        setTimeout(() => {
+          URL.revokeObjectURL(oldUrl);
+        }, 1000);
       }
     } catch (error: any) {
       if (error.name === 'AbortError') return;
@@ -355,9 +494,9 @@ const App: React.FC = () => {
       setErrorMessage(error.message || "An error occurred while loading the track.");
       setIsPlaying(false);
     }
-  };
+  }, [chunkCount, track?.objectUrl]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setErrorMessage(null);
@@ -367,47 +506,38 @@ const App: React.FC = () => {
         const objectUrl = URL.createObjectURL(file);
         const oldUrl = track?.objectUrl;
         setTrack({ file, objectUrl, metadata });
-      setLoadingProgress(null);
-      // 重置自动滚动
-      setIsManualScrolling(false);
-      if (manualScrollTimerRef.current) {
-        clearTimeout(manualScrollTimerRef.current);
-        manualScrollTimerRef.current = null;
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = objectUrl;
-        audioRef.current.load();
-        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-      }
-      if (oldUrl) URL.revokeObjectURL(oldUrl);
+        setLoadingProgress(null);
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = objectUrl;
+          audioRef.current.load();
+          audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+        }
+        if (oldUrl) URL.revokeObjectURL(oldUrl);
       } catch (err) {
         setErrorMessage("Failed to process the uploaded file.");
         setLoadingProgress(null);
       }
     }
-    // 重置 input 以便可以再次选择同一文件
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+  }, [track?.objectUrl]);
 
-  // 支持的音频格式
-  const supportedAudioFormats = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma', '.ape', '.opus'];
+  const supportedAudioFormats = useMemo(() => ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma', '.ape', '.opus'], []);
 
-  const isAudioFile = (filename: string): boolean => {
+  const isAudioFile = useCallback((filename: string): boolean => {
     const lowerName = filename.toLowerCase();
     return supportedAudioFormats.some(ext => lowerName.endsWith(ext));
-  };
+  }, [supportedAudioFormats]);
 
-  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFolderUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setErrorMessage(null);
     const audioFiles: File[] = [];
 
-    // 筛选出音频文件
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (isAudioFile(file.name)) {
@@ -423,28 +553,23 @@ const App: React.FC = () => {
       return;
     }
 
-    // 按文件名排序
     audioFiles.sort((a, b) => a.name.localeCompare(b.name));
 
-    // 创建播放列表项
     const newTracks: PlaylistItem[] = audioFiles.map((file, index) => ({
-      name: file.name.replace(/\.[^/.]+$/, ''), // 移除扩展名
+      name: file.name.replace(/\.[^/.]+$/, ''),
       url: URL.createObjectURL(file),
       artist: 'Unknown Artist',
       file: file
     }));
 
-    // 添加到播放列表
     setPlaylist(prev => [...prev, ...newTracks]);
 
-    // 创建一个新的文件夹分组
     const folderName = `Local Folder ${new Date().toLocaleTimeString()}`;
     setPlaylistFolders(prev => ({
       ...prev,
       [folderName]: newTracks
     }));
 
-    // 播放第一首
     if (newTracks.length > 0) {
       const firstTrack = newTracks[0];
       const file = audioFiles[0];
@@ -454,34 +579,26 @@ const App: React.FC = () => {
         const objectUrl = URL.createObjectURL(file);
         const oldUrl = track?.objectUrl;
         setTrack({ file, objectUrl, metadata });
-      setCurrentIndex(playlist.length); // 新添加的第一首的索引
-      setLoadingProgress(null);
-      // 重置自动滚动
-      setIsManualScrolling(false);
-      if (manualScrollTimerRef.current) {
-        clearTimeout(manualScrollTimerRef.current);
-        manualScrollTimerRef.current = null;
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = objectUrl;
-        audioRef.current.load();
-        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-      }
-      if (oldUrl) URL.revokeObjectURL(oldUrl);
+        setCurrentIndex(playlist.length);
+        setLoadingProgress(null);
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = objectUrl;
+          audioRef.current.load();
+          audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+        }
+        if (oldUrl) URL.revokeObjectURL(oldUrl);
       } catch (err) {
         setErrorMessage("Failed to process the uploaded file.");
         setLoadingProgress(null);
       }
     }
 
-    // 重置 input
     if (folderInputRef.current) {
       folderInputRef.current.value = '';
     }
-  };
+  }, [isAudioFile, playlist.length, track?.objectUrl]);
 
-  // 点击外部关闭上传菜单
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (uploadMenuRef.current && !uploadMenuRef.current.contains(event.target as Node)) {
@@ -498,7 +615,7 @@ const App: React.FC = () => {
     };
   }, [isUploadMenuOpen]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (playbackMode === 'shuffle') {
       if (playlist.length === 0) return;
       let randomIndex;
@@ -522,11 +639,10 @@ const App: React.FC = () => {
       const nextIndex = (currentIndex + 1) % playlist.length;
       loadMusicFromUrl(playlist[nextIndex], nextIndex);
     }
-  };
+  }, [playbackMode, playlist, currentIndex, currentFolder, playlistFolders, loadMusicFromUrl]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (playbackMode === 'shuffle') {
-      // In shuffle mode, prev is same as next (random)
       handleNext();
     } else if (currentFolder && playlistFolders[currentFolder]) {
       const folderTracks = playlistFolders[currentFolder];
@@ -544,9 +660,9 @@ const App: React.FC = () => {
       const prevIndex = (currentIndex - 1 + playlist.length) % playlist.length;
       loadMusicFromUrl(playlist[prevIndex], prevIndex);
     }
-  };
+  }, [playbackMode, playlist, currentIndex, currentFolder, playlistFolders, loadMusicFromUrl, handleNext]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (!audioRef.current || !track) return;
     if (isPlaying) {
       audioRef.current.pause();
@@ -556,7 +672,7 @@ const App: React.FC = () => {
         console.error("Playback error:", e);
       });
     }
-  };
+  }, [isPlaying, track]);
 
   const handleSeek = useCallback((time: number) => {
     if (audioRef.current && time >= 0) {
@@ -572,638 +688,364 @@ const App: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
-  const activeIndex = useMemo(() => {
-    if (!track?.metadata.parsedLyrics.length) return -1;
-    let index = -1;
-    for (let i = 0; i < track.metadata.parsedLyrics.length; i++) {
-      if (track.metadata.parsedLyrics[i].time <= currentTime) {
-        index = i;
-      } else {
-        break;
-      }
-    }
-    return index;
-  }, [track, currentTime]);
 
-  /**
-   * 检测歌词类型
-   * @returns 'word' - 逐字歌词, 'line' - 逐行歌词, 'none' - 无歌词
-   * 
-   * 判断逻辑：
-   * - 逐字歌词：歌词行包含 chars 数组，且数组长度大于0
-   * - 逐行歌词：歌词行不包含 chars 数组，或 chars 数组为空
-   */
-  const lyricsType = useMemo(() => {
-    if (!track?.metadata.parsedLyrics.length) return 'none';
 
-    // 检查是否有任意一行包含逐字信息
-    const hasWordLevelLyrics = track.metadata.parsedLyrics.some(
-      line => line.chars && line.chars.length > 0
-    );
-
-    return hasWordLevelLyrics ? 'word' : 'line';
-  }, [track]);
-
-  // 缓存歌词列表渲染配置，避免每次渲染都重新计算
-  const lyricsList = useMemo(() => {
-    if (!track?.metadata.parsedLyrics.length) return [];
-    return track.metadata.parsedLyrics;
-  }, [track?.metadata.parsedLyrics]);
-
-  // 处理用户交互的函数
-  const handleUserInteraction = useCallback(() => {
-    // 1. 设为手动模式，停止自动滚动
-    setIsManualScrolling(true);
-
-    // 2. 清除之前的计时器
-    if (manualScrollTimerRef.current) {
-      clearTimeout(manualScrollTimerRef.current);
-    }
-
-    // 3. 设置 5 秒后恢复自动滚动（仅在音乐播放时）
-    manualScrollTimerRef.current = setTimeout(() => {
-      if (audioRef.current && !audioRef.current.paused) {
-        setIsManualScrolling(false);
-      }
-    }, 5000);
-  }, []);
-
-  useEffect(() => {
-    // 增加判断：如果处于手动操作期间，直接跳过自动滚动逻辑
-    if (isManualScrolling) return;
-
-    if (isAutoScrolling && activeLyricRef.current && lyricsContainerRef.current) {
-      const container = lyricsContainerRef.current;
-      const activeElement = activeLyricRef.current;
-      const scrollPos = activeElement.offsetTop - container.offsetHeight / 2 + activeElement.offsetHeight / 2;
-      container.scrollTo({ top: scrollPos, behavior: 'smooth' });
-    }
-  }, [activeIndex, isAutoScrolling, isManualScrolling]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      const settingsPanel = document.querySelector('[data-settings-panel]');
-      const settingsButton = document.querySelector('[data-settings-button]');
-      
-      if (isSettingsOpen && settingsPanel && settingsButton && 
-          !settingsPanel.contains(target) && !settingsButton.contains(target)) {
-        setIsSettingsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isSettingsOpen]);
-
-  const onEnded = () => {
+  const onEnded = useCallback(() => {
     if (playbackMode === 'single') {
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
-        audioRef.current.play();
+        audioRef.current.play().catch(() => {});
       }
     } else {
       handleNext();
     }
-  };
+  }, [playbackMode, handleNext]);
 
-  //逐字歌词检测时间
-  useEffect(() => {
-    const setupInterval = () => {
-      if (!audioRef.current) {
-        setTimeout(setupInterval, 100);
-        return;
-      }
-
-      const interval = setInterval(() => {
-        if (audioRef.current && !audioRef.current.paused) {
-          setCurrentTime(audioRef.current.currentTime);
-        }
-      }, 100);
-
-      return () => clearInterval(interval);
-    };
-
-    setupInterval();
+  const cyclePlaybackMode = useCallback(() => {
+    setPlaybackMode(prev => {
+      if (prev === 'single') return 'list';
+      if (prev === 'list') return 'shuffle';
+      return 'single';
+    });
   }, []);
 
-  useEffect(() => {
-    if ('mediaSession' in navigator && track) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: track.metadata.title,
-        artist: track.metadata.artist,
-      });
+  const getPlaybackModeIcon = useCallback(() => {
+    if (playbackMode === 'single') return <Repeat1 size={18} />;
+    if (playbackMode === 'list') return <Repeat size={18} />;
+    return <Shuffle size={18} />;
+  }, [playbackMode]);
 
-      navigator.mediaSession.setActionHandler('play', () => {
-        if (audioRef.current) {
-          audioRef.current.play();
-          setIsPlaying(true);
-        }
-      });
-
-      navigator.mediaSession.setActionHandler('pause', () => {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          setIsPlaying(false);
-        }
-      });
-
-      navigator.mediaSession.setActionHandler('previoustrack', handlePrev);
-      navigator.mediaSession.setActionHandler('nexttrack', handleNext);
-    }
-  }, [track, handlePrev, handleNext]);
-
-  useEffect(() => {
-    if (track) {
-      document.title = `${track.metadata.title} | Serene Player`;
-    } else {
-      document.title = 'Serene Player';
-    }
-  }, [track]);
-
-  return (
-    <div className="h-screen w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans" style={{ fontFamily: getFontFamily(selectedFont) }}>
-      
-      {/* Wave Loading Bar */}
-      {loadingProgress !== null && (
-        <div className="fixed top-0 left-0 w-full z-50 pointer-events-none">
-          <div className="relative h-1.5 md:h-2 bg-white/5 overflow-hidden shimmer-effect">
-            <div className="h-full bg-white transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.8)]" style={{ width: `${loadingProgress}%` }} />
-          </div>
+  // 渲染侧边栏
+  const renderSidebar = useCallback(() => (
+    <aside className="w-64 bg-[#0a0a0c] border-r border-white/[0.05] flex flex-col">
+      {/* Logo */}
+      <div className="p-6 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+          <Music size={20} className="text-white" />
         </div>
-      )}
-
-      {/* Error Message Toast */}
-      {errorMessage && (
-        <div className="fixed top-4 md:top-8 right-4 md:right-8 z-[60] bg-red-500/10 border border-red-500/50 backdrop-blur-xl px-4 py-3 rounded-2xl flex items-center gap-3 shadow-2xl animate-in slide-in-from-top-4">
-          <AlertCircle size={18} className="text-red-500" />
-          <p className="text-xs font-bold text-white max-w-[200px] leading-relaxed break-all">{errorMessage}</p>
-          <button onClick={() => setErrorMessage(null)} className="p-1 hover:bg-white/10 rounded-lg transition-colors ml-auto">
-            <X size={14} />
-          </button>
+        <div>
+          <h1 className="text-lg font-bold text-white">Serene</h1>
+          <p className="text-xs text-white/40">Music Player</p>
         </div>
-      )}
-
-      {/* Dynamic Animated Ambient Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-neutral-900">
-        {track?.metadata.coverUrl && (
-          <div 
-            className="absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] animate-rotate-cover transition-all duration-1000"
-            style={{
-              backgroundImage: `url(${track.metadata.coverUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              filter: 'blur(50px) brightness(0.7)',
-            }}
-          />
-        )}
       </div>
 
-      {/* Main Content: Responsive Split */}
-      <main className="flex-1 flex flex-col md:flex-row overflow-hidden z-10">
-        
-        {/* Left Column: Fixed/Scrollable Sidebar (35% on Desktop) */}
-        <section className="w-full md:w-[35%] lg:w-[30%] flex flex-col p-4 md:p-6 md:border-r border-white/10 bg-black/20 backdrop-blur-xl relative overflow-y-auto hide-scrollbar shrink-0 h-[60vh] md:h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6 md:mb-10 shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shadow-inner">
-                 <Music size={16} className="text-white" />
-              </div>
-              <span className="font-extrabold tracking-tighter text-white uppercase text-sm drop-shadow-lg">Serene</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Upload Menu */}
-              <div className="relative" ref={uploadMenuRef}>
-                <button
-                  onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-all cursor-pointer border border-white/10 active:scale-95"
-                >
-                  <Upload size={12} className="text-white" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Local</span>
-                </button>
-                
-                {/* Dropdown Menu */}
-                {isUploadMenuOpen && (
-                  <div className="absolute top-full right-0 mt-2 w-40 bg-black/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <button
-                      onClick={() => {
-                        fileInputRef.current?.click();
-                        setIsUploadMenuOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors text-left"
-                    >
-                      <FileAudio size={16} className="text-white/80" />
-                      <span className="text-xs font-medium text-white/90">上传文件</span>
-                    </button>
-                    <div className="h-px bg-white/10 mx-2" />
-                    <button
-                      onClick={() => {
-                        folderInputRef.current?.click();
-                        setIsUploadMenuOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors text-left"
-                    >
-                      <FolderOpen size={16} className="text-white/80" />
-                      <span className="text-xs font-medium text-white/90">上传文件夹</span>
-                    </button>
-                  </div>
-                )}
-                
-                {/* Hidden File Inputs */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.wma,.ape,.opus,audio/*"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-                <input
-                  ref={folderInputRef}
-                  type="file"
-                  accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.wma,.ape,.opus,audio/*"
-                  className="hidden"
-                  webkitdirectory=""
-                  directory=""
-                  multiple
-                  onChange={handleFolderUpload}
-                />
-              </div>
-              <button 
-                onClick={() => setIsSidebarOpen(prev => !prev)}
-                className={`p-2 rounded-full transition-all active:scale-95 ${isSidebarOpen ? 'bg-white text-black' : 'bg-white/5 hover:bg-white/10 border border-white/10'}`}
-              >
-                <ListMusic size={14} className={isSidebarOpen ? 'text-black' : 'text-white'} />
-              </button>
-            </div>
-          </div>
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-1">
+        <SidebarItem
+          icon={ListMusic}
+          label="歌曲"
+          isActive={activeTab === 'songs'}
+          onClick={() => handleTabChange('songs')}
+          badge={playlist.length}
+        />
+        <SidebarItem
+          icon={User}
+          label="艺术家"
+          isActive={activeTab === 'artists'}
+          onClick={() => handleTabChange('artists')}
+          badge={Object.values(artistsByLetter).flat().length}
+        />
+        <SidebarItem
+          icon={Settings}
+          label="设置"
+          isActive={activeTab === 'settings'}
+          onClick={() => handleTabChange('settings')}
+        />
+      </nav>
 
-          {/* Track Display */}
-          <div className="flex-1 flex flex-col items-center justify-center space-y-6 md:space-y-10 min-h-0">
-            {track ? (
-              <>
-                <div 
-                  ref={coverRef}
-                  className="relative group w-full aspect-square max-w-[200px] md:max-w-[280px] shrink-0"
-                  onMouseMove={(e) => {
-                    if (!coverRef.current) return;
-                    const rect = coverRef.current.getBoundingClientRect();
-                    const x = (e.clientX - rect.left) / rect.width - 0.5;
-                    const y = (e.clientY - rect.top) / rect.height - 0.5;
-                    setCoverMousePos({ x, y });
-                  }}
-                  onMouseEnter={() => setIsCoverHovered(true)}
-                  onMouseLeave={() => {
-                    setIsCoverHovered(false);
-                    setCoverMousePos({ x: 0, y: 0 });
-                  }}
-                >
-                  <div className={`absolute -inset-4 md:-inset-8 opacity-20 blur-3xl rounded-full transition-all duration-1000 ${isPlaying ? 'scale-110' : 'scale-90'}`} style={{ backgroundColor: 'white' }} />
-                  <div 
-                    className="relative w-full h-full rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xl border border-white/20 bg-black/40 transition-transform duration-125 ease-out"
-                    style={{
-                      transform: isCoverHovered 
-                        ? `perspective(1000px) rotateX(${-coverMousePos.y * 25}deg) rotateY(${coverMousePos.x * 25}deg) scale3d(1.05, 1.05, 1.05)` 
-                        : 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
-                      willChange: 'transform'
-                    }}
-                  >
-                    {track.metadata.coverUrl ? (
-                      <img 
-                        src={track.metadata.coverUrl} 
-                        className={`w-full h-full object-cover transition-transform duration-[5s] ease-linear ${isPlaying ? 'scale-125' : 'scale-100'}`} 
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center"><Music size={64} className="text-white/10" /></div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-center space-y-2 w-full px-2">
-                  <h1 className="text-xl md:text-2xl font-black text-white truncate drop-shadow-xl tracking-tight leading-tight">{track.metadata.title}</h1>
-                  <p className="text-xs md:text-sm text-white/50 truncate font-bold tracking-[0.2em] uppercase">{track.metadata.artist}</p>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center gap-6 text-white/20 text-center opacity-50">
-                <div className="p-12 rounded-[2.5rem] border-2 border-dashed border-white/5 bg-white/[0.02]"><Music size={48} strokeWidth={1} /></div>
-                <p className="text-[10px] uppercase tracking-[0.4em] font-black">Select Audio</p>
-              </div>
-            )}
-          </div>
-
-          {/* Controls - Fixed at bottom but part of scroll on very small screens */}
-          <div className="mt-8 pt-6 space-y-6 shrink-0">
-            <div className="space-y-3">
-              <input 
-                type="range"
-                min="0"
-                max={duration || 0}
-                step="0.1"
-                value={currentTime}
-                disabled={!track}
-                onChange={(e) => handleSeek(parseFloat(e.target.value))}
-                className="w-full cursor-pointer accent-white h-1.5"
-              />
-              <div className="flex justify-between px-1">
-                <span className="text-[10px] font-mono font-bold text-white/30">{formatTime(currentTime)}</span>
-                <span className="text-[10px] font-mono font-bold text-white/30">{formatTime(duration)}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-around">
-              <button 
-                onClick={handlePrev}
-                disabled={!playlist.length}
-                className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-              ><SkipBack size={28} /></button>
-              
-              <button 
-                onClick={togglePlay}
-                disabled={!track}
-                className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 active:scale-90 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] disabled:opacity-30"
-              >
-                {isPlaying ? <Pause size={28} md:size={32} fill="currentColor" /> : <Play size={28} md:size={32} fill="currentColor" className="ml-1" />}
-              </button>
-              
-              <button 
-                onClick={handleNext}
-                disabled={!playlist.length}
-                className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-              ><SkipForward size={28} /></button>
-            </div>
-
-            <div className="flex items-center justify-start gap-4  p-3">
-              <button
-                onClick={() => setPlaybackMode(prev => prev === 'single' ? 'list' : prev === 'list' ? 'shuffle' : 'single')}
-                className={`p-2 rounded-xl transition-all ${playbackMode === 'single' ? 'bg-white text-black' : 'bg-white/5 text-white/40 hover:text-white'}`}
-              >
-                {playbackMode === 'shuffle' ? <Shuffle size={16} /> : playbackMode === 'list' ? <Repeat size={16} /> : <Repeat1 size={16} />}
-              </button>
-              {track && (
-                <a
-                  href={track.objectUrl}
-                  download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition-all text-white/80 hover:text-white text-sm"
-                >
-                  <Download size={14} />
-                </a>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Settings Icon - Bottom Right */}
-        <div className="fixed bottom-4 right-4 z-[65] flex flex-col items-center gap-2">
-          {/* Translation Toggle Button - Only show if lyrics have translation */}
-          {track?.metadata.parsedLyrics.some(line => line.translation) && (
-            <button
-              onClick={() => setShowTranslation(!showTranslation)}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-90 ${showTranslation ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-white/50'}`}
-              title={showTranslation ? '隐藏翻译' : '显示翻译'}
-            >
-              <Languages size={18} />
-            </button>
-          )}
+      {/* Upload Section */}
+      <div className="p-4 border-t border-white/[0.05]">
+        <div className="relative" ref={uploadMenuRef}>
           <button
-            data-settings-button
-            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-90 ${isSettingsOpen ? 'bg-white text-black' : 'hover:bg-white/10'}`}
+            onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all duration-200 text-sm font-medium"
           >
-            <Settings size={18} className={isSettingsOpen ? 'text-black' : 'text-white/70 hover:text-white transition-colors'} />
+            <Upload size={16} />
+            导入音乐
           </button>
+          
+          {isUploadMenuOpen && (
+            <div className="absolute bottom-full left-0 right-0 mb-2 bg-[#1a1a1f] rounded-xl border border-white/[0.05] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <button
+                onClick={() => {
+                  fileInputRef.current?.click();
+                  setIsUploadMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
+              >
+                <FileAudio size={16} />
+                导入文件
+              </button>
+              <button
+                onClick={() => {
+                  folderInputRef.current?.click();
+                  setIsUploadMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
+              >
+                <FolderOpen size={16} />
+                导入文件夹
+              </button>
+            </div>
+          )}
         </div>
+      </div>
+    </aside>
+  ), [activeTab, handleTabChange, playlist.length, artistsByLetter, isUploadMenuOpen]);
 
+  // 渲染艺术家视图
+  const renderArtistsView = useCallback(() => {
+    if (selectedArtist) {
+      const artistTracks = playlist.filter(item => item.artist === selectedArtist);
+      
+      return (
+        <div className="h-full flex flex-col">
+          {/* Header */}
+          <div className="flex items-center gap-4 p-6 border-b border-white/[0.05]">
+            <button
+              onClick={() => setSelectedArtist(null)}
+              className="w-10 h-10 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] flex items-center justify-center transition-colors"
+            >
+              <ChevronLeft size={20} className="text-white/60" />
+            </button>
+            <div>
+              <h2 className="text-2xl font-bold text-white">{selectedArtist}</h2>
+              <p className="text-sm text-white/40">{artistTracks.length} 首歌曲</p>
+            </div>
+          </div>
+          
+          {/* Track List */}
+          <div className="flex-1 overflow-hidden">
+            <MusicLibrary
+              playlistFolders={{ [selectedArtist]: artistTracks }}
+              currentFolder={selectedArtist}
+              setCurrentFolder={() => setSelectedArtist(null)}
+              playlist={playlist}
+              currentIndex={currentIndex}
+              isPlaying={isPlaying}
+              onTrackSelect={loadMusicFromUrl}
+              loadingTrackUrl={loadingTrackUrl}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-full flex flex-col">
+        <div className="p-6 border-b border-white/[0.05]">
+          <h2 className="text-2xl font-bold text-white">艺术家</h2>
+          <p className="text-sm text-white/40 mt-1">按字母排序</p>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
+          {Object.keys(artistsByLetter).sort().map(letter => (
+            <ArtistLetterGroup
+              key={letter}
+              letter={letter}
+              artists={artistsByLetter[letter]}
+              onSelect={setSelectedArtist}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }, [selectedArtist, playlist, currentIndex, isPlaying, loadingTrackUrl, loadMusicFromUrl, artistsByLetter]);
+
+  // 渲染歌曲视图（使用MusicLibrary组件）
+  const renderSongsView = useCallback(() => (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b border-white/[0.05]">
+        <div>
+          <h2 className="text-2xl font-bold text-white">歌曲</h2>
+          <p className="text-sm text-white/40 mt-1">
+            {currentFolder ? currentFolder : `${Object.keys(playlistFolders).length} 个文件夹, ${playlist.length} 首歌曲`}
+          </p>
+        </div>
+        
+        <button
+          onClick={cyclePlaybackMode}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all duration-200 text-sm"
+        >
+          {getPlaybackModeIcon()}
+          <span>
+            {playbackMode === 'single' ? '单曲循环' : playbackMode === 'list' ? '列表循环' : '随机播放'}
+          </span>
+        </button>
+      </div>
+      
+      {/* Folder Loading Indicator */}
+      {folderLoading && (
+        <div className="px-6 pt-4">
+          <FolderLoadingIndicator name={folderLoading.name} progress={folderLoading.progress} />
+        </div>
+      )}
+      
+      {/* Music Library */}
+      <div className="flex-1 overflow-hidden p-6 pt-4">
+        <MusicLibrary
+          playlistFolders={playlistFolders}
+          currentFolder={currentFolder}
+          setCurrentFolder={setCurrentFolder}
+          playlist={playlist}
+          currentIndex={currentIndex}
+          isPlaying={isPlaying}
+          onTrackSelect={loadMusicFromUrl}
+          loadingFolders={loadingFolders}
+          onLoadLinkedFolder={loadLinkedFolder}
+          loadingTrackUrl={loadingTrackUrl}
+        />
+      </div>
+    </div>
+  ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl]);
+
+  // 渲染设置视图
+  const renderSettingsView = useCallback(() => (
+    <div className="h-full flex flex-col">
+      <div className="p-6 border-b border-white/[0.05]">
+        <h2 className="text-2xl font-bold text-white">设置</h2>
+        <p className="text-sm text-white/40 mt-1">自定义您的播放器</p>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-6">
         <SettingsPanel
-        isOpen={isSettingsOpen}
-        chunkCount={chunkCount}
+          chunkCount={chunkCount}
+          setChunkCount={setChunkCount}
+          fontWeight={fontWeight}
+          setFontWeight={setFontWeight}
+          letterSpacing={letterSpacing}
+          setLetterSpacing={setLetterSpacing}
+          lineHeight={lineHeight}
+          setLineHeight={setLineHeight}
+          selectedFont={selectedFont}
+          setSelectedFont={setSelectedFont}
+          showTranslation={showTranslation}
+          setShowTranslation={setShowTranslation}
+        />
+      </div>
+    </div>
+  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation]);
+
+  // 渲染主内容
+  const renderMainContent = useCallback(() => {
+    let content;
+    switch (activeTab) {
+      case 'artists':
+        content = renderArtistsView();
+        break;
+      case 'settings':
+        content = renderSettingsView();
+        break;
+      case 'songs':
+      default:
+        content = renderSongsView();
+        break;
+    }
+
+    return (
+      <div 
+        className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
+          isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+        }`}
+      >
+        {content}
+      </div>
+    );
+  }, [activeTab, isTransitioning, renderArtistsView, renderSettingsView, renderSongsView]);
+
+  // 播放器视图
+  if (track) {
+    return (
+      <MusicPlayer
+        track={track}
+        isPlaying={isPlaying}
+        currentTime={currentTime}
+        duration={duration}
+        showTranslation={showTranslation}
+        setShowTranslation={setShowTranslation}
+        onBack={() => setTrack(null)}
+        onTogglePlay={togglePlay}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onCyclePlaybackMode={cyclePlaybackMode}
+        playbackMode={playbackMode}
+        loadingProgress={loadingProgress}
         fontWeight={fontWeight}
         letterSpacing={letterSpacing}
         lineHeight={lineHeight}
         selectedFont={selectedFont}
-        onChunkCountChange={setChunkCount}
-        onFontWeightChange={setFontWeight}
-        onLetterSpacingChange={setLetterSpacing}
-        onLineHeightChange={setLineHeight}
-        onFontChange={setSelectedFont}
+        onSeek={handleSeek}
+        formatTime={formatTime}
+      />
+    );
+  }
+
+  // Main library view
+  return (
+    <div className="h-screen bg-[#121214] text-white flex overflow-hidden">
+      {/* Hidden inputs */}
+      <input
+        type="file"
+        accept="audio/*"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={folderInputRef}
+        onChange={handleFolderUpload}
+        className="hidden"
+        // @ts-ignore
+        webkitdirectory=""
+        directory=""
       />
 
-        {/* Right Column: Lyrics (65% on Desktop) */}
-        <section className="flex-1 relative overflow-hidden flex flex-col bg-transparent h-[40vh] md:h-full">
-          {/* Lyric Tags Header - AR & AL */}
-          {(track?.metadata.lyricArtist || track?.metadata.lyricAlbum) && (
-            <div className="absolute top-4 left-0 right-0 z-20 flex items-center justify-center gap-4 px-6 md:px-20">
-              {track.metadata.lyricArtist && (
-                <span className="text-xs md:text-sm text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
-                  AR: {track.metadata.lyricArtist}
-                </span>
-              )}
-              {track.metadata.lyricAlbum && (
-                <span className="text-xs md:text-sm text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
-                  AL: {track.metadata.lyricAlbum}
-                </span>
-              )}
-            </div>
-          )}
-          <div
-            ref={lyricsContainerRef}
-            className="flex-1 overflow-y-auto px-6 md:px-20 py-[20vh] md:py-[45vh] hide-scrollbar"
-            onWheel={handleUserInteraction}
-            onTouchMove={handleUserInteraction}
-            onMouseDown={handleUserInteraction}
-          >
-            {track && lyricsList.length > 0 ? (
-              <div className={`flex flex-col min-h-full transition-all duration-700 ${isSidebarOpen ? 'items-start' : 'items-center justify-center'}`}>
-                {lyricsList.map((line, idx) => (
-                  <LyricLine
-                    key={idx}
-                    line={line}
-                    idx={idx}
-                    isActive={idx === activeIndex}
-                    lyricsType={lyricsType}
-                    currentTime={currentTime}
-                    nextLineTime={lyricsList[idx + 1]?.time}
-                    fontWeight={fontWeight}
-                    letterSpacing={letterSpacing}
-                    lineHeight={lineHeight}
-                    selectedFont={selectedFont}
-                    activeIndex={activeIndex}
-                    isSidebarOpen={isSidebarOpen}
-                    showTranslation={showTranslation}
-                    onSeek={handleSeek}
-                    activeLyricRef={activeLyricRef}
-                    formatTime={formatTime}
-                    getFontFamily={getFontFamily}
-                  />
-                ))}
-              </div>
-            ) : track ? (
-              <div className="h-full flex flex-col items-center justify-center text-white/20 gap-4">
-                <Loader2 size={32} className="animate-spin opacity-20" />
-                <p className="text-sm md:text-xl italic font-medium tracking-tight opacity-40">No synchronized lyrics available</p>
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-white/[0.05] gap-6">
-                <div className="w-[80%] max-w-4xl flex flex-col items-center">
-                  <h2 className="text-xs font-black tracking-[0.4em] text-white/40 flex items-center gap-3 uppercase mb-6">
-                    <ListMusic size={18} />
-                    Music Library
-                  </h2>
-                  <MusicLibrary
-                    playlistFolders={playlistFolders}
-                    currentFolder={currentFolder}
-                    setCurrentFolder={setCurrentFolder}
-                    playlist={playlist}
-                    currentIndex={currentIndex}
-                    isPlaying={isPlaying}
-                    onTrackSelect={loadMusicFromUrl}
-                    isSidebar={false}
-                    isLoading={lyricsLoading}
-                    onLoadLinkedFolder={loadLinkedFolder}
-                    loadingTrackUrl={loadingTrackUrl}
-                    loadingFolders={loadingFolders}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Top/Bottom Masking Gradients */}
-          <div className="absolute top-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-b from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
-          <div className="absolute bottom-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-t from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
-        </section>
-      </main>
+      {/* Top loading bar with shimmer effect */}
+      {loadingProgress !== null && <ShimmerLoadingBar progress={loadingProgress} />}
 
-      {/* Playlist Sidebar */}
-      <div 
-        className={`fixed inset-y-0 right-0 w-full md:w-80 lg:w-96 z-[70] bg-black/40 backdrop-blur-[40px] border-l border-white/10 shadow-2xl transition-easeInOut duration-500 ${
-          isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div className="h-full flex flex-col p-6 md:p-10">
-          <div className="flex items-center justify-between mb-10">
-            <h2 className="text-xs font-black tracking-[0.4em] text-white/40 flex items-center gap-3 uppercase">
-              <ListMusic size={18} />
-              Music Library
-            </h2>
-            <button 
-              onClick={() => setIsSidebarOpen(false)}
-              className="w-10 h-10 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all active:scale-90"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          
-          <MusicLibrary
-            playlistFolders={playlistFolders}
-            currentFolder={currentFolder}
-            setCurrentFolder={setCurrentFolder}
-            playlist={playlist}
-            currentIndex={currentIndex}
-            isPlaying={isPlaying}
-            onTrackSelect={loadMusicFromUrl}
-            isSidebar={true}
-            isLoading={lyricsLoading}
-            onLoadLinkedFolder={loadLinkedFolder}
-            loadingTrackUrl={loadingTrackUrl}
-            loadingFolders={loadingFolders}
-          />
-          
-          <div className="mt-8 pt-6 border-t border-white/5 text-center">
-             <p className="text-[9px] uppercase font-black tracking-[0.5em] text-white/10">Version 2.0 Lumina</p>
-          </div>
+      {/* Sidebar */}
+      {renderSidebar()}
+
+      {/* Main Content */}
+      {renderMainContent()}
+
+      {/* Error Toast */}
+      {errorMessage && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <AlertCircle size={18} />
+          {errorMessage}
         </div>
-      </div>
+      )}
 
       <audio 
         ref={audioRef}
         onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
         onEnded={onEnded}
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
       />
 
       <style>{`
-        @keyframes music-bar {
-          0%, 100% { height: 6px; }
-          50% { height: 16px; }
-        }
-        @keyframes rainbow-flow {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        @keyframes rotate-cover {
-          0% { transform: translateY(-50%) rotate(0deg); }
-          100% { transform: translateY(-50%) rotate(360deg); }
-        }
-        @keyframes rotate-rainbow {
-          0% { transform: translateY(-50%) rotate(0deg); }
-          100% { transform: translateY(-50%) rotate(360deg); }
-        }
         @keyframes shimmer {
-          0% { 
-            left: -100%; 
-          }
-          100% { 
-            left: 200%; 
-          }
-        }
-        @keyframes wave {
           0% { transform: translateX(-100%); }
-          100% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
         }
-        .inline-block {
-          will-change: background-size, transform;
+        .animate-shimmer {
+          animation: shimmer 1.5s infinite linear;
         }
-        .animate-rainbow-flow {
-          background: linear-gradient(
-            90deg,
-            #ff5151ff,
-            #ff8f33ff,
-            #fffb00,
-            #7bff46ff,
-            #00ffd5,
-            #4160ffff,
-            #9c3effff,
-            #ff43d6ff,
-            #ff0707ff
-          );
-          background-size: 400% 100%;
-          animation: rainbow-flow 20s linear infinite;
-          filter: blur(100px) brightness(0.8);
+        .playlist-scrollbar::-webkit-scrollbar {
+          width: 6px;
         }
-        .animate-rotate-cover {
-          animation: rotate-cover 120s linear infinite;
+        .playlist-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
         }
-        .animate-rotate-rainbow {
-          animation: rotate-rainbow 30s linear infinite;
+        .playlist-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 3px;
         }
-        .shimmer-effect {
-          position: relative;
-          overflow: hidden;
-        }
-        .shimmer-effect::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(
-            90deg,
-            transparent 0%,
-            rgba(255, 255, 255, 0.1) 40%,
-            rgba(255, 255, 255, 0.3) 50%,
-            rgba(255, 255, 255, 0.1) 60%,
-            transparent 100%
-          );
-          animation: shimmer 3s ease-in-out infinite;
-        }
-        /* Removed shimmer-item styles as they are no longer used */
-        @media (max-width: 768px) {
-           input[type="range"]::-webkit-slider-thumb {
-              height: 14px;
-              width: 14px;
-           }
+        .playlist-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.2);
         }
       `}</style>
     </div>
