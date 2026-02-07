@@ -74,7 +74,7 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
                 className={`w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group border ${
                   isActive 
                     ? 'bg-white text-black border-transparent shadow-2xl scale-[1.01]' 
-                    : 'bg-white/[0.03] text-white/40 hover:bg-white/[0.08] hover:text-white border-white/[0.05]'
+                    : 'bg-transparent text-white/40 hover:bg-white/[0.08] hover:text-white border-white/[0.05]'
                 }`}
               >
                 <div className="flex items-center flex-1 min-w-0 max-w-[calc(100%-40px)]">
@@ -153,7 +153,7 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
           <>
             <button 
               onClick={() => setCurrentFolder(null)}
-              className="w-full px-5 py-3 rounded-2xl flex items-center gap-2 text-white/60 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] transition-all"
+              className="w-full px-5 py-3 rounded-2xl flex items-center gap-2 text-white/60 hover:text-white bg-transparent hover:bg-white/[0.08] transition-all"
             >
               <ChevronLeft size={14} />
               <span className="text-[10px] uppercase tracking-widest font-bold">Back</span>

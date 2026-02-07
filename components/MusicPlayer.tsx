@@ -39,23 +39,6 @@ const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
   </div>
 ));
 
-// 背景动画组件
-const AnimatedBackground = memo(({ coverUrl }: { coverUrl?: string | null }) => (
-  <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-neutral-900">
-    {coverUrl && (
-      <div 
-        className="absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] animate-rotate-cover transition-all duration-1000"
-        style={{
-          backgroundImage: `url(${coverUrl})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          filter: 'blur(50px) brightness(0.7)',
-        }}
-      />
-    )}
-  </div>
-));
-
 const MusicPlayer: React.FC<MusicPlayerProps> = ({
   track,
   isPlaying,
@@ -130,10 +113,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   }, [activeIndex]);
 
   return (
-    <div className="w-full h-full bg-black text-white flex flex-col pb-[80px]">
-      {/* 背景动画 */}
-      <AnimatedBackground coverUrl={track.metadata.coverUrl} />
-      
+    <div className="w-full h-full bg-transparent text-white flex flex-col pb-[80px]">
       {/* 加载条 */}
       {loadingProgress !== null && <ShimmerLoadingBar progress={loadingProgress} />}
 
@@ -248,13 +228,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
         .hide-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;
-        }
-        @keyframes rotate-cover {
-          0% { transform: translateY(-50%) rotate(0deg); }
-          100% { transform: translateY(-50%) rotate(360deg); }
-        }
-        .animate-rotate-cover {
-          animation: rotate-cover 60s linear infinite;
         }
       `}</style>
     </div>

@@ -70,10 +70,10 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
             <p className={`font-medium text-sm truncate ${hasTrack ? 'text-white' : 'text-white/40'}`}>
               {hasTrack 
                 ? (track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, '')) 
-                : '未在播放'}
+                : ''}
             </p>
             <p className="text-white/50 text-xs truncate">
-              {hasTrack ? track.metadata.artist : '选择一首歌曲开始播放'}
+              {hasTrack ? track.metadata.artist : ''}
             </p>
           </div>
         </button>

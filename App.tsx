@@ -8,6 +8,7 @@ import { MusicLibrary } from './utils/MusicLibrary';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
+import GlobalBackground from './components/GlobalBackground';
 import fetchInChunks from 'fetch-in-chunks';
 import { getFontUrl } from './utils/fontUtils';
 
@@ -58,7 +59,7 @@ const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
 
 // 文件夹加载指示器
 const FolderLoadingIndicator = memo(({ name, progress }: { name: string; progress: number }) => (
-  <div className="mb-6 p-4 bg-white/[0.03] rounded-2xl border border-white/[0.05] backdrop-blur-sm">
+  <div className="mb-6 p-4 bg-transparent rounded-2xl border border-white/[0.05] backdrop-blur-sm">
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
@@ -93,8 +94,8 @@ const ArtistLetterGroup = memo(({
   onSelect: (artist: string) => void;
 }) => (
   <div className="mb-6">
-    <div className="sticky top-0 z-10 px-4 py-2 bg-[#121214]/95 backdrop-blur-sm">
-      <span className="text-2xl font-black text-white/20">{letter}</span>
+    <div className="sticky top-0 z-10 px-4 py-2 bg-transparent backdrop-blur-sm">
+      <span className="text-2xl font-black text-white/20 drop-shadow-md">{letter}</span>
     </div>
     <div className="space-y-1 px-2">
       {artists.map((artist, idx) => (
@@ -715,15 +716,15 @@ const App: React.FC = () => {
 
   // 渲染侧边栏
   const renderSidebar = useCallback(() => (
-    <aside className="w-64 bg-[#0a0a0c] border-r border-white/[0.05] flex flex-col">
+    <aside className="w-64 bg-transparent flex flex-col">
       {/* Logo */}
       <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-          <Music size={20} className="text-white" />
+        <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
+          <Music size={20} className="text-white drop-shadow-md" />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-white">Serene</h1>
-          <p className="text-xs text-white/40">Music Player</p>
+          <h1 className="text-lg font-bold text-white drop-shadow-md">Serene</h1>
+          <p className="text-xs text-white/40 drop-shadow-sm">Music Player</p>
         </div>
       </div>
 
@@ -765,13 +766,13 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4 p-6 border-b border-white/[0.05]">
             <button
               onClick={() => setSelectedArtist(null)}
-              className="w-10 h-10 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] flex items-center justify-center transition-colors"
+              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/[0.15] flex items-center justify-center transition-colors"
             >
               <ChevronLeft size={20} className="text-white/60" />
             </button>
             <div>
-              <h2 className="text-2xl font-bold text-white">{selectedArtist}</h2>
-              <p className="text-sm text-white/40">{artistTracks.length} 首歌曲</p>
+              <h2 className="text-2xl font-bold text-white drop-shadow-md">{selectedArtist}</h2>
+              <p className="text-sm text-white/40 drop-shadow-sm">{artistTracks.length} 首歌曲</p>
             </div>
           </div>
           
@@ -795,8 +796,8 @@ const App: React.FC = () => {
     return (
       <div className="h-full flex flex-col">
         <div className="p-6 border-b border-white/[0.05]">
-          <h2 className="text-2xl font-bold text-white">艺术家</h2>
-          <p className="text-sm text-white/40 mt-1">按字母排序</p>
+          <h2 className="text-2xl font-bold text-white drop-shadow-md">艺术家</h2>
+          <p className="text-sm text-white/40 mt-1 drop-shadow-sm">按字母排序</p>
         </div>
         
         <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
@@ -819,8 +820,8 @@ const App: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-white/[0.05]">
         <div>
-          <h2 className="text-2xl font-bold text-white">歌曲</h2>
-          <p className="text-sm text-white/40 mt-1">
+          <h2 className="text-2xl font-bold text-white drop-shadow-md">歌曲</h2>
+          <p className="text-sm text-white/40 mt-1 drop-shadow-sm">
             {currentFolder ? currentFolder : `${Object.keys(playlistFolders).length} 个文件夹, ${playlist.length} 首歌曲`}
           </p>
         </div>
@@ -828,7 +829,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={cyclePlaybackMode}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all duration-200 text-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white transition-all duration-200 text-sm"
           >
             {getPlaybackModeIcon()}
             <span>
@@ -839,7 +840,7 @@ const App: React.FC = () => {
           <div className="relative" ref={uploadMenuRef}>
             <button
               onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
-              className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all duration-200"
+              className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white transition-all duration-200"
               title="导入音乐"
             >
               <Upload size={18} />
@@ -902,8 +903,8 @@ const App: React.FC = () => {
   const renderSettingsView = useCallback(() => (
     <div className="h-full flex flex-col">
       <div className="p-6 border-b border-white/[0.05]">
-        <h2 className="text-2xl font-bold text-white">设置</h2>
-        <p className="text-sm text-white/40 mt-1">自定义您的播放器</p>
+        <h2 className="text-2xl font-bold text-white drop-shadow-md">设置</h2>
+        <p className="text-sm text-white/40 mt-1 drop-shadow-sm">自定义您的播放器</p>
       </div>
       
       <div className="flex-1 overflow-y-auto p-6">
@@ -954,6 +955,9 @@ const App: React.FC = () => {
 
   return (
     <>
+      {/* Global Background - always visible */}
+      <GlobalBackground coverUrl={track?.metadata.coverUrl} />
+
       {/* Audio element - always present */}
       <audio 
         ref={audioRef}
@@ -962,8 +966,12 @@ const App: React.FC = () => {
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
       />
 
-      {/* Main library view - always visible */}
-      <div className="h-[calc(100vh-80px)] bg-[#121214] text-white flex overflow-hidden">
+      {/* Main library view - conditional visibility based on player state */}
+      <div 
+        className={`h-[calc(100vh-80px)] bg-transparent text-white flex overflow-hidden transition-opacity duration-300 ${
+          showFullPlayer ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        }`}
+      >
         {/* Hidden inputs */}
         <input
           type="file"
@@ -1022,10 +1030,10 @@ const App: React.FC = () => {
       {/* Full Player - overlay when showFullPlayer is true */}
       {track && (
         <div 
-          className={`fixed inset-0 z-[60] transition-all duration-300 ease-out ${
+          className={`fixed inset-0 z-[60] transition-all duration-500 ease-in-out ${
             showFullPlayer 
               ? 'opacity-100 translate-y-0 pointer-events-auto' 
-              : 'opacity-0 translate-y-full pointer-events-none'
+              : 'opacity-0 translate-y-[100%] pointer-events-none'
           }`}
         >
           <MusicPlayer

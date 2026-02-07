@@ -38,7 +38,7 @@ const SettingCard = memo(({
   description?: string;
   children: React.ReactNode;
 }) => (
-  <div className="bg-white/[0.03] rounded-2xl border border-white/[0.05] p-5 hover:bg-white/[0.04] transition-colors duration-200">
+  <div className="bg-transparent rounded-2xl border border-white/[0.05] p-5 hover:bg-white/[0.04] transition-colors duration-200">
     <div className="flex items-center gap-3 mb-4">
       <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
         <Icon size={18} className="text-white/60" />
