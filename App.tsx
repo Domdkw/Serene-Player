@@ -7,6 +7,7 @@ import { extractMetadata } from './utils/metadata';
 import { MusicLibrary } from './utils/MusicLibrary';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
+import MiniPlayerBar from './components/MiniPlayerBar';
 import fetchInChunks from 'fetch-in-chunks';
 import { getFontUrl } from './utils/fontUtils';
 
@@ -171,6 +172,7 @@ const App: React.FC = () => {
   const [loadingTrackUrl, setLoadingTrackUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [showFullPlayer, setShowFullPlayer] = useState(false);
   
 
   
@@ -960,8 +962,64 @@ const App: React.FC = () => {
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
       />
 
-      {/* 播放器视图 */}
-      {track ? (
+      {/* Main library view - always visible */}
+      <div className="h-[calc(100vh-80px)] bg-[#121214] text-white flex overflow-hidden">
+        {/* Hidden inputs */}
+        <input
+          type="file"
+          accept="audio/*"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+        <input
+          type="file"
+          ref={folderInputRef}
+          onChange={handleFolderUpload}
+          className="hidden"
+          // @ts-ignore
+          webkitdirectory=""
+          directory=""
+        />
+
+        {/* Top loading bar with shimmer effect */}
+        {loadingProgress !== null && <ShimmerLoadingBar progress={loadingProgress} />}
+
+        {/* Sidebar */}
+        {renderSidebar()}
+
+        {/* Main Content */}
+        {renderMainContent()}
+
+        {/* Error Toast */}
+        {errorMessage && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <AlertCircle size={18} />
+            {errorMessage}
+          </div>
+        )}
+      </div>
+
+      {/* Mini Player Bar - always visible */}
+      <MiniPlayerBar
+        track={track}
+        isPlaying={isPlaying}
+        currentTime={currentTime}
+        duration={duration}
+        playbackMode={playbackMode}
+        showTranslation={showTranslation}
+        onTogglePlay={togglePlay}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onCyclePlaybackMode={cyclePlaybackMode}
+        onToggleTranslation={() => setShowTranslation(!showTranslation)}
+        onSeek={handleSeek}
+        onOpenPlayer={() => setShowFullPlayer(true)}
+        formatTime={formatTime}
+      />
+
+      {/* Full Player - overlay when showFullPlayer is true */}
+      {showFullPlayer && track && (
         <MusicPlayer
           track={track}
           isPlaying={isPlaying}
@@ -969,12 +1027,7 @@ const App: React.FC = () => {
           duration={duration}
           showTranslation={showTranslation}
           setShowTranslation={setShowTranslation}
-          onBack={() => setTrack(null)}
-          onTogglePlay={togglePlay}
-          onPrev={handlePrev}
-          onNext={handleNext}
-          onCyclePlaybackMode={cyclePlaybackMode}
-          playbackMode={playbackMode}
+          onBack={() => setShowFullPlayer(false)}
           loadingProgress={loadingProgress}
           fontWeight={fontWeight}
           letterSpacing={letterSpacing}
@@ -983,44 +1036,6 @@ const App: React.FC = () => {
           onSeek={handleSeek}
           formatTime={formatTime}
         />
-      ) : (
-        // Main library view
-        <div className="h-screen bg-[#121214] text-white flex overflow-hidden">
-          {/* Hidden inputs */}
-          <input
-            type="file"
-            accept="audio/*"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          <input
-            type="file"
-            ref={folderInputRef}
-            onChange={handleFolderUpload}
-            className="hidden"
-            // @ts-ignore
-            webkitdirectory=""
-            directory=""
-          />
-
-          {/* Top loading bar with shimmer effect */}
-          {loadingProgress !== null && <ShimmerLoadingBar progress={loadingProgress} />}
-
-          {/* Sidebar */}
-          {renderSidebar()}
-
-          {/* Main Content */}
-          {renderMainContent()}
-
-          {/* Error Toast */}
-          {errorMessage && (
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <AlertCircle size={18} />
-              {errorMessage}
-            </div>
-          )}
-        </div>
       )}
 
       <style>{`

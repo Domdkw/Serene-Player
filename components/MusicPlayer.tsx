@@ -2,13 +2,6 @@ import React, { useRef, useEffect, useCallback, memo } from 'react';
 import { 
   ChevronLeft, 
   Languages, 
-  Play, 
-  Pause, 
-  SkipBack, 
-  SkipForward, 
-  Repeat, 
-  Repeat1, 
-  Shuffle,
   Music,
   Loader2
 } from 'lucide-react';
@@ -24,11 +17,6 @@ interface MusicPlayerProps {
   showTranslation: boolean;
   setShowTranslation: (value: boolean) => void;
   onBack: () => void;
-  onTogglePlay: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-  onCyclePlaybackMode: () => void;
-  playbackMode: 'single' | 'list' | 'shuffle';
   loadingProgress: number | null;
   fontWeight: string;
   letterSpacing: number;
@@ -68,13 +56,6 @@ const AnimatedBackground = memo(({ coverUrl }: { coverUrl?: string | null }) => 
   </div>
 ));
 
-// 播放模式图标
-const PlaybackModeIcon = memo(({ mode }: { mode: 'single' | 'list' | 'shuffle' }) => {
-  if (mode === 'single') return <Repeat1 size={18} />;
-  if (mode === 'list') return <Repeat size={18} />;
-  return <Shuffle size={18} />;
-});
-
 const MusicPlayer: React.FC<MusicPlayerProps> = ({
   track,
   isPlaying,
@@ -83,11 +64,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   showTranslation,
   setShowTranslation,
   onBack,
-  onTogglePlay,
-  onPrev,
-  onNext,
-  onCyclePlaybackMode,
-  playbackMode,
   loadingProgress,
   fontWeight,
   letterSpacing,
@@ -154,7 +130,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   }, [activeIndex]);
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col relative">
+    <div className="fixed inset-0 bg-black text-white flex flex-col z-[60] pb-[80px]">
       {/* 背景动画 */}
       <AnimatedBackground coverUrl={track.metadata.coverUrl} />
       
@@ -175,9 +151,9 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex relative z-10">
+      <main className="flex-1 flex relative z-10 overflow-hidden">
         {/* Left: Cover Art - 40% 宽度，缩小尺寸 */}
-        <section className="w-[40%] h-screen flex items-center justify-center p-8 lg:p-12 bg-transparent">
+        <section className="w-[40%] h-full flex items-center justify-center p-8 lg:p-12 bg-transparent">
           <div
             ref={coverRef}
             onMouseMove={handleCoverMouseMove}
@@ -205,7 +181,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
         </section>
 
         {/* Right: Lyrics - 60% 宽度 */}
-        <section className="w-[60%] h-screen relative bg-transparent">
+        <section className="w-[60%] h-full relative bg-transparent">
           {/* Track Info */}
           <div className="absolute top-20 left-0 right-0 text-center z-20 px-8">
             <h1 className="text-xl lg:text-2xl font-black text-white mb-2 tracking-tight">
@@ -257,99 +233,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
         </section>
       </main>
-
-      {/* Bottom Player Bar */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-t border-white/10 px-6 py-4 z-50">
-        <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
-          {/* Track Info */}
-          <div className="flex items-center gap-4 w-1/4">
-            {track.metadata.coverUrl ? (
-              <img
-                src={track.metadata.coverUrl}
-                alt="Cover"
-                className="w-12 h-12 rounded-lg object-cover"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center">
-                <Music size={20} className="text-white/40" />
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="text-white font-medium text-sm truncate">
-                {track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, '')}
-              </p>
-              <p className="text-white/50 text-xs truncate">{track.metadata.artist}</p>
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="flex flex-col items-center gap-2 flex-1 max-w-xl">
-            <div className="flex items-center gap-6">
-              <button
-                onClick={onCyclePlaybackMode}
-                className="text-white/60 hover:text-white transition-colors"
-                title={playbackMode === 'single' ? '单曲循环' : playbackMode === 'list' ? '列表循环' : '随机播放'}
-              >
-                <PlaybackModeIcon mode={playbackMode} />
-              </button>
-              <button
-                onClick={onPrev}
-                className="text-white hover:text-white/80 transition-colors"
-              >
-                <SkipBack size={22} fill="currentColor" />
-              </button>
-              <button
-                onClick={onTogglePlay}
-                className="w-11 h-11 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform"
-              >
-                {isPlaying ? (
-                  <Pause size={20} fill="currentColor" />
-                ) : (
-                  <Play size={20} fill="currentColor" className="ml-0.5" />
-                )}
-              </button>
-              <button
-                onClick={onNext}
-                className="text-white hover:text-white/80 transition-colors"
-              >
-                <SkipForward size={22} fill="currentColor" />
-              </button>
-              
-              {/* 翻译按钮 - 仅在播放界面显示 */}
-              <button
-                onClick={() => setShowTranslation(!showTranslation)}
-                className={`transition-all ${
-                  showTranslation ? 'text-white' : 'text-white/40 hover:text-white/60'
-                }`}
-                title={showTranslation ? '隐藏翻译' : '显示翻译'}
-              >
-                <Languages size={18} />
-              </button>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full flex items-center gap-3 text-xs text-white/50">
-              <span className="w-10 text-right">{formatTime(currentTime)}</span>
-              <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden cursor-pointer group"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const percent = (e.clientX - rect.left) / rect.width;
-                  onSeek(percent * duration);
-                }}
-              >
-                <div
-                  className="h-full bg-white rounded-full transition-all group-hover:bg-white/90"
-                  style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                />
-              </div>
-              <span className="w-10">{formatTime(duration)}</span>
-            </div>
-          </div>
-
-          {/* Right spacer */}
-          <div className="w-1/4" />
-        </div>
-      </footer>
 
       <style>{`
         @keyframes shimmer {
