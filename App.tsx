@@ -48,13 +48,9 @@ const SidebarItem = memo(({
 
 // 流光加载条组件
 const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
-  <div className="fixed top-0 left-0 right-0 h-[2px] bg-white/5 z-[100] overflow-hidden">
-    <div 
-      className="h-full relative overflow-hidden transition-all duration-300 ease-out"
-      style={{ width: `${progress}%` }}
-    >
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-shimmer" />
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-80" />
+  <div className="fixed top-0 left-0 w-full z-50 pointer-events-none">
+    <div className="relative h-1.5 md:h-2 bg-white/5 overflow-hidden shimmer-effect">
+      <div className="h-full bg-white transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.8)]" style={{ width: `${progress}%` }} />
     </div>
   </div>
 ));
@@ -954,77 +950,78 @@ const App: React.FC = () => {
     );
   }, [activeTab, isTransitioning, renderArtistsView, renderSettingsView, renderSongsView]);
 
-  // 播放器视图
-  if (track) {
-    return (
-      <MusicPlayer
-        track={track}
-        isPlaying={isPlaying}
-        currentTime={currentTime}
-        duration={duration}
-        showTranslation={showTranslation}
-        setShowTranslation={setShowTranslation}
-        onBack={() => setTrack(null)}
-        onTogglePlay={togglePlay}
-        onPrev={handlePrev}
-        onNext={handleNext}
-        onCyclePlaybackMode={cyclePlaybackMode}
-        playbackMode={playbackMode}
-        loadingProgress={loadingProgress}
-        fontWeight={fontWeight}
-        letterSpacing={letterSpacing}
-        lineHeight={lineHeight}
-        selectedFont={selectedFont}
-        onSeek={handleSeek}
-        formatTime={formatTime}
-      />
-    );
-  }
-
-  // Main library view
   return (
-    <div className="h-screen bg-[#121214] text-white flex overflow-hidden">
-      {/* Hidden inputs */}
-      <input
-        type="file"
-        accept="audio/*"
-        ref={fileInputRef}
-        onChange={handleFileUpload}
-        className="hidden"
-      />
-      <input
-        type="file"
-        ref={folderInputRef}
-        onChange={handleFolderUpload}
-        className="hidden"
-        // @ts-ignore
-        webkitdirectory=""
-        directory=""
-      />
-
-      {/* Top loading bar with shimmer effect */}
-      {loadingProgress !== null && <ShimmerLoadingBar progress={loadingProgress} />}
-
-      {/* Sidebar */}
-      {renderSidebar()}
-
-      {/* Main Content */}
-      {renderMainContent()}
-
-      {/* Error Toast */}
-      {errorMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <AlertCircle size={18} />
-          {errorMessage}
-        </div>
-      )}
-
+    <>
+      {/* Audio element - always present */}
       <audio 
         ref={audioRef}
         onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
         onEnded={onEnded}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
       />
+
+      {/* 播放器视图 */}
+      {track ? (
+        <MusicPlayer
+          track={track}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          showTranslation={showTranslation}
+          setShowTranslation={setShowTranslation}
+          onBack={() => setTrack(null)}
+          onTogglePlay={togglePlay}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          onCyclePlaybackMode={cyclePlaybackMode}
+          playbackMode={playbackMode}
+          loadingProgress={loadingProgress}
+          fontWeight={fontWeight}
+          letterSpacing={letterSpacing}
+          lineHeight={lineHeight}
+          selectedFont={selectedFont}
+          onSeek={handleSeek}
+          formatTime={formatTime}
+        />
+      ) : (
+        // Main library view
+        <div className="h-screen bg-[#121214] text-white flex overflow-hidden">
+          {/* Hidden inputs */}
+          <input
+            type="file"
+            accept="audio/*"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={folderInputRef}
+            onChange={handleFolderUpload}
+            className="hidden"
+            // @ts-ignore
+            webkitdirectory=""
+            directory=""
+          />
+
+          {/* Top loading bar with shimmer effect */}
+          {loadingProgress !== null && <ShimmerLoadingBar progress={loadingProgress} />}
+
+          {/* Sidebar */}
+          {renderSidebar()}
+
+          {/* Main Content */}
+          {renderMainContent()}
+
+          {/* Error Toast */}
+          {errorMessage && (
+            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <AlertCircle size={18} />
+              {errorMessage}
+            </div>
+          )}
+        </div>
+      )}
 
       <style>{`
         @keyframes shimmer {
@@ -1033,6 +1030,27 @@ const App: React.FC = () => {
         }
         .animate-shimmer {
           animation: shimmer 1.5s infinite linear;
+        }
+        .shimmer-effect {
+          position: relative;
+          overflow: hidden;
+        }
+        .shimmer-effect::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.1) 40%,
+            rgba(255, 255, 255, 0.3) 50%,
+            rgba(255, 255, 255, 0.1) 60%,
+            transparent 100%
+          );
+          animation: shimmer 3s ease-in-out infinite;
         }
         .playlist-scrollbar::-webkit-scrollbar {
           width: 6px;
@@ -1048,7 +1066,7 @@ const App: React.FC = () => {
           background: rgba(255, 255, 255, 0.2);
         }
       `}</style>
-    </div>
+    </>
   );
 };
 

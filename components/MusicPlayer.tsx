@@ -53,11 +53,7 @@ const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
 
 // 背景动画组件
 const AnimatedBackground = memo(({ coverUrl }: { coverUrl?: string | null }) => (
-  <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-    {/* 渐变背景 */}
-    <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0a0a0c] to-black" />
-    
-    {/* 动态旋转封面背景 */}
+  <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-neutral-900">
     {coverUrl && (
       <div 
         className="absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] animate-rotate-cover transition-all duration-1000"
@@ -69,23 +65,6 @@ const AnimatedBackground = memo(({ coverUrl }: { coverUrl?: string | null }) => 
         }}
       />
     )}
-    
-    {/* 动态光晕 */}
-    <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] animate-pulse-slow" />
-    <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] animate-pulse-slow delay-1000" />
-    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-pink-500/5 rounded-full blur-[150px] animate-pulse-slow delay-2000" />
-    
-    {/* 网格效果 */}
-    <div 
-      className="absolute inset-0 opacity-[0.02]"
-      style={{
-        backgroundImage: `
-          linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
-        `,
-        backgroundSize: '50px 50px'
-      }}
-    />
   </div>
 ));
 
@@ -177,7 +156,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   return (
     <div className="min-h-screen bg-black text-white flex flex-col relative">
       {/* 背景动画 */}
-      <AnimatedBackground />
+      <AnimatedBackground coverUrl={track.metadata.coverUrl} />
       
       {/* 加载条 */}
       {loadingProgress !== null && <ShimmerLoadingBar progress={loadingProgress} />}
@@ -197,14 +176,14 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
       {/* Main Content */}
       <main className="flex-1 flex relative z-10">
-        {/* Left: Cover Art - 缩小尺寸 */}
-        <section className="w-1/2 h-screen flex items-center justify-center p-8 lg:p-12">
+        {/* Left: Cover Art - 40% 宽度，缩小尺寸 */}
+        <section className="w-[40%] h-screen flex items-center justify-center p-8 lg:p-12">
           <div
             ref={coverRef}
             onMouseMove={handleCoverMouseMove}
             onMouseEnter={() => setIsCoverHovered(true)}
             onMouseLeave={handleCoverMouseLeave}
-            className="relative w-full max-w-sm lg:max-w-md aspect-square"
+            className="relative w-full max-w-[280px] lg:max-w-[320px] aspect-square"
             style={{
               perspective: '1000px',
               transform: `rotateY(${coverMousePos.x}deg) rotateX(${coverMousePos.y}deg)`,
@@ -225,8 +204,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </div>
         </section>
 
-        {/* Right: Lyrics */}
-        <section className="w-1/2 h-screen relative">
+        {/* Right: Lyrics - 60% 宽度 */}
+        <section className="w-[60%] h-screen relative">
           {/* Track Info */}
           <div className="absolute top-20 left-0 right-0 text-center z-20 px-8">
             <h1 className="text-xl lg:text-2xl font-black text-white mb-2 tracking-tight">
@@ -382,25 +361,19 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
         .animate-shimmer {
           animation: shimmer 1.5s infinite linear;
         }
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 0.3; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.1); }
-        }
-        .animate-pulse-slow {
-          animation: pulse-slow 8s ease-in-out infinite;
-        }
-        .delay-1000 {
-          animation-delay: 1s;
-        }
-        .delay-2000 {
-          animation-delay: 2s;
-        }
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
         }
         .hide-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;
+        }
+        @keyframes rotate-cover {
+          0% { transform: translateY(-50%) rotate(0deg); }
+          100% { transform: translateY(-50%) rotate(360deg); }
+        }
+        .animate-rotate-cover {
+          animation: rotate-cover 60s linear infinite;
         }
       `}</style>
     </div>
