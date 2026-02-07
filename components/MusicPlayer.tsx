@@ -52,10 +52,23 @@ const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
 ));
 
 // 背景动画组件
-const AnimatedBackground = memo(() => (
+const AnimatedBackground = memo(({ coverUrl }: { coverUrl?: string | null }) => (
   <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
     {/* 渐变背景 */}
     <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0a0a0c] to-black" />
+    
+    {/* 动态旋转封面背景 */}
+    {coverUrl && (
+      <div 
+        className="absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] animate-rotate-cover transition-all duration-1000"
+        style={{
+          backgroundImage: `url(${coverUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: 'blur(50px) brightness(0.7)',
+        }}
+      />
+    )}
     
     {/* 动态光晕 */}
     <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] animate-pulse-slow" />
