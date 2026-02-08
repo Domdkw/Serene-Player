@@ -7,7 +7,8 @@ import {
   Languages,
   RotateCcw,
   Bug,
-  Music
+  Music,
+  Activity
 } from 'lucide-react';
 import { FONT_CONFIGS, getFontFamily } from '../utils/fontUtils';
 
@@ -24,6 +25,8 @@ interface SettingsPanelProps {
   setSelectedFont: (value: string) => void;
   showTranslation: boolean;
   setShowTranslation: (value: boolean) => void;
+  showSpectrum: boolean;
+  setShowSpectrum: (value: boolean) => void;
 }
 
 // 设置卡片组件
@@ -132,7 +135,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   selectedFont,
   setSelectedFont,
   showTranslation,
-  setShowTranslation
+  setShowTranslation,
+  showSpectrum,
+  setShowSpectrum
 }) => {
   const handleReset = () => {
     localStorage.clear();
@@ -142,6 +147,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setLineHeight(1.5);
     setSelectedFont('default');
     setShowTranslation(true);
+    setShowSpectrum(true);
   };
 
   const handleDebug = () => {
@@ -157,9 +163,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   return (
     <div className="space-y-6 max-w-3xl">
       {/* 播放设置 */}
-      <SettingCard 
-        icon={HardDrive} 
-        title="分块拉取设置" 
+      <SettingCard
+        icon={HardDrive}
+        title="分块拉取设置"
         description="数值越大加载越快，但可能增加服务器压力"
       >
         <OptionButtonGroup
@@ -170,6 +176,46 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             localStorage.setItem('chunkCount', value.toString());
           }}
         />
+      </SettingCard>
+
+      {/* 频谱图设置 */}
+      <SettingCard
+        icon={Activity}
+        title="音频频谱图"
+        description="在播放控制栏显示音频可视化效果（重启后生效）"
+      >
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setShowSpectrum(true);
+              localStorage.setItem('showSpectrum', 'true');
+            }}
+            className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+              showSpectrum
+                ? 'bg-white text-black shadow-lg shadow-white/10'
+                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            显示
+          </button>
+          <button
+            onClick={() => {
+              setShowSpectrum(false);
+              localStorage.setItem('showSpectrum', 'false');
+            }}
+            className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+              !showSpectrum
+                ? 'bg-white text-black shadow-lg shadow-white/10'
+                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            隐藏
+          </button>
+        </div>
+        <p className="text-xs text-white/40 mt-3 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-yellow-500/80"></span>
+          修改此设置后需要刷新页面才能生效
+        </p>
       </SettingCard>
 
       {/* 歌词显示设置 */}

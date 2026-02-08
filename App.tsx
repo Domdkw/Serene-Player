@@ -203,6 +203,10 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('showTranslation');
     return saved ? saved === 'true' : true;
   });
+  const [showSpectrum, setShowSpectrum] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showSpectrum');
+    return saved ? saved === 'true' : true;
+  });
 
   // Refs
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -921,10 +925,12 @@ const App: React.FC = () => {
           setSelectedFont={setSelectedFont}
           showTranslation={showTranslation}
           setShowTranslation={setShowTranslation}
+          showSpectrum={showSpectrum}
+          setShowSpectrum={setShowSpectrum}
         />
       </div>
     </div>
-  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation]);
+  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, showSpectrum]);
 
   // 渲染主内容
   const renderMainContent = useCallback(() => {
@@ -1016,6 +1022,8 @@ const App: React.FC = () => {
         duration={duration}
         playbackMode={playbackMode}
         showTranslation={showTranslation}
+        showSpectrum={showSpectrum}
+        audioRef={audioRef}
         onTogglePlay={togglePlay}
         onPrev={handlePrev}
         onNext={handleNext}
