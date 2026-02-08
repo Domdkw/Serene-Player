@@ -58,9 +58,11 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const coverRef = useRef<HTMLDivElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const activeLyricRef = useRef<HTMLDivElement>(null);
+  const manualScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const [coverMousePos, setCoverMousePos] = React.useState({ x: 0, y: 0 });
   const [isCoverHovered, setIsCoverHovered] = React.useState(false);
+  const [isManualScrolling, setIsManualScrolling] = React.useState(false);
 
   // 3D封面效果
   const handleCoverMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -94,8 +96,29 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     return -1;
   }, [currentTime, lyricsList]);
 
+  // 处理用户交互的函数
+  const handleUserInteraction = useCallback(() => {
+    // 1. 设为手动模式，停止自动滚动
+    setIsManualScrolling(true);
+
+    // 2. 清除之前的计时器
+    if (manualScrollTimerRef.current) {
+      clearTimeout(manualScrollTimerRef.current);
+    }
+
+    // 3. 设置 5 秒后恢复自动滚动（仅在音乐播放时）
+    manualScrollTimerRef.current = setTimeout(() => {
+      if (isPlaying) {
+        setIsManualScrolling(false);
+      }
+    }, 5000);
+  }, [isPlaying]);
+
   // 自动滚动歌词
   useEffect(() => {
+    // 如果处于手动操作期间，直接跳过自动滚动逻辑
+    if (isManualScrolling) return;
+
     if (activeLyricRef.current && lyricsContainerRef.current) {
       const container = lyricsContainerRef.current;
       const activeElement = activeLyricRef.current;
@@ -110,7 +133,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
         behavior: 'smooth'
       });
     }
-  }, [activeIndex]);
+  }, [activeIndex, isManualScrolling]);
 
   return (
     <div className="w-full h-full bg-transparent text-white flex flex-col pb-[80px]">
@@ -128,12 +151,29 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </button>
           <span className="text-sm text-white/60">关闭播放页</span>
         </div>
+        {/* Lyric Tags - AR & AL */}
+        <div className="flex items-center gap-3">
+          {(track.metadata.lyricArtist || track.metadata.lyricAlbum) && (
+            <>
+              {track.metadata.lyricArtist && (
+                <span className="text-xs text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                  AR: {track.metadata.lyricArtist}
+                </span>
+              )}
+              {track.metadata.lyricAlbum && (
+                <span className="text-xs text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                  AL: {track.metadata.lyricAlbum}
+                </span>
+              )}
+            </>
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 flex relative z-10 overflow-hidden">
         {/* Left: Cover Art - 40% 宽度，缩小尺寸 */}
-        <section className="w-[40%] h-full flex items-center justify-center p-8 lg:p-12 bg-transparent">
+        <section className="w-[40%] h-full flex flex-col items-center justify-center p-8 lg:p-12 bg-transparent">
           <div
             ref={coverRef}
             onMouseMove={handleCoverMouseMove}
@@ -158,12 +198,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
               </div>
             )}
           </div>
-        </section>
-
-        {/* Right: Lyrics - 60% 宽度 */}
-        <section className="w-[60%] h-full relative bg-transparent">
-          {/* Track Info */}
-          <div className="absolute top-20 left-0 right-0 text-center z-20 px-8">
+          {/* Track Info - 移到封面下方 */}
+          <div className="mt-8 text-center z-20 px-8">
             <h1 className="text-xl lg:text-2xl font-black text-white mb-2 tracking-tight">
               {track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, '')}
             </h1>
@@ -171,11 +207,18 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
               {track.metadata.artist}
             </p>
           </div>
+        </section>
+
+        {/* Right: Lyrics - 60% 宽度 */}
+        <section className="w-[60%] h-full relative bg-transparent">
 
           {/* Lyrics Container */}
           <div
             ref={lyricsContainerRef}
             className="h-full overflow-y-auto px-8 py-32 hide-scrollbar"
+            onWheel={handleUserInteraction}
+            onTouchMove={handleUserInteraction}
+            onMouseDown={handleUserInteraction}
           >
             {lyricsList.length > 0 ? (
               <div className="flex flex-col items-center min-h-full">
