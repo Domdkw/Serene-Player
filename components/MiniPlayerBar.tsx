@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle } from 'lucide-react';
 import { Track } from '../types';
 import AudioSpectrum from './AudioSpectrum';
 
@@ -51,7 +51,8 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   formatTime
 }) => {
   const hasTrack = track !== null;
-  
+  const hasLyrics = hasTrack && track.metadata.parsedLyrics && track.metadata.parsedLyrics.length > 0;
+
   // 使用useMemo缓存初始值，确保设置只在应用启动时读取一次
   const spectrumEnabled = useMemo(() => showSpectrum, []);
   const spectrumFrameRate = useMemo(() => spectrumFps, []);
@@ -79,11 +80,19 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
               </div>
             )}
             <div className="min-w-0">
-              <p className={`font-medium text-sm truncate ${hasTrack ? 'text-white' : 'text-white/40'}`}>
-                {hasTrack 
-                  ? (track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, '')) 
-                  : ''}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className={`font-medium text-sm truncate ${hasTrack ? 'text-white' : 'text-white/40'}`}>
+                  {hasTrack
+                    ? (track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, ''))
+                    : ''}
+                </p>
+                {hasTrack && !hasLyrics && (
+                  <span className="flex items-center gap-1 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20" title="此歌曲没有内嵌歌词">
+                    <AlertCircle size={12} />
+                    <span className="hidden sm:inline">无歌词</span>
+                  </span>
+                )}
+              </div>
               <p className="text-white/50 text-xs truncate">
                 {hasTrack ? track.metadata.artist : ''}
               </p>

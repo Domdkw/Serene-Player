@@ -152,29 +152,12 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </button>
           <span className="text-sm text-white/60">关闭播放页</span>
         </div>
-        {/* Lyric Tags - AR & AL */}
-        <div className="flex items-center gap-3">
-          {(track.metadata.lyricArtist || track.metadata.lyricAlbum) && (
-            <>
-              {track.metadata.lyricArtist && (
-                <span className="text-xs text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
-                  AR: {track.metadata.lyricArtist}
-                </span>
-              )}
-              {track.metadata.lyricAlbum && (
-                <span className="text-xs text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
-                  AL: {track.metadata.lyricAlbum}
-                </span>
-              )}
-            </>
-          )}
-        </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 flex relative z-10 overflow-hidden">
-        {/* Left: Cover Art - 40% 宽度，缩小尺寸 */}
-        <section className="w-[40%] h-full flex flex-col items-center justify-center p-8 lg:p-12 bg-transparent">
+        {/* Left: Cover Art - 根据是否有歌词动态调整宽度 */}
+        <section className={`h-full flex flex-col items-center justify-center p-8 lg:p-12 bg-transparent transition-all duration-500 ${hasLyrics ? 'w-[40%]' : 'w-full'}`}>
           <div
             ref={coverRef}
             onMouseMove={handleCoverMouseMove}
@@ -207,21 +190,36 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <p className="text-sm text-white/60 font-medium">
               {track.metadata.artist}
             </p>
+            {/* Lyric Tags - AR & AL */}
+            {(track.metadata.lyricArtist || track.metadata.lyricAlbum) && (
+              <div className="flex items-center justify-center gap-2 mt-3">
+                {track.metadata.lyricArtist && (
+                  <span className="text-xs text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                    AR: {track.metadata.lyricArtist}
+                  </span>
+                )}
+                {track.metadata.lyricAlbum && (
+                  <span className="text-xs text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                    AL: {track.metadata.lyricAlbum}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Right: Lyrics - 60% 宽度 */}
-        <section className="w-[60%] h-full relative bg-transparent">
+        {/* Right: Lyrics - 60% 宽度，仅在有时显示 */}
+        {hasLyrics && (
+          <section className="w-[60%] h-full relative bg-transparent">
 
-          {/* Lyrics Container */}
-          <div
-            ref={lyricsContainerRef}
-            className="h-full overflow-y-auto px-8 py-32 hide-scrollbar"
-            onWheel={handleUserInteraction}
-            onTouchMove={handleUserInteraction}
-            onMouseDown={handleUserInteraction}
-          >
-            {lyricsList.length > 0 ? (
+            {/* Lyrics Container */}
+            <div
+              ref={lyricsContainerRef}
+              className="h-full overflow-y-auto px-8 py-32 hide-scrollbar"
+              onWheel={handleUserInteraction}
+              onTouchMove={handleUserInteraction}
+              onMouseDown={handleUserInteraction}
+            >
               <div className="flex flex-col items-center min-h-full">
                 {lyricsList.map((line, idx) => (
                   <LyricLine
@@ -246,16 +244,11 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                   />
                 ))}
               </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-white/20 gap-4">
-                <Loader2 size={32} className="animate-spin opacity-20" />
-                <p className="text-sm italic font-medium tracking-tight opacity-40">No synchronized lyrics available</p>
-              </div>
-            )}
-          </div>
+            </div>
 
 
-        </section>
+          </section>
+        )}
       </main>
 
       <style>{`
