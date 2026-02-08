@@ -1,20 +1,21 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
-import { 
+import {
   Upload, Music, X, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
-import { MusicLibrary } from './utils/MusicLibrary';
+import { MusicLibrary } from './components/MusicLibrary';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
 import GlobalBackground from './components/GlobalBackground';
 import fetchInChunks from 'fetch-in-chunks';
 import { getFontUrl } from './utils/fontUtils';
+import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
 
 type NavTab = 'songs' | 'artists' | 'settings';
 
-// 使用memo优化子组件，避免不必要的重渲染
+//region 使用memo优化子组件，避免不必要的重渲染
 const SidebarItem = memo(({ 
   icon: Icon, 
   label, 
@@ -32,11 +33,15 @@ const SidebarItem = memo(({
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ease-out group relative overflow-hidden ${
       isActive 
-        ? 'bg-white text-black' 
+        ? 'bg-white text-black shadow-lg shadow-white/10' 
         : 'text-white/60 hover:text-white hover:bg-white/5'
     }`}
   >
-    <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+      isActive ? 'bg-black/10' : 'bg-white/5'
+    }`}>
+      <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+    </div>
     <span className="font-medium text-sm">{label}</span>
     {badge !== undefined && badge > 0 && (
       <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -48,7 +53,7 @@ const SidebarItem = memo(({
   </button>
 ));
 
-// 流光加载条组件
+//region 流光加载条组件
 const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
   <div className="fixed top-0 left-0 w-full z-50 pointer-events-none">
     <div className="relative h-1.5 md:h-2 bg-white/5 overflow-hidden shimmer-effect">
@@ -57,7 +62,7 @@ const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
   </div>
 ));
 
-// 文件夹加载指示器
+//region 文件夹加载指示器
 const FolderLoadingIndicator = memo(({ name, progress }: { name: string; progress: number }) => (
   <div className="mb-6 p-4 bg-transparent rounded-2xl border border-white/[0.05] backdrop-blur-sm">
     <div className="flex items-center justify-between mb-3">
@@ -83,35 +88,7 @@ const FolderLoadingIndicator = memo(({ name, progress }: { name: string; progres
   </div>
 ));
 
-// 艺术家字母分组
-const ArtistLetterGroup = memo(({ 
-  letter, 
-  artists, 
-  onSelect 
-}: { 
-  letter: string; 
-  artists: string[]; 
-  onSelect: (artist: string) => void;
-}) => (
-  <div className="mb-6">
-    <div className="sticky top-0 z-10 px-4 py-2 bg-transparent backdrop-blur-sm">
-      <span className="text-2xl font-black text-white/20 drop-shadow-md">{letter}</span>
-    </div>
-    <div className="space-y-1 px-2">
-      {artists.map((artist, idx) => (
-        <button
-          key={idx}
-          onClick={() => onSelect(artist)}
-          className="w-full text-left px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white rounded-xl transition-all duration-200 text-sm font-medium"
-        >
-          {artist}
-        </button>
-      ))}
-    </div>
-  </div>
-));
-
-// 内容切换动画包装器
+//region 内容切换动画包装器
 const AnimatedContent = memo(({ 
   children, 
   activeTab,
@@ -153,7 +130,7 @@ const App: React.FC = () => {
   const [duration, setDuration] = useState(0);
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
   
-  // Playlist states
+  //region Playlist states
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
   const [playlistFolders, setPlaylistFolders] = useState<Record<string, PlaylistItem[]>>({});
   const [loadedLinks, setLoadedLinks] = useState<Set<string>>(new Set());
@@ -161,12 +138,12 @@ const App: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('single');
   
-  // Navigation state
+  //region Navigation state
   const [activeTab, setActiveTab] = useState<NavTab>('songs');
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   
-  // UI states
+  //region UI states
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [folderLoading, setFolderLoading] = useState<{name: string, progress: number} | null>(null);
   const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set());
@@ -177,7 +154,7 @@ const App: React.FC = () => {
   
 
   
-  // Settings states
+  //region Settings states
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   const [chunkCount, setChunkCount] = useState<number>(() => {
     const saved = localStorage.getItem('chunkCount');
@@ -203,15 +180,23 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('showTranslation');
     return saved ? saved === 'true' : true;
   });
+  const [showSpectrum, setShowSpectrum] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showSpectrum');
+    return saved ? saved === 'true' : true;
+  });
+  const [spectrumFps, setSpectrumFps] = useState<number>(() => {
+    const saved = localStorage.getItem('spectrumFps');
+    return saved ? parseInt(saved, 10) : 60;
+  });
 
-  // Refs
+  //region Refs
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const uploadMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // 加载字体
+  //region 加载字体
   useEffect(() => {
     const existingFontLinks = document.querySelectorAll('link[rel="stylesheet"][href*="fonts.font.im"]');
     existingFontLinks.forEach(link => link.remove());
@@ -230,12 +215,23 @@ const App: React.FC = () => {
     }
   }, [selectedFont]);
 
-  // 保存翻译显示设置到 LocalStorage
+  //region 逐字歌词时间更新 - 100ms 高精度刷新
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (audioRef.current && !audioRef.current.paused) {
+        setCurrentTime(audioRef.current.currentTime);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  //region 保存翻译显示设置到 LocalStorage
   useEffect(() => {
     localStorage.setItem('showTranslation', showTranslation.toString());
   }, [showTranslation]);
 
-  // 性能优化：使用useCallback缓存函数
+  //region 性能优化：使用useCallback缓存函数
   const handleTabChange = useCallback((tab: NavTab) => {
     if (tab === activeTab) return;
     setIsTransitioning(true);
@@ -246,7 +242,7 @@ const App: React.FC = () => {
     }, 200);
   }, [activeTab]);
 
-  // Load playlist on mount
+  //region Load playlist on mount
   useEffect(() => {
     fetch('./discList.json')
       .then(res => {
@@ -282,24 +278,80 @@ const App: React.FC = () => {
       });
   }, []);
 
-  // 性能优化：使用useMemo缓存计算结果
-  const artistsByLetter = useMemo(() => {
+  //region 艺术家按首字母分组（支持中文转拼音）
+  const [artistsByLetter, setArtistsByLetter] = useState<Record<string, string[]>>({});
+  const [artistLetterMap, setArtistLetterMap] = useState<Record<string, string>>({});
+  const [hasChineseArtists, setHasChineseArtists] = useState(false);
+
+  // 初始分组（仅处理英文，中文暂时归为 #）
+  useEffect(() => {
     const artistSet = new Set<string>();
+    let hasChinese = false;
+
     playlist.forEach(item => {
-      if (item.artist) artistSet.add(item.artist);
+      if (item.artist) {
+        artistSet.add(item.artist);
+        if (containsChinese(item.artist)) {
+          hasChinese = true;
+        }
+      }
     });
-    
+
     const grouped: Record<string, string[]> = {};
-    Array.from(artistSet).sort((a, b) => a.localeCompare(b, 'zh-CN')).forEach(artist => {
-      const firstLetter = artist.charAt(0).toUpperCase();
+    const letterMap: Record<string, string> = {};
+
+    Array.from(artistSet).forEach(artist => {
+      const firstLetter = getFirstLetterSync(artist);
+      letterMap[artist] = firstLetter;
       if (!grouped[firstLetter]) {
         grouped[firstLetter] = [];
       }
       grouped[firstLetter].push(artist);
     });
-    
-    return grouped;
+
+    // 对每个分组内的艺术家排序
+    Object.keys(grouped).forEach(letter => {
+      grouped[letter].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    });
+
+    setArtistsByLetter(grouped);
+    setArtistLetterMap(letterMap);
+    setHasChineseArtists(hasChinese);
   }, [playlist]);
+
+  // 当用户点击艺术家标签时，加载拼音库并重新分组中文艺术家
+  const [pinyinLoaded, setPinyinLoaded] = useState(false);
+  const [pinyinLoadError, setPinyinLoadError] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'artists' && hasChineseArtists && !pinyinLoaded && !pinyinLoadError) {
+      getArtistsFirstLetters(Object.keys(artistLetterMap).filter(a => containsChinese(a))).then(newLetters => {
+        setArtistLetterMap(prev => ({ ...prev, ...newLetters }));
+
+        // 重新分组
+        const regrouped: Record<string, string[]> = {};
+        Object.entries({ ...artistLetterMap, ...newLetters }).forEach(([artist, letter]) => {
+          const letterKey = letter as string;
+          if (!regrouped[letterKey]) {
+            regrouped[letterKey] = [];
+          }
+          regrouped[letterKey].push(artist);
+        });
+
+        // 对每个分组内的艺术家排序
+        Object.keys(regrouped).forEach(letter => {
+          regrouped[letter].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+        });
+
+        setArtistsByLetter(regrouped);
+        setPinyinLoaded(true);
+      }).catch(err => {
+        console.warn('Failed to load pinyin library:', err);
+        setPinyinLoadError(true);
+        // 失败时保持现有分组（中文在 # 组）
+      });
+    }
+  }, [activeTab, hasChineseArtists, pinyinLoaded, pinyinLoadError, artistLetterMap]);
 
   const loadLinkedFolder = useCallback(async (folderName: string, linkUrl: string) => {
     if (loadedLinks.has(linkUrl)) {
@@ -714,7 +766,7 @@ const App: React.FC = () => {
     return <Shuffle size={18} />;
   }, [playbackMode]);
 
-  // 渲染侧边栏
+  //region 渲染侧边栏
   const renderSidebar = useCallback(() => (
     <aside className="w-64 bg-transparent flex flex-col">
       {/* Logo */}
@@ -755,7 +807,7 @@ const App: React.FC = () => {
     </aside>
   ), [activeTab, handleTabChange, playlist.length, artistsByLetter, isUploadMenuOpen]);
 
-  // 渲染艺术家视图
+  //region 渲染艺术家视图
   const renderArtistsView = useCallback(() => {
     if (selectedArtist) {
       const artistTracks = playlist.filter(item => item.artist === selectedArtist);
@@ -793,26 +845,103 @@ const App: React.FC = () => {
       );
     }
 
+    // 字母表 A-Z
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
     return (
       <div className="h-full flex flex-col">
-        <div className="p-6 border-b border-white/[0.05]">
-          <h2 className="text-2xl font-bold text-white drop-shadow-md">艺术家</h2>
-          <p className="text-sm text-white/40 mt-1 drop-shadow-sm">按字母排序</p>
+        <div className="p-6 border-b border-white/[0.05] flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white drop-shadow-md">艺术家</h2>
+            <p className="text-sm text-white/40 mt-1 drop-shadow-sm">按字母排序</p>
+          </div>
+          {/* 拼音库加载错误提示 */}
+          {pinyinLoadError && (
+            <div className="flex items-center gap-2 text-amber-400/80 bg-amber-400/10 px-3 py-1.5 rounded-lg" title="拼音库加载失败，中文歌手暂按 # 分组">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <line x1="12" x2="12" y1="9" y2="13"/>
+                <line x1="12" x2="12.01" y1="17" y2="17"/>
+              </svg>
+              <span className="text-xs font-medium">拼音加载失败</span>
+            </div>
+          )}
         </div>
-        
+
+        {/* 字母导航栏 */}
+        <div className="px-6 py-3 border-b border-white/[0.05] flex flex-wrap gap-1">
+          {alphabet.map(letter => {
+            const hasArtists = artistsByLetter[letter] && artistsByLetter[letter].length > 0;
+            return (
+              <button
+                key={letter}
+                onClick={() => {
+                  if (hasArtists) {
+                    const element = document.getElementById(`letter-group-${letter}`);
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+                className={`w-7 h-7 rounded-md text-xs font-bold transition-all ${
+                  hasArtists
+                    ? 'text-white/70 hover:text-white hover:bg-white/10 cursor-pointer'
+                    : 'text-white/20 cursor-default'
+                }`}
+                disabled={!hasArtists}
+              >
+                {letter}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
-          {Object.keys(artistsByLetter).sort().map(letter => (
-            <ArtistLetterGroup
-              key={letter}
-              letter={letter}
-              artists={artistsByLetter[letter]}
-              onSelect={setSelectedArtist}
-            />
-          ))}
+          {alphabet.map(letter => {
+            const artists = artistsByLetter[letter];
+            if (!artists || artists.length === 0) return null;
+
+            return (
+              <div key={letter} id={`letter-group-${letter}`} className="mb-6">
+                <div className="sticky top-0 z-10 px-4 py-2 bg-transparent backdrop-blur-sm">
+                  <span className="text-2xl font-black text-white/20 drop-shadow-md">{letter}</span>
+                </div>
+                <div className="space-y-1 px-2">
+                  {artists.map((artist, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedArtist(artist)}
+                      className="w-full text-left px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white rounded-xl transition-all duration-200 text-sm font-medium"
+                    >
+                      {artist}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* 显示 # 分组（数字和其他字符） */}
+          {artistsByLetter['#'] && artistsByLetter['#'].length > 0 && (
+            <div key="#" id="letter-group-#" className="mb-6">
+              <div className="sticky top-0 z-10 px-4 py-2 bg-transparent backdrop-blur-sm">
+                <span className="text-2xl font-black text-white/20 drop-shadow-md">#</span>
+              </div>
+              <div className="space-y-1 px-2">
+                {artistsByLetter['#'].map((artist, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedArtist(artist)}
+                    className="w-full text-left px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white rounded-xl transition-all duration-200 text-sm font-medium"
+                  >
+                    {artist}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
-  }, [selectedArtist, playlist, currentIndex, isPlaying, loadingTrackUrl, loadMusicFromUrl, artistsByLetter]);
+  }, [selectedArtist, playlist, currentIndex, isPlaying, loadingTrackUrl, loadMusicFromUrl, artistsByLetter, pinyinLoadError]);
 
   // 渲染歌曲视图（使用MusicLibrary组件）
   const renderSongsView = useCallback(() => (
@@ -899,7 +1028,7 @@ const App: React.FC = () => {
     </div>
   ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef]);
 
-  // 渲染设置视图
+  //region 渲染设置视图
   const renderSettingsView = useCallback(() => (
     <div className="h-full flex flex-col">
       <div className="p-6 border-b border-white/[0.05]">
@@ -921,12 +1050,16 @@ const App: React.FC = () => {
           setSelectedFont={setSelectedFont}
           showTranslation={showTranslation}
           setShowTranslation={setShowTranslation}
+          showSpectrum={showSpectrum}
+          setShowSpectrum={setShowSpectrum}
+          spectrumFps={spectrumFps}
+          setSpectrumFps={setSpectrumFps}
         />
       </div>
     </div>
-  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation]);
+  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, showSpectrum, spectrumFps]);
 
-  // 渲染主内容
+  //region 渲染主内容
   const renderMainContent = useCallback(() => {
     let content;
     switch (activeTab) {
@@ -1016,6 +1149,9 @@ const App: React.FC = () => {
         duration={duration}
         playbackMode={playbackMode}
         showTranslation={showTranslation}
+        showSpectrum={showSpectrum}
+        spectrumFps={spectrumFps}
+        audioRef={audioRef}
         onTogglePlay={togglePlay}
         onPrev={handlePrev}
         onNext={handleNext}

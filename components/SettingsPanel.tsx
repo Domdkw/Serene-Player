@@ -7,7 +7,10 @@ import {
   Languages,
   RotateCcw,
   Bug,
-  Music
+  Music,
+  Activity,
+  Palette,
+  Sparkles
 } from 'lucide-react';
 import { FONT_CONFIGS, getFontFamily } from '../utils/fontUtils';
 
@@ -24,31 +27,26 @@ interface SettingsPanelProps {
   setSelectedFont: (value: string) => void;
   showTranslation: boolean;
   setShowTranslation: (value: boolean) => void;
+  showSpectrum: boolean;
+  setShowSpectrum: (value: boolean) => void;
+  spectrumFps: number;
+  setSpectrumFps: (value: number) => void;
 }
 
-// 设置卡片组件
-const SettingCard = memo(({ 
-  icon: Icon, 
-  title, 
-  description, 
-  children 
-}: { 
+// 设置分组标题
+const SectionTitle = memo(({ icon: Icon, title, subtitle }: { 
   icon: React.ElementType; 
   title: string; 
-  description?: string;
-  children: React.ReactNode;
+  subtitle?: string;
 }) => (
-  <div className="bg-transparent rounded-2xl border border-white/[0.05] p-5 hover:bg-white/[0.04] transition-colors duration-200">
-    <div className="flex items-center gap-3 mb-4">
-      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
-        <Icon size={18} className="text-white/60" />
-      </div>
-      <div>
-        <h3 className="text-sm font-bold text-white">{title}</h3>
-        {description && <p className="text-xs text-white/40 mt-0.5">{description}</p>}
-      </div>
+  <div className="flex items-center gap-3 mb-4">
+    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center border border-white/10">
+      <Icon size={18} className="text-white/70" />
     </div>
-    {children}
+    <div>
+      <h3 className="text-sm font-semibold text-white/90">{title}</h3>
+      {subtitle && <p className="text-xs text-white/40">{subtitle}</p>}
+    </div>
   </div>
 ));
 
@@ -69,10 +67,10 @@ const OptionButtonGroup = memo(<T extends string | number>({
       <button
         key={option}
         onClick={() => onChange(option)}
-        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
           value === option
             ? 'bg-white text-black shadow-lg shadow-white/10'
-            : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            : 'bg-white/[0.03] text-white/50 hover:bg-white/[0.08] hover:text-white/70 border border-white/[0.06]'
         }`}
       >
         {getLabel ? getLabel(option) : option}
@@ -101,24 +99,50 @@ const SliderControl = memo(({
   
   return (
     <div className="flex items-center gap-4">
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="flex-1 h-2 bg-white/10 rounded-full appearance-none cursor-pointer relative"
-        style={{
-          background: `linear-gradient(to right, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.5) ${percentage}%, rgba(255,255,255,0.1) ${percentage}%, rgba(255,255,255,0.1) 100%)`
-        }}
-      />
-      <span className="text-sm font-mono text-white/60 w-16 text-right">
+      <div className="flex-1 relative">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer"
+          style={{
+            background: `linear-gradient(to right, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.6) ${percentage}%, rgba(255,255,255,0.08) ${percentage}%, rgba(255,255,255,0.08) 100%)`
+          }}
+        />
+      </div>
+      <span className="text-sm font-mono text-white/50 w-14 text-right tabular-nums">
         {formatValue ? formatValue(value) : value}
       </span>
     </div>
   );
 });
+
+// 开关组件
+const ToggleSwitch = memo(({ 
+  checked, 
+  onChange,
+  label
+}: { 
+  checked: boolean; 
+  onChange: (value: boolean) => void;
+  label?: string;
+}) => (
+  <button
+    onClick={() => onChange(!checked)}
+    className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
+      checked ? 'bg-white/20' : 'bg-white/10'
+    }`}
+  >
+    <span
+      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+        checked ? 'translate-x-6' : 'translate-x-0'
+      }`}
+    />
+  </button>
+));
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
   chunkCount,
@@ -132,7 +156,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   selectedFont,
   setSelectedFont,
   showTranslation,
-  setShowTranslation
+  setShowTranslation,
+  showSpectrum,
+  setShowSpectrum,
+  spectrumFps,
+  setSpectrumFps
 }) => {
   const handleReset = () => {
     localStorage.clear();
@@ -142,6 +170,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setLineHeight(1.5);
     setSelectedFont('default');
     setShowTranslation(true);
+    setShowSpectrum(true);
+    setSpectrumFps(60);
   };
 
   const handleDebug = () => {
@@ -155,190 +185,227 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   ];
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-8 max-w-3xl">
       {/* 播放设置 */}
-      <SettingCard 
-        icon={HardDrive} 
-        title="分块拉取设置" 
-        description="数值越大加载越快，但可能增加服务器压力"
-      >
-        <OptionButtonGroup
-          options={[1, 4, 8, 16]}
-          value={chunkCount}
-          onChange={(value) => {
-            setChunkCount(value);
-            localStorage.setItem('chunkCount', value.toString());
-          }}
+      <section>
+        <SectionTitle
+          icon={HardDrive}
+          title="播放设置"
+          subtitle="音频加载和播放相关配置"
         />
-      </SettingCard>
+        <div className="space-y-4 pl-12">
+          <div>
+            <label className="text-xs text-white/40 mb-2 block">分块拉取片数</label>
+            <OptionButtonGroup
+              options={[1, 4, 8, 16]}
+              value={chunkCount}
+              onChange={(value) => {
+                setChunkCount(value);
+                localStorage.setItem('chunkCount', value.toString());
+              }}
+            />
+            <p className="text-[11px] text-white/30 mt-2">数值越大加载越快，但可能增加服务器压力</p>
+          </div>
+        </div>
+      </section>
+
+      {/* 频谱图设置 */}
+      <section>
+        <SectionTitle
+          icon={Activity}
+          title="频谱图"
+          subtitle="音频可视化效果配置"
+        />
+        <div className="space-y-4 pl-12">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-white/60">显示频谱图</span>
+            <ToggleSwitch
+              checked={showSpectrum}
+              onChange={(value) => {
+                setShowSpectrum(value);
+                localStorage.setItem('showSpectrum', value.toString());
+              }}
+            />
+          </div>
+          
+          {showSpectrum && (
+            <div className="pt-2">
+              <label className="text-xs text-white/40 mb-2 block">帧率限制</label>
+              <div className="flex gap-2">
+                {[15, 30, 60].map((fps) => (
+                  <button
+                    key={fps}
+                    onClick={() => {
+                      setSpectrumFps(fps);
+                      localStorage.setItem('spectrumFps', fps.toString());
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      spectrumFps === fps
+                        ? 'bg-white text-black shadow-lg shadow-white/10'
+                        : 'bg-white/[0.03] text-white/50 hover:bg-white/[0.08] hover:text-white/70 border border-white/[0.06]'
+                    }`}
+                  >
+                    {fps === 60 ? '不限制' : `${fps} FPS`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <p className="text-[11px] text-white/30 flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-yellow-500/80" />
+            修改后需要刷新页面生效
+          </p>
+        </div>
+      </section>
 
       {/* 歌词显示设置 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SettingCard 
-          icon={Type} 
-          title="字体粗细" 
-        >
-          <div className="flex gap-2">
-            {fontWeightOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => {
-                  setFontWeight(option.value);
-                  localStorage.setItem('fontWeight', option.value);
-                }}
-                className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  fontWeight === option.value
-                    ? 'bg-white text-black shadow-lg shadow-white/10'
-                    : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                <span className={
-                  option.value === 'light' ? 'font-light' : 
-                  option.value === 'medium' ? 'font-medium' : 'font-bold'
-                }>
-                  {option.label}
-                </span>
-              </button>
-            ))}
+      <section>
+        <SectionTitle
+          icon={Type}
+          title="歌词样式"
+          subtitle="字体、间距和显示选项"
+        />
+        <div className="space-y-5 pl-12">
+          {/* 字体粗细 */}
+          <div>
+            <label className="text-xs text-white/40 mb-2 block">字体粗细</label>
+            <div className="flex gap-2">
+              {fontWeightOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => {
+                    setFontWeight(option.value);
+                    localStorage.setItem('fontWeight', option.value);
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    fontWeight === option.value
+                      ? 'bg-white text-black shadow-lg shadow-white/10'
+                      : 'bg-white/[0.03] text-white/50 hover:bg-white/[0.08] hover:text-white/70 border border-white/[0.06]'
+                  }`}
+                >
+                  <span className={
+                    option.value === 'light' ? 'font-light' : 
+                    option.value === 'medium' ? 'font-medium' : 'font-bold'
+                  }>
+                    {option.label}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </SettingCard>
 
-        <SettingCard 
-          icon={Languages} 
-          title="显示翻译" 
-        >
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setShowTranslation(true);
-                localStorage.setItem('showTranslation', 'true');
+          {/* 字间距 */}
+          <div>
+            <label className="text-xs text-white/40 mb-2 block">字间距</label>
+            <SliderControl
+              value={letterSpacing}
+              min={0}
+              max={10}
+              step={0.5}
+              onChange={(value) => {
+                setLetterSpacing(value);
+                localStorage.setItem('letterSpacing', value.toString());
               }}
-              className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                showTranslation
-                  ? 'bg-white text-black shadow-lg shadow-white/10'
-                  : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              显示
-            </button>
-            <button
-              onClick={() => {
-                setShowTranslation(false);
-                localStorage.setItem('showTranslation', 'false');
-              }}
-              className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                !showTranslation
-                  ? 'bg-white text-black shadow-lg shadow-white/10'
-                  : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              隐藏
-            </button>
+              formatValue={(v) => `${v}px`}
+            />
           </div>
-        </SettingCard>
-      </div>
 
-      {/* 字间距和行间距 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SettingCard 
-          icon={AlignCenter} 
-          title="字间距" 
-        >
-          <SliderControl
-            value={letterSpacing}
-            min={0}
-            max={10}
-            step={0.5}
-            onChange={(value) => {
-              setLetterSpacing(value);
-              localStorage.setItem('letterSpacing', value.toString());
-            }}
-            formatValue={(v) => `${v}px`}
-          />
-        </SettingCard>
+          {/* 行间距 */}
+          <div>
+            <label className="text-xs text-white/40 mb-2 block">行间距</label>
+            <SliderControl
+              value={lineHeight}
+              min={1}
+              max={3}
+              step={0.1}
+              onChange={(value) => {
+                setLineHeight(value);
+                localStorage.setItem('lineHeight', value.toString());
+              }}
+            />
+          </div>
 
-        <SettingCard 
-          icon={ArrowUpDown} 
-          title="行间距" 
-        >
-          <SliderControl
-            value={lineHeight}
-            min={1}
-            max={3}
-            step={0.1}
-            onChange={(value) => {
-              setLineHeight(value);
-              localStorage.setItem('lineHeight', value.toString());
-            }}
-          />
-        </SettingCard>
-      </div>
-
-      {/* 字体选择 */}
-      <SettingCard 
-        icon={Music} 
-        title="歌词字体" 
-      >
-        <select
-          value={selectedFont}
-          onChange={(e) => {
-            setSelectedFont(e.target.value);
-            localStorage.setItem('selectedFont', e.target.value);
-          }}
-          className="w-full py-3 px-4 text-sm bg-white/5 text-white rounded-xl border border-white/10 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] transition-colors"
-          style={{ fontFamily: getFontFamily(selectedFont) }}
-        >
-          {FONT_CONFIGS.map((font) => (
-            <option 
-              key={font.value} 
-              value={font.value} 
-              style={{ fontFamily: font.family, backgroundColor: '#1a1a1f' }}
+          {/* 字体选择 */}
+          <div>
+            <label className="text-xs text-white/40 mb-2 block">字体</label>
+            <select
+              value={selectedFont}
+              onChange={(e) => {
+                setSelectedFont(e.target.value);
+                localStorage.setItem('selectedFont', e.target.value);
+              }}
+              className="w-full py-2.5 px-3 text-sm bg-white/[0.03] text-white/70 rounded-lg border border-white/[0.06] focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-colors"
+              style={{ fontFamily: getFontFamily(selectedFont) }}
             >
-              {font.label}
-            </option>
-          ))}
-        </select>
-      </SettingCard>
+              {FONT_CONFIGS.map((font) => (
+                <option 
+                  key={font.value} 
+                  value={font.value} 
+                  style={{ fontFamily: font.family, backgroundColor: '#1a1a1f' }}
+                >
+                  {font.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 显示翻译 */}
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-sm text-white/60">显示翻译</span>
+            <ToggleSwitch
+              checked={showTranslation}
+              onChange={(value) => {
+                setShowTranslation(value);
+                localStorage.setItem('showTranslation', value.toString());
+              }}
+            />
+          </div>
+        </div>
+      </section>
 
       {/* 预览 */}
-      <SettingCard 
-        icon={Type} 
-        title="预览效果" 
-      >
-        <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-          <p
-            className="text-center text-white/80 transition-all duration-300"
-            style={{
-              fontWeight: fontWeight === 'light' ? '300' : fontWeight === 'medium' ? '500' : '700',
-              letterSpacing: `${letterSpacing}px`,
-              lineHeight: lineHeight,
-              fontFamily: getFontFamily(selectedFont)
-            }}
-          >
-            这是一行示例歌词
-          </p>
-          {showTranslation && (
-            <p className="text-center text-white/40 text-sm mt-2">
-              This is a sample lyric line
+      <section>
+        <SectionTitle
+          icon={Sparkles}
+          title="预览效果"
+        />
+        <div className="pl-12">
+          <div className="p-6 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <p
+              className="text-center text-white/80 transition-all duration-300"
+              style={{
+                fontWeight: fontWeight === 'light' ? '300' : fontWeight === 'medium' ? '500' : '700',
+                letterSpacing: `${letterSpacing}px`,
+                lineHeight: lineHeight,
+                fontFamily: getFontFamily(selectedFont)
+              }}
+            >
+              这是一行示例歌词
             </p>
-          )}
+            {showTranslation && (
+              <p className="text-center text-white/40 text-sm mt-2">
+                This is a sample lyric line
+              </p>
+            )}
+          </div>
         </div>
-      </SettingCard>
+      </section>
 
       {/* 操作按钮 */}
-      <div className="flex gap-4 pt-4">
+      <div className="flex gap-3 pt-4 pl-12">
         <button
           onClick={handleReset}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all duration-200 text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.03] text-white/50 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 text-sm font-medium border border-white/[0.06] hover:border-red-500/20"
         >
-          <RotateCcw size={16} />
+          <RotateCcw size={14} />
           恢复默认
         </button>
         <button
           onClick={handleDebug}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all duration-200 text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.03] text-white/50 hover:bg-blue-500/10 hover:text-blue-400 transition-all duration-200 text-sm font-medium border border-white/[0.06] hover:border-blue-500/20"
         >
-          <Bug size={16} />
+          <Bug size={14} />
           调试信息
         </button>
       </div>
