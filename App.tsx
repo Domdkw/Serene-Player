@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
-import { MusicLibrary } from './utils/MusicLibrary';
+import { MusicLibrary } from './components/MusicLibrary';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
@@ -214,6 +214,17 @@ const App: React.FC = () => {
       }
     }
   }, [selectedFont]);
+
+  //region 逐字歌词时间更新 - 100ms 高精度刷新
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (audioRef.current && !audioRef.current.paused) {
+        setCurrentTime(audioRef.current.currentTime);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, []);
 
   //region 保存翻译显示设置到 LocalStorage
   useEffect(() => {

@@ -28,13 +28,12 @@ interface MusicPlayerProps {
 
 // 流光加载条组件
 const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
-  <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/5 z-[100] overflow-hidden">
-    <div 
-      className="h-full relative overflow-hidden transition-all duration-300 ease-out"
-      style={{ width: `${progress}%` }}
-    >
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-shimmer" />
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-80" />
+  <div className="fixed top-0 left-0 w-full z-50 pointer-events-none">
+    <div className="relative h-1.5 bg-white/5 overflow-hidden shimmer-effect">
+      <div 
+        className="h-full bg-white transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.8)]"
+        style={{ width: `${progress}%` }}
+      />
     </div>
   </div>
 ));
@@ -70,7 +69,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     const rect = coverRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
-    setCoverMousePos({ x: x * 15, y: -y * 15 });
+    setCoverMousePos({ x, y });
   }, []);
 
   const handleCoverMouseLeave = useCallback(() => {
@@ -163,24 +162,30 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             onMouseMove={handleCoverMouseMove}
             onMouseEnter={() => setIsCoverHovered(true)}
             onMouseLeave={handleCoverMouseLeave}
-            className="relative w-full max-w-[280px] lg:max-w-[320px] aspect-square"
-            style={{
-              perspective: '1000px',
-              transform: `rotateY(${coverMousePos.x}deg) rotateX(${coverMousePos.y}deg)`,
-              transition: isCoverHovered ? 'transform 0.1s ease-out' : 'transform 0.5s ease-out'
-            }}
+            className="relative group w-full aspect-square max-w-[280px] lg:max-w-[320px] shrink-0"
           >
-            {track.metadata.coverUrl ? (
-              <img
-                src={track.metadata.coverUrl}
-                alt="Cover"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Music size={48} className="text-white/20" />
-              </div>
-            )}
+            <div className={`absolute -inset-4 md:-inset-8 opacity-20 blur-3xl rounded-full transition-all duration-1000 ${isPlaying ? 'scale-110' : 'scale-90'}`} style={{ backgroundColor: 'white' }} />
+            <div
+              className="relative w-full h-full rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xl border border-white/20 bg-black/40 transition-transform duration-125 ease-out"
+              style={{
+                transform: isCoverHovered
+                  ? `perspective(1000px) rotateX(${-coverMousePos.y * 25}deg) rotateY(${coverMousePos.x * 25}deg) scale3d(1.05, 1.05, 1.05)`
+                  : 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
+                willChange: 'transform'
+              }}
+            >
+              {track.metadata.coverUrl ? (
+                <img
+                  src={track.metadata.coverUrl}
+                  alt="Cover"
+                  className={`w-full h-full object-cover transition-transform duration-[5s] ease-linear ${isPlaying ? 'scale-125' : 'scale-100'}`}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Music size={64} className="text-white/10" />
+                </div>
+              )}
+            </div>
           </div>
           {/* Track Info - 移到封面下方 */}
           <div className="mt-8 text-center z-20 px-8">

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata } from '../utils/metadata';
-import { MusicLibrary } from '../utils/MusicLibrary';
+import { MusicLibrary } from '../components/MusicLibrary';
 import SettingsPanel from './SettingsPanel';
 import LyricLine from '../components/LyricLine';
 import fetchInChunks from 'fetch-in-chunks';
