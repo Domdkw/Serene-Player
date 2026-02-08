@@ -1,5 +1,5 @@
-import React, { memo, useMemo } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle } from 'lucide-react';
+import React, { memo, useMemo, useCallback, useState, useRef } from 'react';
+import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc } from 'lucide-react';
 import { Track } from '../types';
 import AudioSpectrum from './AudioSpectrum';
 
@@ -52,14 +52,47 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
 }) => {
   const hasTrack = track !== null;
   const hasLyrics = hasTrack && track.metadata.parsedLyrics && track.metadata.parsedLyrics.length > 0;
+  const [isDiscHovered, setIsDiscHovered] = useState(false);
+  const discRef = useRef<HTMLDivElement>(null);
 
   // 使用useMemo缓存初始值，确保设置只在应用启动时读取一次
   const spectrumEnabled = useMemo(() => showSpectrum, []);
   const spectrumFrameRate = useMemo(() => spectrumFps, []);
 
+  // 处理圆盘滚动事件
+  const handleDiscWheel = useCallback((e: React.WheelEvent) => {
+    if (!hasTrack || duration <= 0) return;
+    e.preventDefault();
+    
+    // 每次滚动调整5秒
+    const seekStep = 5;
+    const delta = e.deltaY > 0 ? seekStep : -seekStep;
+    let newTime = currentTime + delta;
+    
+    // 限制在有效范围内
+    newTime = Math.max(0, Math.min(duration, newTime));
+    
+    onSeek(newTime);
+  }, [hasTrack, duration, currentTime, onSeek]);
+
   return (
     <footer className="fixed bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-t border-white/10 z-[70] overflow-hidden">
-      <div className="relative px-6 py-4">
+      {/* 播放进度条 - 移到顶部，宽度占满整个播放栏 */}
+      <div
+        className={`w-full h-1.5 bg-white/10 ${hasTrack ? 'cursor-pointer' : ''}`}
+        onClick={(e) => {
+          if (!hasTrack) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const percent = (e.clientX - rect.left) / rect.width;
+          onSeek(percent * duration);
+        }}
+      >
+        <div
+          className="h-full bg-white rounded-full transition-all"
+          style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+        />
+      </div>
+      <div className="relative px-6 py-3">
         <div className="relative z-10 flex items-center justify-between max-w-screen-2xl mx-auto">
           <button
             onClick={hasTrack ? onOpenPlayer : undefined}
@@ -80,19 +113,11 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
               </div>
             )}
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className={`font-medium text-sm truncate ${hasTrack ? 'text-white' : 'text-white/40'}`}>
-                  {hasTrack
-                    ? (track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, ''))
-                    : ''}
-                </p>
-                {hasTrack && !hasLyrics && (
-                  <span className="flex items-center gap-1 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20" title="此歌曲没有内嵌歌词">
-                    <AlertCircle size={12} />
-                    <span className="hidden sm:inline">无歌词</span>
-                  </span>
-                )}
-              </div>
+              <p className={`font-medium text-sm truncate ${hasTrack ? 'text-white' : 'text-white/40'}`}>
+                {hasTrack
+                  ? (track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, ''))
+                  : ''}
+              </p>
               <p className="text-white/50 text-xs truncate">
                 {hasTrack ? track.metadata.artist : ''}
               </p>
@@ -142,7 +167,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
                 onClick={onToggleTranslation}
                 disabled={!hasTrack}
                 className={`transition-all ${
-                  hasTrack 
+                  hasTrack
                     ? showTranslation ? 'text-white' : 'text-white/40 hover:text-white/60'
                     : 'text-white/20 cursor-not-allowed'
                 }`}
@@ -150,29 +175,59 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
               >
                 <Languages size={18} />
               </button>
+              {hasTrack && !hasLyrics && (
+                <div className="relative group">
+                  <AlertTriangle
+                    size={16}
+                    className="text-yellow-400 cursor-help"
+                  />
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/80 backdrop-blur-sm text-xs text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10">
+                    此歌曲没有内嵌歌词
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black/80"></div>
+                  </div>
+                </div>
+              )}
             </div>
             
-            <div className="w-full flex items-center gap-3 text-xs text-white/50">
-              <span className="w-10 text-right">{formatTime(currentTime)}</span>
-              <div 
-                className={`flex-1 h-1 bg-white/10 rounded-full overflow-hidden ${hasTrack ? 'cursor-pointer' : ''}`}
-                onClick={(e) => {
-                  if (!hasTrack) return;
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const percent = (e.clientX - rect.left) / rect.width;
-                  onSeek(percent * duration);
-                }}
-              >
-                <div
-                  className="h-full bg-white rounded-full transition-all"
-                  style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                />
-              </div>
-              <span className="w-10">{formatTime(duration)}</span>
-            </div>
           </div>
 
-          <div className="w-1/4 flex justify-end">
+          <div className="w-1/4 flex justify-end items-center gap-4">
+            {/* 圆盘图标 - 滚动控制播放进度 */}
+            <div
+              ref={discRef}
+              onWheel={handleDiscWheel}
+              onMouseEnter={() => setIsDiscHovered(true)}
+              onMouseLeave={() => setIsDiscHovered(false)}
+              className={`relative flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${
+                hasTrack 
+                  ? 'cursor-pointer hover:bg-white/10' 
+                  : 'cursor-not-allowed opacity-30'
+              }`}
+              title={hasTrack ? '滚动鼠标快速调整播放进度' : ''}
+            >
+              <Disc 
+                size={18} 
+                className={`transition-all duration-200 ${
+                  isDiscHovered && hasTrack ? 'text-white rotate-180' : 'text-white/50'
+                }`}
+                style={{
+                  transform: isDiscHovered && hasTrack ? 'rotate(180deg)' : `rotate(${duration ? (currentTime / duration) * 360 : 0}deg)`,
+                  transition: 'transform 0.3s ease-out'
+                }}
+              />
+              {/* 悬停提示 */}
+              {isDiscHovered && hasTrack && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 backdrop-blur-sm text-[10px] text-white rounded whitespace-nowrap pointer-events-none border border-white/10">
+                  滚动调整进度
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black/80"></div>
+                </div>
+              )}
+            </div>
+            
+            {/* 时间显示 - 放在波形图左方 */}
+            <span className="text-xs text-white/50 whitespace-nowrap">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
             {spectrumEnabled && (
               <div className="w-full max-w-[200px] h-16 relative">
                 <AudioSpectrum 
