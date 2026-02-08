@@ -61,7 +61,7 @@ export const FolderDisplay = ({
           onClick={() => handleFolderClick(folderName)}
           disabled={isLoadingFolder}
           className={`${isSidebar 
-            ? "w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group bg-white/[0.03] text-white/70 hover:bg-white/[0.08] hover:text-white border border-white/[0.05]"
+            ? "w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group bg-transparent text-white/70 hover:bg-white/[0.08] hover:text-white border border-white/[0.05]"
             : "w-full px-4 py-4 flex items-center transition-all group border-b border-white/5 text-white/80 hover:bg-white/[0.05] hover:text-white"
           } ${isLoadingFolder ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
@@ -102,7 +102,7 @@ export const FolderDisplay = ({
         <button
           key={`child-${idx}`}
           onClick={() => setCurrentFolder(`${currentFolder}/${childName}`)}
-          className={`w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group bg-white/[0.03] text-white/70 hover:bg-white/[0.08] hover:text-white border border-white/[0.05]`}
+          className={`w-full px-5 py-4 rounded-2xl flex items-center justify-between transition-all group bg-transparent text-white/70 hover:bg-white/[0.08] hover:text-white border border-white/[0.05]`}
         >
           <div className="flex items-center flex-1 min-w-0">
             <Folder size={16} className="mr-3 flex-shrink-0" />
