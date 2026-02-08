@@ -27,6 +27,8 @@ interface SettingsPanelProps {
   setShowTranslation: (value: boolean) => void;
   showSpectrum: boolean;
   setShowSpectrum: (value: boolean) => void;
+  spectrumFps: number;
+  setSpectrumFps: (value: number) => void;
 }
 
 // 设置卡片组件
@@ -137,7 +139,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   showTranslation,
   setShowTranslation,
   showSpectrum,
-  setShowSpectrum
+  setShowSpectrum,
+  spectrumFps,
+  setSpectrumFps
 }) => {
   const handleReset = () => {
     localStorage.clear();
@@ -148,6 +152,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setSelectedFont('default');
     setShowTranslation(true);
     setShowSpectrum(true);
+    setSpectrumFps(60);
   };
 
   const handleDebug = () => {
@@ -212,6 +217,30 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             隐藏
           </button>
         </div>
+        
+        {/* 帧率限制 */}
+        <div className="mt-4 pt-4 border-t border-white/10">
+          <p className="text-xs text-white/50 mb-2">帧率限制（重启后生效）</p>
+          <div className="flex gap-2">
+            {[15, 30, 60].map((fps) => (
+              <button
+                key={fps}
+                onClick={() => {
+                  setSpectrumFps(fps);
+                  localStorage.setItem('spectrumFps', fps.toString());
+                }}
+                className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  spectrumFps === fps
+                    ? 'bg-white text-black shadow-lg shadow-white/10'
+                    : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {fps === 60 ? '不限制' : `${fps} FPS`}
+              </button>
+            ))}
+          </div>
+        </div>
+        
         <p className="text-xs text-white/40 mt-3 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-yellow-500/80"></span>
           修改此设置后需要刷新页面才能生效

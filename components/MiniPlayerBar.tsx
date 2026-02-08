@@ -11,6 +11,7 @@ interface MiniPlayerBarProps {
   playbackMode: 'single' | 'list' | 'shuffle';
   showTranslation: boolean;
   showSpectrum: boolean;
+  spectrumFps: number;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   onTogglePlay: () => void;
   onPrev: () => void;
@@ -37,6 +38,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   playbackMode,
   showTranslation,
   showSpectrum,
+  spectrumFps,
   audioRef,
   onTogglePlay,
   onPrev,
@@ -52,6 +54,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   
   // 使用useMemo缓存初始值，确保设置只在应用启动时读取一次
   const spectrumEnabled = useMemo(() => showSpectrum, []);
+  const spectrumFrameRate = useMemo(() => spectrumFps, []);
 
   return (
     <footer className="fixed bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-t border-white/10 z-[70] overflow-hidden">
@@ -167,6 +170,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
                   audioRef={audioRef} 
                   isPlaying={isPlaying} 
                   enabled={spectrumEnabled}
+                  fps={spectrumFrameRate}
                 />
               </div>
             )}

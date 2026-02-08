@@ -14,7 +14,7 @@ import { getFontUrl } from './utils/fontUtils';
 
 type NavTab = 'songs' | 'artists' | 'settings';
 
-// 使用memo优化子组件，避免不必要的重渲染
+//region 使用memo优化子组件，避免不必要的重渲染
 const SidebarItem = memo(({ 
   icon: Icon, 
   label, 
@@ -48,7 +48,7 @@ const SidebarItem = memo(({
   </button>
 ));
 
-// 流光加载条组件
+//region 流光加载条组件
 const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
   <div className="fixed top-0 left-0 w-full z-50 pointer-events-none">
     <div className="relative h-1.5 md:h-2 bg-white/5 overflow-hidden shimmer-effect">
@@ -57,7 +57,7 @@ const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
   </div>
 ));
 
-// 文件夹加载指示器
+//region 文件夹加载指示器
 const FolderLoadingIndicator = memo(({ name, progress }: { name: string; progress: number }) => (
   <div className="mb-6 p-4 bg-transparent rounded-2xl border border-white/[0.05] backdrop-blur-sm">
     <div className="flex items-center justify-between mb-3">
@@ -83,7 +83,7 @@ const FolderLoadingIndicator = memo(({ name, progress }: { name: string; progres
   </div>
 ));
 
-// 艺术家字母分组
+//region 艺术家字母分组
 const ArtistLetterGroup = memo(({ 
   letter, 
   artists, 
@@ -111,7 +111,7 @@ const ArtistLetterGroup = memo(({
   </div>
 ));
 
-// 内容切换动画包装器
+//region 内容切换动画包装器
 const AnimatedContent = memo(({ 
   children, 
   activeTab,
@@ -153,7 +153,7 @@ const App: React.FC = () => {
   const [duration, setDuration] = useState(0);
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
   
-  // Playlist states
+  //region Playlist states
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
   const [playlistFolders, setPlaylistFolders] = useState<Record<string, PlaylistItem[]>>({});
   const [loadedLinks, setLoadedLinks] = useState<Set<string>>(new Set());
@@ -161,12 +161,12 @@ const App: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('single');
   
-  // Navigation state
+  //region Navigation state
   const [activeTab, setActiveTab] = useState<NavTab>('songs');
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   
-  // UI states
+  //region UI states
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [folderLoading, setFolderLoading] = useState<{name: string, progress: number} | null>(null);
   const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set());
@@ -177,7 +177,7 @@ const App: React.FC = () => {
   
 
   
-  // Settings states
+  //region Settings states
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   const [chunkCount, setChunkCount] = useState<number>(() => {
     const saved = localStorage.getItem('chunkCount');
@@ -207,15 +207,19 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('showSpectrum');
     return saved ? saved === 'true' : true;
   });
+  const [spectrumFps, setSpectrumFps] = useState<number>(() => {
+    const saved = localStorage.getItem('spectrumFps');
+    return saved ? parseInt(saved, 10) : 60;
+  });
 
-  // Refs
+  //region Refs
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const uploadMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // 加载字体
+  //region 加载字体
   useEffect(() => {
     const existingFontLinks = document.querySelectorAll('link[rel="stylesheet"][href*="fonts.font.im"]');
     existingFontLinks.forEach(link => link.remove());
@@ -234,12 +238,12 @@ const App: React.FC = () => {
     }
   }, [selectedFont]);
 
-  // 保存翻译显示设置到 LocalStorage
+  //region 保存翻译显示设置到 LocalStorage
   useEffect(() => {
     localStorage.setItem('showTranslation', showTranslation.toString());
   }, [showTranslation]);
 
-  // 性能优化：使用useCallback缓存函数
+  //region 性能优化：使用useCallback缓存函数
   const handleTabChange = useCallback((tab: NavTab) => {
     if (tab === activeTab) return;
     setIsTransitioning(true);
@@ -250,7 +254,7 @@ const App: React.FC = () => {
     }, 200);
   }, [activeTab]);
 
-  // Load playlist on mount
+  //region Load playlist on mount
   useEffect(() => {
     fetch('./discList.json')
       .then(res => {
@@ -286,7 +290,7 @@ const App: React.FC = () => {
       });
   }, []);
 
-  // 性能优化：使用useMemo缓存计算结果
+  //region 性能优化：使用useMemo缓存计算结果
   const artistsByLetter = useMemo(() => {
     const artistSet = new Set<string>();
     playlist.forEach(item => {
@@ -718,7 +722,7 @@ const App: React.FC = () => {
     return <Shuffle size={18} />;
   }, [playbackMode]);
 
-  // 渲染侧边栏
+  //region 渲染侧边栏
   const renderSidebar = useCallback(() => (
     <aside className="w-64 bg-transparent flex flex-col">
       {/* Logo */}
@@ -759,7 +763,7 @@ const App: React.FC = () => {
     </aside>
   ), [activeTab, handleTabChange, playlist.length, artistsByLetter, isUploadMenuOpen]);
 
-  // 渲染艺术家视图
+  //region 渲染艺术家视图
   const renderArtistsView = useCallback(() => {
     if (selectedArtist) {
       const artistTracks = playlist.filter(item => item.artist === selectedArtist);
@@ -903,7 +907,7 @@ const App: React.FC = () => {
     </div>
   ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef]);
 
-  // 渲染设置视图
+  //region 渲染设置视图
   const renderSettingsView = useCallback(() => (
     <div className="h-full flex flex-col">
       <div className="p-6 border-b border-white/[0.05]">
@@ -927,12 +931,14 @@ const App: React.FC = () => {
           setShowTranslation={setShowTranslation}
           showSpectrum={showSpectrum}
           setShowSpectrum={setShowSpectrum}
+          spectrumFps={spectrumFps}
+          setSpectrumFps={setSpectrumFps}
         />
       </div>
     </div>
-  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, showSpectrum]);
+  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, showSpectrum, spectrumFps]);
 
-  // 渲染主内容
+  //region 渲染主内容
   const renderMainContent = useCallback(() => {
     let content;
     switch (activeTab) {
@@ -1023,6 +1029,7 @@ const App: React.FC = () => {
         playbackMode={playbackMode}
         showTranslation={showTranslation}
         showSpectrum={showSpectrum}
+        spectrumFps={spectrumFps}
         audioRef={audioRef}
         onTogglePlay={togglePlay}
         onPrev={handlePrev}

@@ -80,7 +80,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   // 歌词数据
   const lyricsList = track.metadata.parsedLyrics || [];
-  
+  const hasLyrics = lyricsList.length > 0;
+
   const lyricsType = React.useMemo(() => {
     if (!lyricsList.length) return 'none';
     const firstLine = lyricsList[0];

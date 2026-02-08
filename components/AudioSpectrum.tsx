@@ -4,20 +4,33 @@ interface AudioSpectrumProps {
   audioRef: React.RefObject<HTMLAudioElement | null>;
   isPlaying: boolean;
   enabled: boolean;
+  fps?: number;
 }
 
-const AudioSpectrum: React.FC<AudioSpectrumProps> = ({ audioRef, isPlaying, enabled }) => {
+const AudioSpectrum: React.FC<AudioSpectrumProps> = ({ audioRef, isPlaying, enabled, fps = 60 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const animationRef = useRef<number | null>(null);
   const isInitializedRef = useRef(false);
+  const lastFrameTimeRef = useRef<number>(0);
+  const frameIntervalRef = useRef<number>(1000 / fps);
 
-  const draw = useCallback(() => {
+  const draw = useCallback((timestamp: number) => {
     const canvas = canvasRef.current;
     const analyser = analyserRef.current;
     if (!canvas || !analyser) return;
+
+    // 帧率限制
+    if (fps < 60) {
+      const elapsed = timestamp - lastFrameTimeRef.current;
+      if (elapsed < frameIntervalRef.current) {
+        animationRef.current = requestAnimationFrame(draw);
+        return;
+      }
+      lastFrameTimeRef.current = timestamp;
+    }
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -61,7 +74,11 @@ const AudioSpectrum: React.FC<AudioSpectrumProps> = ({ audioRef, isPlaying, enab
     }
 
     animationRef.current = requestAnimationFrame(draw);
-  }, []);
+  }, [fps]);
+
+  useEffect(() => {
+    frameIntervalRef.current = 1000 / fps;
+  }, [fps]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -104,7 +121,8 @@ const AudioSpectrum: React.FC<AudioSpectrumProps> = ({ audioRef, isPlaying, enab
         audioContext.resume();
       }
       if (!animationRef.current) {
-        draw();
+        lastFrameTimeRef.current = 0;
+        animationRef.current = requestAnimationFrame(draw);
       }
     } else {
       if (animationRef.current) {
