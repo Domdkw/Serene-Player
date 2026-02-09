@@ -1036,7 +1036,7 @@ const App: React.FC = () => {
         <p className="text-sm text-white/40 mt-1 drop-shadow-sm">自定义您的播放器</p>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-6">
+      <div class="flex-1 overflow-y-auto playlist-scrollbar p-4">
         <SettingsPanel
           chunkCount={chunkCount}
           setChunkCount={setChunkCount}

@@ -185,9 +185,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   ];
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-5 max-w-3xl">
       {/* 播放设置 */}
-      <section>
+      <section className="p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] backdrop-blur-sm">
         <SectionTitle
           icon={HardDrive}
           title="播放设置"
@@ -210,7 +210,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </section>
 
       {/* 频谱图设置 */}
-      <section>
+      <section className="p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] backdrop-blur-sm">
         <SectionTitle
           icon={Activity}
           title="频谱图"
@@ -260,7 +260,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </section>
 
       {/* 歌词显示设置 */}
-      <section>
+      <section className="p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] backdrop-blur-sm">
         <SectionTitle
           icon={Type}
           title="歌词样式"
@@ -329,25 +329,32 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           {/* 字体选择 */}
           <div>
             <label className="text-xs text-white/40 mb-2 block">字体</label>
-            <select
-              value={selectedFont}
-              onChange={(e) => {
-                setSelectedFont(e.target.value);
-                localStorage.setItem('selectedFont', e.target.value);
-              }}
-              className="w-full py-2.5 px-3 text-sm bg-white/[0.03] text-white/70 rounded-lg border border-white/[0.06] focus:outline-none focus:border-white/20 focus:bg-white/[0.06] transition-colors"
-              style={{ fontFamily: getFontFamily(selectedFont) }}
-            >
-              {FONT_CONFIGS.map((font) => (
-                <option 
-                  key={font.value} 
-                  value={font.value} 
-                  style={{ fontFamily: font.family, backgroundColor: '#1a1a1f' }}
-                >
-                  {font.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selectedFont}
+                onChange={(e) => {
+                  setSelectedFont(e.target.value);
+                  localStorage.setItem('selectedFont', e.target.value);
+                }}
+                className="w-full py-3 px-4 text-sm bg-white/[0.05] text-white/80 rounded-xl border border-white/[0.10] focus:outline-none focus:border-white/30 focus:bg-white/[0.08] focus:ring-2 focus:ring-white/[0.1] transition-all cursor-pointer appearance-none hover:border-white/[0.15] hover:bg-white/[0.06]"
+                style={{ fontFamily: getFontFamily(selectedFont) }}
+              >
+                {FONT_CONFIGS.map((font) => (
+                  <option 
+                    key={font.value} 
+                    value={font.value} 
+                    style={{ fontFamily: font.family, backgroundColor: '#1a1a1f' }}
+                  >
+                    {font.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-white/40">
+                  <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* 显示翻译 */}
@@ -365,7 +372,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </section>
 
       {/* 预览 */}
-      <section>
+      <section className="p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] backdrop-blur-sm">
         <SectionTitle
           icon={Sparkles}
           title="预览效果"
@@ -393,17 +400,17 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </section>
 
       {/* 操作按钮 */}
-      <div className="flex gap-3 pt-4 pl-12">
+      <div className="flex gap-3 pt-2 pl-12">
         <button
           onClick={handleReset}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.03] text-white/50 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 text-sm font-medium border border-white/[0.06] hover:border-red-500/20"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.05] text-white/50 bg-red-500/10 text-red-400 transition-all duration-200 text-sm font-medium border border-red-500/20"
         >
           <RotateCcw size={14} />
           恢复默认
         </button>
         <button
           onClick={handleDebug}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.03] text-white/50 hover:bg-blue-500/10 hover:text-blue-400 transition-all duration-200 text-sm font-medium border border-white/[0.06] hover:border-blue-500/20"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.05] text-white/50 bg-blue-500/10 text-blue-400 transition-all duration-200 text-sm font-medium border border-blue-500/20"
         >
           <Bug size={14} />
           调试信息
