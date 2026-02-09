@@ -80,7 +80,12 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
         )}
       </div>
 
-      <div className="px-4 py-2 border-b border-white/[0.05] flex flex-row gap-2 overflow-x-auto hide-scrollbar">
+      <div
+        className="px-4 py-2 border-b border-white/[0.05] flex flex-row gap-2 overflow-x-auto hide-scrollbar"
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         {alphabet.map(letter => {
           const hasArtists = artistsByLetter[letter] && artistsByLetter[letter].length > 0;
           return (
@@ -105,7 +110,12 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
         })}
       </div>
 
-      <div className="flex-1 overflow-y-auto hide-scrollbar">
+      <div
+        className="flex-1 overflow-y-auto hide-scrollbar"
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         {alphabet.map(letter => {
           const artists = artistsByLetter[letter];
           if (!artists || artists.length === 0) return null;

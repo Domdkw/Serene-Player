@@ -66,6 +66,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
           maxHeight: '85vh'
         }}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Handle Bar */}
         <div className="flex justify-center pt-3 pb-1">
