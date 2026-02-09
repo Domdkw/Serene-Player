@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import {
-  Upload, Music, X, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle
+  Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
 import { MusicLibrary } from './components/MusicLibrary';
 import { ArtistsView } from './components/ArtistsView';
+import { SearchPanel } from './components/SearchPanel';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
@@ -154,7 +155,7 @@ const App: React.FC = () => {
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [showFullPlayer, setShowFullPlayer] = useState(false);
   
-
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   
   //region Settings states
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
@@ -851,6 +852,14 @@ const App: React.FC = () => {
             </span>
           </button>
           
+          <button
+            onClick={() => setIsSearchOpen(!isSearchOpen)}
+            className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 ${isSearchOpen ? 'bg-white/20 text-white' : 'bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white'}`}
+            title="搜索"
+          >
+            <Search size={18} />
+          </button>
+          
           <div className="relative" ref={uploadMenuRef}>
             <button
               onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
@@ -910,8 +919,17 @@ const App: React.FC = () => {
           loadingTrackUrl={loadingTrackUrl}
         />
       </div>
+      
+      <SearchPanel
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        playlist={playlist}
+        currentIndex={currentIndex}
+        isPlaying={isPlaying}
+        onTrackSelect={loadMusicFromUrl}
+      />
     </div>
-  ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef]);
+  ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef, isSearchOpen]);
 
   //region 渲染设置视图
   const renderSettingsView = useCallback(() => (
