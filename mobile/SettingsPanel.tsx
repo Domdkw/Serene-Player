@@ -87,7 +87,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
 
         {/* Settings Content */}
-        <div className="p-5 space-y-6 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 120px)' }}>
+        <div className="p-5 space-y-6 overflow-y-auto">
           {/* Chunk Count */}
           <div className="space-y-3">
             <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
