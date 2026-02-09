@@ -13,6 +13,7 @@ import LyricLine from '../components/LyricLine';
 import fetchInChunks from 'fetch-in-chunks';
 import { getFontFamily, getFontUrl } from '../utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from '../utils/pinyinLoader';
+import { parseComposers, groupComposersByInitial } from '../utils/composerUtils';
 
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
@@ -181,10 +182,13 @@ const App: React.FC = () => {
 
     playlist.forEach(item => {
       if (item.artist) {
-        artistSet.add(item.artist);
-        if (containsChinese(item.artist)) {
-          hasChinese = true;
-        }
+        const composers = parseComposers(item.artist);
+        composers.forEach(composer => {
+          artistSet.add(composer.name);
+          if (containsChinese(composer.name)) {
+            hasChinese = true;
+          }
+        });
       }
     });
 
