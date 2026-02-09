@@ -2,15 +2,17 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, 
-  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages
+  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages, Disc, User
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata } from '../utils/metadata';
 import { MusicLibrary } from '../components/MusicLibrary';
+import { ArtistsView } from './ArtistsView';
 import SettingsPanel from './SettingsPanel';
 import LyricLine from '../components/LyricLine';
 import fetchInChunks from 'fetch-in-chunks';
 import { getFontFamily, getFontUrl } from '../utils/fontUtils';
+import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from '../utils/pinyinLoader';
 
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
@@ -115,6 +117,15 @@ const App: React.FC = () => {
   const uploadMenuRef = useRef<HTMLDivElement | null>(null);
   const [isManualScrolling, setIsManualScrolling] = useState(false);
 
+  // Library view states
+  const [libraryView, setLibraryView] = useState<'songs' | 'artists'>('songs');
+  const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
+  const [artistsByLetter, setArtistsByLetter] = useState<Record<string, string[]>>({});
+  const [artistLetterMap, setArtistLetterMap] = useState<Record<string, string>>({});
+  const [hasChineseArtists, setHasChineseArtists] = useState(false);
+  const [pinyinLoaded, setPinyinLoaded] = useState(false);
+  const [pinyinLoadError, setPinyinLoadError] = useState(false);
+
   // Load playlist on mount
   useEffect(() => {
     fetch('./discList.json')
@@ -162,6 +173,69 @@ const App: React.FC = () => {
       setCurrentPage(0);
     }
   }, [track, playlist.length]);
+
+  // 艺术家按首字母分组（支持中文转拼音）
+  useEffect(() => {
+    const artistSet = new Set<string>();
+    let hasChinese = false;
+
+    playlist.forEach(item => {
+      if (item.artist) {
+        artistSet.add(item.artist);
+        if (containsChinese(item.artist)) {
+          hasChinese = true;
+        }
+      }
+    });
+
+    const grouped: Record<string, string[]> = {};
+    const letterMap: Record<string, string> = {};
+
+    Array.from(artistSet).forEach(artist => {
+      const firstLetter = getFirstLetterSync(artist);
+      letterMap[artist] = firstLetter;
+      if (!grouped[firstLetter]) {
+        grouped[firstLetter] = [];
+      }
+      grouped[firstLetter].push(artist);
+    });
+
+    Object.keys(grouped).forEach(letter => {
+      grouped[letter].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    });
+
+    setArtistsByLetter(grouped);
+    setArtistLetterMap(letterMap);
+    setHasChineseArtists(hasChinese);
+  }, [playlist]);
+
+  // 当用户点击艺术家标签时，加载拼音库并重新分组中文艺术家
+  useEffect(() => {
+    if (libraryView === 'artists' && hasChineseArtists && !pinyinLoaded && !pinyinLoadError) {
+      getArtistsFirstLetters(Object.keys(artistLetterMap).filter(a => containsChinese(a))).then(newLetters => {
+        setArtistLetterMap(prev => ({ ...prev, ...newLetters }));
+
+        const regrouped: Record<string, string[]> = {};
+        Object.entries({ ...artistLetterMap, ...newLetters }).forEach(([artist, letter]) => {
+          const letterKey = letter as string;
+          if (!regrouped[letterKey]) {
+            regrouped[letterKey] = [];
+          }
+          regrouped[letterKey].push(artist);
+        });
+
+        Object.keys(regrouped).forEach(letter => {
+          regrouped[letter].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+        });
+
+        setArtistsByLetter(regrouped);
+        setPinyinLoaded(true);
+      }).catch(err => {
+        console.warn('Failed to load pinyin library:', err);
+        setPinyinLoadError(true);
+      });
+    }
+  }, [libraryView, hasChineseArtists, pinyinLoaded, pinyinLoadError, artistLetterMap]);
 
   const loadLinkedFolder = async (folderName: string, linkUrl: string) => {
     if (loadedLinks.has(linkUrl)) {
@@ -788,8 +862,24 @@ const App: React.FC = () => {
     }
   }, [track]);
 
+  const renderArtistsView = () => {
+    return (
+      <ArtistsView
+        selectedArtist={selectedArtist}
+        setSelectedArtist={setSelectedArtist}
+        playlist={playlist}
+        currentIndex={currentIndex}
+        isPlaying={isPlaying}
+        loadMusicFromUrl={loadMusicFromUrl}
+        loadingTrackUrl={loadingTrackUrl}
+        artistsByLetter={artistsByLetter}
+        pinyinLoadError={pinyinLoadError}
+      />
+    );
+  };
+
   return (
-    <div className="h-screen w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans" style={{ fontFamily: getFontFamily(selectedFont) }}>
+    <div className="h-dvh w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans" style={{ fontFamily: getFontFamily(selectedFont) }}>
       
       {/* Wave Loading Bar */}
       {loadingProgress !== null && (
@@ -927,24 +1017,52 @@ const App: React.FC = () => {
             
             {/* Music Library Content */}
             <div className="flex-1 overflow-y-auto hide-scrollbar">
-              <h2 className="text-xs font-black tracking-[0.4em] text-white/40 flex items-center gap-3 uppercase mb-6">
-                <ListMusic size={18} />
-                Music Library
-              </h2>
-              <MusicLibrary
-                playlistFolders={playlistFolders}
-                currentFolder={currentFolder}
-                setCurrentFolder={setCurrentFolder}
-                playlist={playlist}
-                currentIndex={currentIndex}
-                isPlaying={isPlaying}
-                onTrackSelect={loadMusicFromUrl}
-                isSidebar={false}
-                isLoading={lyricsLoading}
-                onLoadLinkedFolder={loadLinkedFolder}
-                loadingTrackUrl={loadingTrackUrl}
-                loadingFolders={loadingFolders}
-              />
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xs font-black text-white/40 flex items-center gap-3 uppercase">
+                  <ListMusic size={18} />
+                  Music Library
+                </h2>
+                <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+                  <button
+                    onClick={() => setLibraryView('songs')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      libraryView === 'songs'
+                        ? 'bg-white/20 text-white'
+                        : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <Disc size={14} />
+                  </button>
+                  <button
+                    onClick={() => setLibraryView('artists')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      libraryView === 'artists'
+                        ? 'bg-white/20 text-white'
+                        : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <User size={14} />
+                  </button>
+                </div>
+              </div>
+              {libraryView === 'songs' ? (
+                <MusicLibrary
+                  playlistFolders={playlistFolders}
+                  currentFolder={currentFolder}
+                  setCurrentFolder={setCurrentFolder}
+                  playlist={playlist}
+                  currentIndex={currentIndex}
+                  isPlaying={isPlaying}
+                  onTrackSelect={loadMusicFromUrl}
+                  isSidebar={false}
+                  isLoading={lyricsLoading}
+                  onLoadLinkedFolder={loadLinkedFolder}
+                  loadingTrackUrl={loadingTrackUrl}
+                  loadingFolders={loadingFolders}
+                />
+              ) : (
+                renderArtistsView()
+              )}
             </div>
           </section>
 
@@ -971,7 +1089,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Track Display */}
-            <div className="flex-1 flex flex-col items-center justify-center space-y-6 md:space-y-10 min-h-0">
+            <div className="flex-1 flex flex-col items-center justify-center space-y-4 md:space-y-10 min-h-0 overflow-hidden">
               {track ? (
                 <>
                   <div 
@@ -1011,13 +1129,13 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="text-center space-y-2 w-full px-2">
-                    <h1 className="text-xl md:text-2xl font-black text-white truncate drop-shadow-xl tracking-tight leading-tight">{track.metadata.title}</h1>
+                  <div className="text-center space-y-1 md:space-y-2 w-full px-2 shrink-0">
+                    <h1 className="text-lg md:text-2xl font-black text-white truncate drop-shadow-xl tracking-tight leading-tight">{track.metadata.title}</h1>
                     <p className="text-xs md:text-sm text-white/50 truncate font-bold tracking-[0.2em] uppercase">{track.metadata.artist}</p>
                   </div>
 
-                  <div className="h-8 md:h-44 w-full text-center px-6">
-                    <p className="mt-4 text-[25px] font-bold text-white/70 italic line-clamp-1 drop-shadow-md tracking-wide">
+                  <div className="h-6 md:h-44 w-full text-center px-6 shrink-0">
+                    <p className="mt-2 text-[20px] md:text-[25px] font-bold text-white/70 italic line-clamp-1 drop-shadow-md tracking-wide">
                       {activeIndex !== -1 ? track.metadata.parsedLyrics[activeIndex].text : ""}
                     </p>
                   </div>
@@ -1031,7 +1149,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Controls - Fixed at bottom */}
-            <div className="mt-8 pt-6 space-y-6 shrink-0">
+            <div className="mt-4 md:mt-8 pt-4 md:pt-6 space-y-4 md:space-y-6 shrink-0">
               <div className="space-y-3">
                 <input 
                   type="range"
@@ -1054,24 +1172,24 @@ const App: React.FC = () => {
                   onClick={handlePrev}
                   disabled={!playlist.length}
                   className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-                ><SkipBack size={28} /></button>
+                ><SkipBack size={24} md:size={28} /></button>
                 
                 <button 
                   onClick={togglePlay}
                   disabled={!track}
-                  className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 active:scale-90 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] disabled:opacity-30"
+                  className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 active:scale-90 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] disabled:opacity-30"
                 >
-                  {isPlaying ? <Pause size={28} md:size={32} fill="currentColor" /> : <Play size={28} md:size={32} fill="currentColor" className="ml-1" />}
+                  {isPlaying ? <Pause size={24} md:size={28} fill="currentColor" /> : <Play size={24} md:size={28} fill="currentColor" className="ml-1" />}
                 </button>
                 
                 <button 
                   onClick={handleNext}
                   disabled={!playlist.length}
                   className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-                ><SkipForward size={28} /></button>
+                ><SkipForward size={24} md:size={28} /></button>
               </div>
 
-              <div className="flex items-center justify-start gap-4 p-3">
+              <div className="flex items-center justify-start gap-4 p-2 md:p-3">
               {track && (
                 <a
                   href={track.objectUrl}

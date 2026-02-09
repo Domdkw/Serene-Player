@@ -66,6 +66,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
           maxHeight: '85vh'
         }}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Handle Bar */}
         <div className="flex justify-center pt-3 pb-1">
@@ -87,7 +90,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
 
         {/* Settings Content */}
-        <div className="p-5 space-y-6 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 120px)' }}>
+        <div className="p-5 space-y-6 overflow-y-auto">
           {/* Chunk Count */}
           <div className="space-y-3">
             <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
