@@ -48,7 +48,7 @@ export const FolderDisplay = ({
       );
     }
 
-    return Object.keys(playlistFolders).map((folderName, idx) => {
+    return Object.keys(playlistFolders).filter(folderName => folderName !== "").map((folderName, idx) => {
       const folderData = playlistFolders[folderName];
       const isLinkedFolder = folderData && typeof folderData === 'object' && 'link' in folderData;
       const tracks = isLinkedFolder ? [] : (folderData as PlaylistItem[]);

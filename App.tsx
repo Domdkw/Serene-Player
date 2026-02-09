@@ -13,6 +13,7 @@ import GlobalBackground from './components/GlobalBackground';
 import fetchInChunks from 'fetch-in-chunks';
 import { getFontUrl } from './utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
+import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
 
 type NavTab = 'songs' | 'artists' | 'settings';
 
@@ -291,10 +292,13 @@ const App: React.FC = () => {
 
     playlist.forEach(item => {
       if (item.artist) {
-        artistSet.add(item.artist);
-        if (containsChinese(item.artist)) {
-          hasChinese = true;
-        }
+        const composers = parseComposers(item.artist);
+        composers.forEach(composer => {
+          artistSet.add(composer.name);
+          if (containsChinese(composer.name)) {
+            hasChinese = true;
+          }
+        });
       }
     });
 
