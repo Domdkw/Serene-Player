@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, 
-  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages, Disc, User, Search
+  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages, Disc, User, Search, Plus, Link2, RotateCcw
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata } from '../utils/metadata';
@@ -57,6 +57,13 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
+  
+  // Custom Source states
+  const [isCustomSourceOpen, setIsCustomSourceOpen] = useState(false);
+  const [customSourceUrl, setCustomSourceUrl] = useState<string>(() => {
+    return localStorage.getItem('customMusicSource') || '';
+  });
+  const [sourceInputValue, setSourceInputValue] = useState('');
   const [chunkCount, setChunkCount] = useState<number>(() => {
     const saved = localStorage.getItem('chunkCount');
     return saved ? parseInt(saved) : 4;
@@ -131,46 +138,51 @@ const App: React.FC = () => {
   const [pinyinLoadError, setPinyinLoadError] = useState(false);
 
   // Load playlist on mount
+  const defaultSourceUrl = './discList.json';
+  
+  const loadPlaylistFromUrl = async (url: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Playlist file not found: ${url}`);
+      const data = await res.json();
+      
+      const processedFolders: Record<string, PlaylistItem[] | { link?: string }> = {};
+      const allTracks: PlaylistItem[] = [];
+      
+      for (const [key, value] of Object.entries(data)) {
+        if (Array.isArray(value)) {
+          processedFolders[key] = value;
+          allTracks.push(...value);
+        } else if (value && typeof value === 'object' && 'link' in value) {
+          processedFolders[key] = value as { link?: string };
+        }
+      }
+      
+      setPlaylistFolders(processedFolders);
+      setPlaylist(allTracks);
+      
+      if (allTracks.length === 0) {
+        setCurrentPage(0);
+      }
+      
+      if ((window as any).hideAppLoader) {
+        (window as any).hideAppLoader();
+      }
+      return true;
+    } catch (err) {
+      console.error("Failed to load playlist", err);
+      setErrorMessage(`Could not load playlist from: ${url}`);
+      if ((window as any).hideAppLoader) {
+        (window as any).hideAppLoader();
+      }
+      return false;
+    }
+  };
+  
   useEffect(() => {
-    fetch('./discList.json')
-      .then(res => {
-        if (!res.ok) throw new Error("Playlist file (discList.json) not found.");
-        return res.json();
-      })
-      .then(data => {
-        const processedFolders: Record<string, PlaylistItem[] | { link?: string }> = {};
-        const allTracks: PlaylistItem[] = [];
-        
-        for (const [key, value] of Object.entries(data)) {
-          if (Array.isArray(value)) {
-            processedFolders[key] = value;
-            allTracks.push(...value);
-          } else if (value && typeof value === 'object' && 'link' in value) {
-            processedFolders[key] = value as { link?: string };
-          }
-        }
-        
-        setPlaylistFolders(processedFolders);
-        setPlaylist(allTracks);
-        
-        if (allTracks.length === 0) {
-          setCurrentPage(0);
-        }
-        
-        // 通知 index.html 隐藏加载动画
-        if ((window as any).hideAppLoader) {
-          (window as any).hideAppLoader();
-        }
-      })
-      .catch(err => {
-        console.error("Failed to load playlist", err);
-        setErrorMessage("Could not load playlist. Check if discList.json exists.");
-        // 即使加载失败也要隐藏加载动画
-        if ((window as any).hideAppLoader) {
-          (window as any).hideAppLoader();
-        }
-      });
-  }, []);
+    const url = customSourceUrl || defaultSourceUrl;
+    loadPlaylistFromUrl(url);
+  }, [customSourceUrl]);
 
   useEffect(() => {
     if (!track && playlist.length > 0) {
@@ -523,12 +535,27 @@ const App: React.FC = () => {
     audioFiles.sort((a, b) => a.name.localeCompare(b.name));
 
     // 创建播放列表项
-    const newTracks: PlaylistItem[] = audioFiles.map((file, index) => ({
-      name: file.name.replace(/\.[^/.]+$/, ''), // 移除扩展名
-      url: URL.createObjectURL(file),
-      artist: 'Unknown Artist',
-      file: file
-    }));
+    const newTracks: PlaylistItem[] = [];
+
+    for (const file of audioFiles) {
+      try {
+        const metadata = await extractMetadata(file);
+        newTracks.push({
+          name: metadata.title || file.name.replace(/\.[^/.]+$/, ''),
+          url: URL.createObjectURL(file),
+          artist: metadata.artist || 'Unknown Artist',
+          file: file
+        });
+      } catch (err) {
+        console.error('Failed to extract metadata for file:', file.name, err);
+        newTracks.push({
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          url: URL.createObjectURL(file),
+          artist: 'Unknown Artist',
+          file: file
+        });
+      }
+    }
 
     // 添加到播放列表
     setPlaylist(prev => [...prev, ...newTracks]);
@@ -1232,6 +1259,17 @@ const App: React.FC = () => {
               >
                 {playbackMode === 'shuffle' ? <Shuffle size={16} /> : playbackMode === 'list' ? <Repeat size={16} /> : <Repeat1 size={16} />}
               </button>
+              
+              <button
+                onClick={() => {
+                  setSourceInputValue(customSourceUrl);
+                  setIsCustomSourceOpen(true);
+                }}
+                className={`p-2 rounded-xl transition-all ${customSourceUrl ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                title="设置自定义音乐源"
+              >
+                <Plus size={16} />
+              </button>
             </div>
             </div>
 
@@ -1371,6 +1409,98 @@ const App: React.FC = () => {
               <ChevronRight size={24} />
             </div>
           </>
+        )}
+        
+        {/* Custom Source Modal */}
+        {isCustomSourceOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-sm mx-4 bg-[#1a1a1f] rounded-2xl border border-white/[0.08] shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
+                    <Link2 size={18} className="text-white/80" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-white">自定义音乐源</h3>
+                    <p className="text-[10px] text-white/40">设置播放列表 JSON 地址</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCustomSourceOpen(false)}
+                  className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+                >
+                  <X size={16} className="text-white/60" />
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-sm text-white/60 mb-2">音乐源 URL</label>
+                  <input
+                    type="text"
+                    value={sourceInputValue}
+                    onChange={(e) => setSourceInputValue(e.target.value)}
+                    placeholder="https://example.com/playlist.json"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/[0.08] rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] text-sm"
+                  />
+                  <p className="text-[11px] text-white/40 mt-2">
+                    留空则使用默认源 (./discList.json)
+                  </p>
+                </div>
+                
+                {customSourceUrl && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-lg">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-[11px] text-white/60 truncate flex-1">
+                      当前: {customSourceUrl}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer */}
+              <div className="flex items-center justify-between px-5 py-4 border-t border-white/[0.05]">
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('customMusicSource');
+                    setCustomSourceUrl('');
+                    setSourceInputValue('');
+                    setIsCustomSourceOpen(false);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all text-xs"
+                >
+                  <RotateCcw size={14} />
+                  还原默认
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsCustomSourceOpen(false)}
+                    className="px-4 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all text-xs"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={() => {
+                      const url = sourceInputValue.trim();
+                      if (url) {
+                        localStorage.setItem('customMusicSource', url);
+                        setCustomSourceUrl(url);
+                      } else {
+                        localStorage.removeItem('customMusicSource');
+                        setCustomSourceUrl('');
+                      }
+                      setIsCustomSourceOpen(false);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all text-xs"
+                  >
+                    保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
 

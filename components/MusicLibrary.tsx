@@ -145,6 +145,9 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
 
     return (
       <>
+        {/* 显示子文件夹 */}
+        {folderDisplay.renderChildFolders(children)}
+        
         {/* 显示当前文件夹的 tracks */}
         {tracks.map((item, idx) => {
           const trackIndex = getTrackIndex(item);
@@ -224,9 +227,6 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
             </button>
           );
         })}
-        
-        {/* 显示子文件夹 */}
-        {folderDisplay.renderChildFolders(children)}
       </>
     );
   };
@@ -247,8 +247,8 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
           </>
         ) : (
           <>
-            {renderRootTracks()}
             {folderDisplay.renderFolderView()}
+            {renderRootTracks()}
           </>
         )}
       </div>
@@ -274,8 +274,8 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
       <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden playlist-scrollbar">
         {currentFolder ? renderTrackView() : (
           <>
-            {renderRootTracks()}
             {folderDisplay.renderFolderView()}
+            {renderRootTracks()}
           </>
         )}
       </div>
