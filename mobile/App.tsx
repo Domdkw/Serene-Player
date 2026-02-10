@@ -2,12 +2,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, 
-  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages, Disc, User
+  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages, Disc, User, Search
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata } from '../utils/metadata';
 import { MusicLibrary } from '../components/MusicLibrary';
 import { ArtistsView } from './ArtistsView';
+import { SearchPanel } from '../components/SearchPanel';
 import SettingsPanel from './SettingsPanel';
 import LyricLine from '../components/LyricLine';
 import fetchInChunks from 'fetch-in-chunks';
@@ -54,6 +55,7 @@ const App: React.FC = () => {
   // Settings states
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   const [chunkCount, setChunkCount] = useState<number>(() => {
     const saved = localStorage.getItem('chunkCount');
@@ -1026,27 +1028,37 @@ const App: React.FC = () => {
                   <ListMusic size={18} />
                   Music Library
                 </h2>
-                <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setLibraryView('songs')}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      libraryView === 'songs'
-                        ? 'bg-white/20 text-white'
-                        : 'text-white/50 hover:text-white/80'
+                    onClick={() => setIsSearchOpen(!isSearchOpen)}
+                    className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                      isSearchOpen ? 'bg-white/20 text-white' : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white'
                     }`}
                   >
-                    <Disc size={14} />
+                    <Search size={14} />
                   </button>
-                  <button
-                    onClick={() => setLibraryView('artists')}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      libraryView === 'artists'
-                        ? 'bg-white/20 text-white'
-                        : 'text-white/50 hover:text-white/80'
-                    }`}
-                  >
-                    <User size={14} />
-                  </button>
+                  <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+                    <button
+                      onClick={() => setLibraryView('songs')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        libraryView === 'songs'
+                          ? 'bg-white/20 text-white'
+                          : 'text-white/50 hover:text-white/80'
+                      }`}
+                    >
+                      <Disc size={14} />
+                    </button>
+                    <button
+                      onClick={() => setLibraryView('artists')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        libraryView === 'artists'
+                          ? 'bg-white/20 text-white'
+                          : 'text-white/50 hover:text-white/80'
+                      }`}
+                    >
+                      <User size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
               {libraryView === 'songs' ? (
@@ -1067,6 +1079,16 @@ const App: React.FC = () => {
               ) : (
                 renderArtistsView()
               )}
+              
+              <SearchPanel
+                isOpen={isSearchOpen}
+                onClose={() => setIsSearchOpen(false)}
+                playlist={playlist}
+                currentIndex={currentIndex}
+                isPlaying={isPlaying}
+                onTrackSelect={loadMusicFromUrl}
+                isMobile={true}
+              />
             </div>
           </section>
 
@@ -1357,88 +1379,6 @@ const App: React.FC = () => {
         onEnded={onEnded}
       />
 
-      <style>{`
-        @keyframes music-bar {
-          0%, 100% { height: 6px; }
-          50% { height: 16px; }
-        }
-        @keyframes rainbow-flow {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        @keyframes rotate-cover {
-          0% { transform: translateY(-50%) rotate(0deg); }
-          100% { transform: translateY(-50%) rotate(360deg); }
-        }
-        @keyframes rotate-rainbow {
-          0% { transform: translateY(-50%) rotate(0deg); }
-          100% { transform: translateY(-50%) rotate(360deg); }
-        }
-        @keyframes shimmer {
-          0% { 
-            left: -100%; 
-          }
-          100% { 
-            left: 200%; 
-          }
-        }
-        @keyframes wave {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(0%); }
-        }
-        .animate-rainbow-flow {
-          background: linear-gradient(
-            90deg,
-            #ff5151ff,
-            #ff8f33ff,
-            #fffb00,
-            #7bff46ff,
-            #00ffd5,
-            #4160ffff,
-            #9c3effff,
-            #ff43d6ff,
-            #ff0707ff
-          );
-          background-size: 400% 100%;
-          animation: rainbow-flow 20s linear infinite;
-          filter: blur(100px) brightness(0.8);
-        }
-        .animate-rotate-cover {
-          animation: rotate-cover 60s linear infinite;
-        }
-        .animate-rotate-rainbow {
-          animation: rotate-rainbow 30s linear infinite;
-        }
-        .shimmer-effect {
-          position: relative;
-          overflow: hidden;
-        }
-        .shimmer-effect::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(
-            90deg,
-            transparent 0%,
-            rgba(255, 255, 255, 0.1) 40%,
-            rgba(255, 255, 255, 0.3) 50%,
-            rgba(255, 255, 255, 0.1) 60%,
-            transparent 100%
-          );
-          animation: shimmer 3s ease-in-out infinite;
-        }
-        /* Removed shimmer-item styles as they are no longer used */
-        @media (max-width: 768px) {
-           input[type="range"]::-webkit-slider-thumb {
-              height: 14px;
-              width: 14px;
-           }
-        }
-      `}</style>
     </div>
   );
 };

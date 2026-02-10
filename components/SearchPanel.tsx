@@ -9,6 +9,7 @@ interface SearchPanelProps {
   currentIndex: number;
   isPlaying: boolean;
   onTrackSelect: (item: PlaylistItem, index: number) => void;
+  isMobile?: boolean;
 }
 
 const highlightMatch = (text: string, query: string): React.ReactNode => {
@@ -31,7 +32,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   playlist,
   currentIndex,
   isPlaying,
-  onTrackSelect
+  onTrackSelect,
+  isMobile = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PlaylistItem[]>([]);
@@ -61,7 +63,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute inset-0 top-[120px] bottom-0 left-0 right-0 bg-[#0f0f13]/95 backdrop-blur-xl z-40 animate-in fade-in slide-in-from-top-4 duration-300">
+    <div className={`absolute inset-0 ${isMobile ? 'top-0' : 'top-[120px]'} bottom-0 left-0 right-0 bg-[#0f0f13]/95 backdrop-blur-xl z-40 animate-in fade-in slide-in-from-top-4 duration-300`}>
       <div className="h-full flex flex-col p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="flex-1 relative">
