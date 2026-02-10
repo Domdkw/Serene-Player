@@ -153,6 +153,13 @@
           );
           animation: shimmer 3s ease-in-out infinite;
         }
+        @keyframes rotate-cover {
+          0% { transform: translateY(-50%) rotate(0deg); }
+          100% { transform: translateY(-50%) rotate(360deg); }
+        }
+        .animate-rotate-cover {
+          animation: rotate-cover 120s linear infinite;
+        }
         .playlist-scrollbar::-webkit-scrollbar {
           width: 6px;
         }

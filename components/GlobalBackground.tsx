@@ -17,15 +17,6 @@ const GlobalBackground = memo(({ coverUrl }: GlobalBackgroundProps) => (
         }}
       />
     )}
-    <style>{`
-      @keyframes rotate-cover {
-        0% { transform: translateY(-50%) rotate(0deg); }
-        100% { transform: translateY(-50%) rotate(360deg); }
-      }
-      .animate-rotate-cover {
-        animation: rotate-cover 60s linear infinite;
-      }
-    `}</style>
   </div>
 ));
 
