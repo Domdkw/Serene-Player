@@ -6,7 +6,10 @@ export interface FontConfig {
 }
 
 export const FONT_CONFIGS: FontConfig[] = [
-  { value: 'default', label: '默认字体', family: '"得意黑", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', url: '' },
+  { value: 'default', label: '默认字体', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', url: '' },
+  { value: 'Smiley Sans Oblique', label: '得意黑', family: '"Smiley Sans Oblique", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', url: 'https://chinese-fonts-cdn.deno.dev/packages/dyh/dist/SmileySans-Oblique/result.css' },
+  { value: 'source-han-sans', label: '思源黑体', family: '"Noto Sans SC", "Source Han Sans CN", "思源黑体", sans-serif', url: 'https://fonts.font.im/css?family=Noto+Sans+SC' },
+  { value: 'Huiwen-mincho', label: '汇文明朝体', family: '"Huiwen-mincho", serif', url: 'https://chinese-fonts-cdn.deno.dev/packages/hwmct/dist/汇文明朝体/result.css' },
   { value: 'Ubuntu', label: 'Ubuntu', family: 'Ubuntu, sans-serif', url: 'https://fonts.font.im/css?family=Ubuntu' },
   { value: 'Dancing Script', label: 'Dancing Script', family: 'Dancing Script, cursive', url: 'https://fonts.font.im/css?family=Dancing+Script' },
   { value: 'Caveat', label: 'Caveat', family: 'Caveat, cursive', url: 'https://fonts.font.im/css?family=Caveat' },

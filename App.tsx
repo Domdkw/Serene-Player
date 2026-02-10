@@ -1,18 +1,20 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import {
-  Upload, Music, X, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle
+  Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
 import { MusicLibrary } from './components/MusicLibrary';
 import { ArtistsView } from './components/ArtistsView';
+import { SearchPanel } from './components/SearchPanel';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
 import GlobalBackground from './components/GlobalBackground';
 import fetchInChunks from 'fetch-in-chunks';
-import { getFontUrl } from './utils/fontUtils';
+import { getFontUrl, getFontFamily } from './utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
+import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
 
 type NavTab = 'songs' | 'artists' | 'settings';
 
@@ -153,7 +155,7 @@ const App: React.FC = () => {
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [showFullPlayer, setShowFullPlayer] = useState(false);
   
-
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   
   //region Settings states
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
@@ -199,7 +201,7 @@ const App: React.FC = () => {
 
   //region 加载字体
   useEffect(() => {
-    const existingFontLinks = document.querySelectorAll('link[rel="stylesheet"][href*="fonts.font.im"]');
+    const existingFontLinks = document.querySelectorAll('link[data-font-link="true"]');
     existingFontLinks.forEach(link => link.remove());
 
     if (selectedFont !== 'default') {
@@ -208,6 +210,7 @@ const App: React.FC = () => {
         const fontLink = document.createElement('link');
         fontLink.rel = 'stylesheet';
         fontLink.href = fontUrl;
+        fontLink.setAttribute('data-font-link', 'true');
         document.head.appendChild(fontLink);
         return () => {
           document.head.removeChild(fontLink);
@@ -291,10 +294,13 @@ const App: React.FC = () => {
 
     playlist.forEach(item => {
       if (item.artist) {
-        artistSet.add(item.artist);
-        if (containsChinese(item.artist)) {
-          hasChinese = true;
-        }
+        const composers = parseComposers(item.artist);
+        composers.forEach(composer => {
+          artistSet.add(composer.name);
+          if (containsChinese(composer.name)) {
+            hasChinese = true;
+          }
+        });
       }
     });
 
@@ -847,6 +853,14 @@ const App: React.FC = () => {
             </span>
           </button>
           
+          <button
+            onClick={() => setIsSearchOpen(!isSearchOpen)}
+            className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 ${isSearchOpen ? 'bg-white/20 text-white' : 'bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white'}`}
+            title="搜索"
+          >
+            <Search size={18} />
+          </button>
+          
           <div className="relative" ref={uploadMenuRef}>
             <button
               onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
@@ -906,8 +920,17 @@ const App: React.FC = () => {
           loadingTrackUrl={loadingTrackUrl}
         />
       </div>
+      
+      <SearchPanel
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        playlist={playlist}
+        currentIndex={currentIndex}
+        isPlaying={isPlaying}
+        onTrackSelect={loadMusicFromUrl}
+      />
     </div>
-  ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef]);
+  ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef, isSearchOpen]);
 
   //region 渲染设置视图
   const renderSettingsView = useCallback(() => (
@@ -917,7 +940,7 @@ const App: React.FC = () => {
         <p className="text-sm text-white/40 mt-1 drop-shadow-sm">自定义您的播放器</p>
       </div>
       
-      <div class="flex-1 overflow-y-auto playlist-scrollbar p-4">
+      <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
         <SettingsPanel
           chunkCount={chunkCount}
           setChunkCount={setChunkCount}
@@ -968,7 +991,7 @@ const App: React.FC = () => {
   }, [activeTab, isTransitioning, renderArtistsView, renderSettingsView, renderSongsView]);
 
   return (
-    <>
+    <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(selectedFont) }}>
       {/* Global Background - always visible */}
       <GlobalBackground coverUrl={track?.metadata.coverUrl} />
 
@@ -1071,51 +1094,7 @@ const App: React.FC = () => {
           />
         </div>
       )}
-
-      <style>{`
-        @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-        .animate-shimmer {
-          animation: shimmer 1.5s infinite linear;
-        }
-        .shimmer-effect {
-          position: relative;
-          overflow: hidden;
-        }
-        .shimmer-effect::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(
-            90deg,
-            transparent 0%,
-            rgba(255, 255, 255, 0.1) 40%,
-            rgba(255, 255, 255, 0.3) 50%,
-            rgba(255, 255, 255, 0.1) 60%,
-            transparent 100%
-          );
-          animation: shimmer 3s ease-in-out infinite;
-        }
-        .playlist-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .playlist-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .playlist-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 3px;
-        }
-        .playlist-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.2);
-        }
-      `}</style>
-    </>
+    </div>
   );
 };
 

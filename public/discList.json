@@ -1,5 +1,8 @@
 {
-  "This Server": [
+  "mirrors": {
+    "link": "./mirrors.json"
+  },
+  "": [
     {
       "name": "Alone",
       "artist": "Marshmello",
@@ -126,8 +129,5 @@
       "url": "./music/精卫(MIX)-竞遥.mp3",
       "themeColor": "#cc783c"
     }
-  ],
-  "mirrors": {
-    "link": "./mirrors.json"
-  }
+  ]
 }

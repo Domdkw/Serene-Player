@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useCallback, useState, useRef } from 'react';
+import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc } from 'lucide-react';
 import { Track } from '../types';
 import AudioSpectrum from './AudioSpectrum';
@@ -60,7 +60,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   const spectrumFrameRate = useMemo(() => spectrumFps, []);
 
   // 处理圆盘滚动事件
-  const handleDiscWheel = useCallback((e: React.WheelEvent) => {
+  const handleDiscWheel = useCallback((e: WheelEvent) => {
     if (!hasTrack || duration <= 0) return;
     e.preventDefault();
     
@@ -74,6 +74,17 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
     
     onSeek(newTime);
   }, [hasTrack, duration, currentTime, onSeek]);
+
+  // 添加非被动事件监听器以允许 preventDefault
+  useEffect(() => {
+    const discElement = discRef.current;
+    if (discElement) {
+      discElement.addEventListener('wheel', handleDiscWheel, { passive: false });
+      return () => {
+        discElement.removeEventListener('wheel', handleDiscWheel);
+      };
+    }
+  }, [handleDiscWheel]);
 
   return (
     <footer className="fixed bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-t border-white/10 z-[70] overflow-hidden">
@@ -195,7 +206,6 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
             {/* 圆盘图标 - 滚动控制播放进度 */}
             <div
               ref={discRef}
-              onWheel={handleDiscWheel}
               onMouseEnter={() => setIsDiscHovered(true)}
               onMouseLeave={() => setIsDiscHovered(false)}
               className={`relative flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${

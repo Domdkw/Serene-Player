@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { PlaylistItem } from '../types';
 import { MusicLibrary } from './MusicLibrary';
+import { parseComposers } from '../utils/composerUtils';
 
 interface ArtistsViewProps {
   selectedArtist: string | null;
@@ -27,7 +28,10 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
   pinyinLoadError
 }) => {
   if (selectedArtist) {
-    const artistTracks = playlist.filter(item => item.artist === selectedArtist);
+    const artistTracks = playlist.filter(item => {
+      const composers = parseComposers(item.artist);
+      return composers.some(composer => composer.name === selectedArtist);
+    });
     
     return (
       <div className="h-full flex flex-col">
