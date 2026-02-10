@@ -12,7 +12,7 @@ import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
 import GlobalBackground from './components/GlobalBackground';
 import fetchInChunks from 'fetch-in-chunks';
-import { getFontUrl } from './utils/fontUtils';
+import { getFontUrl, getFontFamily } from './utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
 import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
 
@@ -201,7 +201,7 @@ const App: React.FC = () => {
 
   //region 加载字体
   useEffect(() => {
-    const existingFontLinks = document.querySelectorAll('link[rel="stylesheet"][href*="fonts.font.im"]');
+    const existingFontLinks = document.querySelectorAll('link[data-font-link="true"]');
     existingFontLinks.forEach(link => link.remove());
 
     if (selectedFont !== 'default') {
@@ -210,6 +210,7 @@ const App: React.FC = () => {
         const fontLink = document.createElement('link');
         fontLink.rel = 'stylesheet';
         fontLink.href = fontUrl;
+        fontLink.setAttribute('data-font-link', 'true');
         document.head.appendChild(fontLink);
         return () => {
           document.head.removeChild(fontLink);
@@ -990,7 +991,7 @@ const App: React.FC = () => {
   }, [activeTab, isTransitioning, renderArtistsView, renderSettingsView, renderSongsView]);
 
   return (
-    <>
+    <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(selectedFont) }}>
       {/* Global Background - always visible */}
       <GlobalBackground coverUrl={track?.metadata.coverUrl} />
 
@@ -1093,7 +1094,7 @@ const App: React.FC = () => {
           />
         </div>
       )}
-    </>
+    </div>
   );
 };
 

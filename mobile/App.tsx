@@ -90,7 +90,7 @@ const App: React.FC = () => {
   // 加载字体
   useEffect(() => {
     // 移除所有已存在的字体链接
-    const existingFontLinks = document.querySelectorAll('link[rel="stylesheet"][href*="fonts.font.im"]');
+    const existingFontLinks = document.querySelectorAll('link[data-font-link="true"]');
     existingFontLinks.forEach(link => link.remove());
     
     if (selectedFont !== 'default') {
@@ -99,6 +99,7 @@ const App: React.FC = () => {
         const fontLink = document.createElement('link');
         fontLink.rel = 'stylesheet';
         fontLink.href = fontUrl;
+        fontLink.setAttribute('data-font-link', 'true');
         
         document.head.appendChild(fontLink);
         
