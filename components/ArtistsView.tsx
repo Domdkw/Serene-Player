@@ -134,25 +134,6 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
             </div>
           );
         })}
-
-        {artistsByLetter['#'] && artistsByLetter['#'].length > 0 && (
-          <div key="#" id="letter-group-#" className="mb-6">
-            <div className="sticky top-0 z-10 px-4 py-2 bg-transparent backdrop-blur-sm">
-              <span className="text-2xl font-black text-white/20 drop-shadow-md">#</span>
-            </div>
-            <div className="space-y-1 px-2">
-              {artistsByLetter['#'].map((artist, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedArtist(artist)}
-                  className="w-full text-left px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white rounded-xl transition-all duration-200 text-sm font-medium"
-                >
-                  {artist}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
