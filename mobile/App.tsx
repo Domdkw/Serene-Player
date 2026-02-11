@@ -1270,6 +1270,8 @@ const App: React.FC = () => {
               >
                 <Plus size={16} />
               </button>
+
+              <div><img src="https://visitor-badge.laobi.icu/badge?page_id=domdkw.Serene-Player" /></div>
             </div>
             </div>
 

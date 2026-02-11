@@ -1,10 +1,16 @@
+# Serene Player - 宁静播放器
+
 <div align="center">
 <img width="1200" height="475" alt="GHBanner" src="./屏幕截图 2026-01-02 003355.png" />
 </div>
 
-# Serene Player - 宁静播放器
-
 基于 React 和 TypeScript 构建的现代化优雅音乐播放器。由 Gemini 3 Flash + TRAE + Hand 开发
+
+<div align="center">
+<img src="https://visitor-badge.laobi.icu/badge?page_id=domdkw.Serene-Player" alt="visitor badge" />
+<img src="https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+<img src="https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB" alt="React" />
+</div>
 
 ## 功能特性
 
@@ -166,6 +172,7 @@ python main.py
 ## 开发计划
 
 - [ ] 支持更多音频格式（FLAC、WAV、OGG）
+- [·] 支持网易云音乐播放 灵感源于[maomao1996/Vue-mmPlayer](https://github.com/maomao1996/Vue-mmPlayer)和issue [#1]
 - [ ] 歌单分享功能
 - [ ] 深色/浅色主题切换
 - [ ] 音乐均衡器调节
