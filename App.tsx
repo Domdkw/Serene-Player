@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import {
-  Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search, Plus, X, Link2, RotateCcw
+  Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search, Plus, X, Link2, RotateCcw, Cloud
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata } from './utils/metadata';
 import { MusicLibrary } from './components/MusicLibrary';
 import { ArtistsView } from './components/ArtistsView';
 import { SearchPanel } from './components/SearchPanel';
+import { NeteasePanel } from './components/NeteasePanel';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
@@ -16,7 +17,7 @@ import { getFontUrl, getFontFamily } from './utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
 import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
 
-type NavTab = 'songs' | 'artists' | 'settings';
+type NavTab = 'songs' | 'artists' | 'netease' | 'settings';
 
 //region 使用memo优化子组件，避免不必要的重渲染
 const SidebarItem = memo(({ 
@@ -862,6 +863,12 @@ const App: React.FC = () => {
           badge={Object.values(artistsByLetter).flat().length}
         />
         <SidebarItem
+          icon={Cloud}
+          label="网易云"
+          isActive={activeTab === 'netease'}
+          onClick={() => handleTabChange('netease')}
+        />
+        <SidebarItem
           icon={Settings}
           label="设置"
           isActive={activeTab === 'settings'}
@@ -1080,6 +1087,27 @@ const App: React.FC = () => {
     </div>
   ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef, isSearchOpen, customSourceUrl, handleOpenCustomSource, isCustomSourceOpen, sourceInputValue, handleCloseCustomSource, handleSaveCustomSource, handleResetToDefault]);
 
+  //region 渲染网易云视图
+  const renderNeteaseView = useCallback(() => (
+    <div className="h-full flex flex-col">
+      <NeteasePanel
+        onTrackSelect={(item, index) => {
+          loadMusicFromUrl(item.url, item);
+        }}
+        currentTrackUrl={track?.objectUrl || null}
+        isPlaying={isPlaying}
+        onAddToPlaylist={(item) => {
+          setPlaylist(prev => {
+            if (prev.some(p => p.url === item.url)) {
+              return prev;
+            }
+            return [...prev, item];
+          });
+        }}
+      />
+    </div>
+  ), [track?.objectUrl, isPlaying, loadMusicFromUrl, setPlaylist]);
+
   //region 渲染设置视图
   const renderSettingsView = useCallback(() => (
     <div className="h-full flex flex-col">
@@ -1118,6 +1146,9 @@ const App: React.FC = () => {
       case 'artists':
         content = renderArtistsView();
         break;
+      case 'netease':
+        content = renderNeteaseView();
+        break;
       case 'settings':
         content = renderSettingsView();
         break;
@@ -1128,7 +1159,7 @@ const App: React.FC = () => {
     }
 
     return (
-      <div 
+      <div
         className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
           isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
         }`}
@@ -1136,7 +1167,7 @@ const App: React.FC = () => {
         {content}
       </div>
     );
-  }, [activeTab, isTransitioning, renderArtistsView, renderSettingsView, renderSongsView]);
+  }, [activeTab, isTransitioning, renderArtistsView, renderNeteaseView, renderSettingsView, renderSongsView]);
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(selectedFont) }}>
