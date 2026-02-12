@@ -10,7 +10,9 @@ import {
   Music,
   Activity,
   Palette,
-  Sparkles
+  Sparkles,
+  Github,
+  Globe
 } from 'lucide-react';
 import { FONT_CONFIGS, getFontFamily } from '../utils/fontUtils';
 
@@ -396,6 +398,35 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </p>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* 关于 */}
+      <section className="p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] backdrop-blur-sm">
+        <SectionTitle
+          icon={Music}
+          title="关于"
+          subtitle="项目链接"
+        />
+        <div className="pl-12 space-y-3">
+          <a
+            href="https://github.com/Domdkw/Serene-Player"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 group"
+          >
+            <Github size={18} className="text-white/60 group-hover:text-white/90" />
+            <span className="text-sm text-white/60 group-hover:text-white/90">GitHub</span>
+          </a>
+          <a
+            href="https://gitee.com/Domdkw/serene-player"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 group"
+          >
+            <Globe size={18} className="text-white/60 group-hover:text-white/90" />
+            <span className="text-sm text-white/60 group-hover:text-white/90">Gitee</span>
+          </a>
         </div>
       </section>
 
