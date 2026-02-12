@@ -867,6 +867,11 @@ const App: React.FC = () => {
           isActive={activeTab === 'settings'}
           onClick={() => handleTabChange('settings')}
         />
+        <img
+          src="https://visitor-badge.laobi.icu/badge?page_id=domdkw.Serene-Player"
+          alt="visitor badge"
+          className="backdrop-blur-sm p-2"
+        />
       </nav>
 
     </aside>
