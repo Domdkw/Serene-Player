@@ -85,8 +85,43 @@ export async function getSongDetail(ids: number | number[]): Promise<NeteaseSong
   }));
 }
 
-export function getAlbumCoverUrl(picUrl: string, size: number = 300): string {
+export function getAlbumCoverUrl(picUrl: string, size: number = 300, original: boolean = false): string {
   if (!picUrl) return '';
+  
+  if (original) {
+    return picUrl.replace(/\?param=\d+/, '');
+  }
+  
   const sizeParam = size >= 800 ? 800 : size >= 400 ? 400 : 300;
   return picUrl.replace(/\?param=\d+/, '') + `?param=${sizeParam}y${sizeParam}`;
+}
+
+export interface NeteaseLyric {
+  lyric: string;
+  tlyric: string;
+}
+
+/**
+ * 获取歌曲歌词
+ * @param id 歌曲ID
+ * @returns 歌词对象，包含原文歌词和翻译歌词
+ */
+export async function getSongLyric(id: number): Promise<NeteaseLyric | null> {
+  const url = `${BASE_URL}/lyric?id=${id}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`获取歌词失败: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data.code !== 200) {
+    return null;
+  }
+
+  return {
+    lyric: data.lrc?.lyric || '',
+    tlyric: data.tlyric?.lyric || '',
+  };
 }

@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Search, Loader2, Play, Pause, Music } from 'lucide-react';
-import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, NeteaseSong, NeteaseSongDetail, formatDuration } from '../apis/netease';
+import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, NeteaseSong, NeteaseSongDetail, formatDuration } from '../apis/netease';
 import { PlaylistItem } from '../types';
+import LazyImage from './LazyImage';
 
 interface NeteasePanelProps {
   onTrackSelect: (item: PlaylistItem, index: number) => void;
@@ -70,7 +71,17 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
       }
 
       const detail = songDetails[song.id];
-      const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800) : null;
+      const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800, true) : null;
+
+      let lyrics: string | undefined;
+      try {
+        const lyricData = await getSongLyric(song.id);
+        if (lyricData && lyricData.lyric) {
+          lyrics = lyricData.lyric;
+        }
+      } catch (e) {
+        console.warn('获取歌词失败:', e);
+      }
 
       const playlistItem: PlaylistItem = {
         name: song.name,
@@ -78,6 +89,9 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         url: songUrl,
         themeColor: '#C20C0C',
         neteaseId: song.id,
+        coverUrl: coverUrl || undefined,
+        lyrics: lyrics,
+        album: detail?.album.name || song.album.name,
       };
 
       const existingIndex = localPlaylist.findIndex(p => p.url === songUrl);
@@ -110,13 +124,26 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
       }
 
       const detail = songDetails[song.id];
-      const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800) : null;
+      const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800, true) : null;
+
+      let lyrics: string | undefined;
+      try {
+        const lyricData = await getSongLyric(song.id);
+        if (lyricData && lyricData.lyric) {
+          lyrics = lyricData.lyric;
+        }
+      } catch (e) {
+        console.warn('获取歌词失败:', e);
+      }
 
       const playlistItem: PlaylistItem = {
         name: song.name,
         artist: song.artists.map(a => a.name).join(', '),
         url: songUrl,
         themeColor: '#C20C0C',
+        coverUrl: coverUrl || undefined,
+        lyrics: lyrics,
+        album: detail?.album.name || song.album.name,
       };
 
       onAddToPlaylist(playlistItem);
@@ -209,10 +236,11 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
                 >
                   <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {coverUrl ? (
-                      <img
+                      <LazyImage
                         src={coverUrl}
                         alt={song.name}
                         className="w-full h-full object-cover"
+                        placeholder={<Music size={20} className="text-white/40" />}
                       />
                     ) : (
                       <Music size={20} className="text-white/40" />

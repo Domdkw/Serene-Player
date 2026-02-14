@@ -3,7 +3,7 @@ import {
   Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search, Plus, X, Link2, RotateCcw, Cloud
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
-import { extractMetadata } from './utils/metadata';
+import { extractMetadata, parseLyrics } from './utils/metadata';
 import { MusicLibrary } from './components/MusicLibrary';
 import { ArtistsView } from './components/ArtistsView';
 import { SearchPanel } from './components/SearchPanel';
@@ -553,13 +553,29 @@ const App: React.FC = () => {
       const metadata = file ? await extractMetadata(file) : {
         title: item.name,
         artist: item.artist,
-        album: '',
+        album: item.album || '',
         coverUrl: null,
         lyrics: null,
         parsedLyrics: [],
         lyricArtist: null,
         lyricAlbum: null,
       };
+
+      if (!metadata.coverUrl && item.coverUrl) {
+        metadata.coverUrl = item.coverUrl;
+      }
+
+      if (!metadata.lyrics && item.lyrics) {
+        metadata.lyrics = item.lyrics;
+        const parsedResult = parseLyrics(item.lyrics);
+        metadata.parsedLyrics = parsedResult.lines;
+        if (parsedResult.lyricArtist) {
+          metadata.lyricArtist = parsedResult.lyricArtist;
+        }
+        if (parsedResult.lyricAlbum) {
+          metadata.lyricAlbum = parsedResult.lyricAlbum;
+        }
+      }
       
       const oldUrl = track?.objectUrl;
       
@@ -611,8 +627,7 @@ const App: React.FC = () => {
       try {
         const metadata = await extractMetadata(file);
         const objectUrl = URL.createObjectURL(file);
-        const oldUrl = track?.objectUrl;
-        setTrack({ file, objectUrl, metadata });
+        
         setLoadingProgress(null);
         if (audioRef.current) {
           audioRef.current.pause();
@@ -620,7 +635,8 @@ const App: React.FC = () => {
           audioRef.current.load();
           audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
         }
-        if (oldUrl) URL.revokeObjectURL(oldUrl);
+        
+        setTrack({ file, objectUrl, metadata });
       } catch (err) {
         setErrorMessage("Failed to process the uploaded file.");
         setLoadingProgress(null);
@@ -629,7 +645,7 @@ const App: React.FC = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [track?.objectUrl]);
+  }, []);
 
   const supportedAudioFormats = useMemo(() => ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma', '.ape', '.opus'], []);
 
@@ -693,15 +709,12 @@ const App: React.FC = () => {
     }));
 
     if (newTracks.length > 0) {
-      const firstTrack = newTracks[0];
       const file = audioFiles[0];
       setLoadingProgress(100);
       try {
         const metadata = await extractMetadata(file);
         const objectUrl = URL.createObjectURL(file);
-        const oldUrl = track?.objectUrl;
-        setTrack({ file, objectUrl, metadata });
-        setCurrentIndex(playlist.length);
+        
         setLoadingProgress(null);
         if (audioRef.current) {
           audioRef.current.pause();
@@ -709,7 +722,9 @@ const App: React.FC = () => {
           audioRef.current.load();
           audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
         }
-        if (oldUrl) URL.revokeObjectURL(oldUrl);
+        
+        setTrack({ file, objectUrl, metadata });
+        setCurrentIndex(prev => prev + newTracks.length);
       } catch (err) {
         setErrorMessage("Failed to process the uploaded file.");
         setLoadingProgress(null);
@@ -719,7 +734,7 @@ const App: React.FC = () => {
     if (folderInputRef.current) {
       folderInputRef.current.value = '';
     }
-  }, [isAudioFile, playlist.length, track?.objectUrl]);
+  }, [isAudioFile]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1214,6 +1229,7 @@ const App: React.FC = () => {
       <audio 
         ref={audioRef}
         //crossOrigin="anonymous"
+        //不能加crossorigin不然网易云会阻止跨域请求，同时禁止频谱图
         onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
         onEnded={onEnded}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}

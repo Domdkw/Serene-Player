@@ -38,6 +38,9 @@ export interface PlaylistItem {
   link?: string;
   file?: File;
   neteaseId?: number;
+  coverUrl?: string;
+  lyrics?: string;
+  album?: string;
 }
 
 export interface PlaylistFolder {

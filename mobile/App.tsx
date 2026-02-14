@@ -5,7 +5,7 @@ import {
   Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages, Disc, User, Search, Plus, Link2, RotateCcw
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
-import { extractMetadata } from '../utils/metadata';
+import { extractMetadata, parseLyrics } from '../utils/metadata';
 import { MusicLibrary } from '../components/MusicLibrary';
 import { ArtistsView } from './ArtistsView';
 import { SearchPanel } from '../components/SearchPanel';
@@ -384,12 +384,15 @@ const App: React.FC = () => {
     setIsPlaying(false);
     
     try {
-      let file: File;
+      let file: File | undefined;
       let objectUrl: string;
+      const isNeteaseSong = !!item.neteaseId;
       
-      // 检查是否是本地文件（通过文件夹上传的）
-      if (item.file) {
-        // 直接使用已上传的文件
+      if (isNeteaseSong) {
+        objectUrl = item.url;
+        setLoadingProgress(100);
+        file = undefined;
+      } else if (item.file) {
         file = item.file;
         objectUrl = item.url; // blob URL
         setLoadingProgress(100);
@@ -422,11 +425,42 @@ const App: React.FC = () => {
         objectUrl = URL.createObjectURL(file);
       }
       
-      const metadata = await extractMetadata(file);
+      const metadata = file ? await extractMetadata(file) : {
+        title: item.name,
+        artist: item.artist,
+        album: item.album || '',
+        coverUrl: null,
+        lyrics: null,
+        parsedLyrics: [],
+        lyricArtist: null,
+        lyricAlbum: null,
+      };
+
+      if (!metadata.coverUrl && item.coverUrl) {
+        metadata.coverUrl = item.coverUrl;
+      }
+
+      if (!metadata.lyrics && item.lyrics) {
+        metadata.lyrics = item.lyrics;
+        const parsedResult = parseLyrics(item.lyrics);
+        metadata.parsedLyrics = parsedResult.lines;
+        if (parsedResult.lyricArtist) {
+          metadata.lyricArtist = parsedResult.lyricArtist;
+        }
+        if (parsedResult.lyricAlbum) {
+          metadata.lyricAlbum = parsedResult.lyricAlbum;
+        }
+      }
       
       const oldUrl = track?.objectUrl;
       
-      setTrack({ file, objectUrl, metadata });
+      setTrack({ 
+        file, 
+        objectUrl, 
+        metadata,
+        neteaseId: item.neteaseId,
+        sourceType: isNeteaseSong ? 'streaming' : 'local'
+      });
       setLoadingProgress(null);
       setLoadingTrackUrl(null);
       setLyricsLoading(false);
