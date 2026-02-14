@@ -33,6 +33,8 @@ interface SettingsPanelProps {
   setShowSpectrum: (value: boolean) => void;
   spectrumFps: number;
   setSpectrumFps: (value: number) => void;
+  streamingMode: boolean;
+  setStreamingMode: (value: boolean) => void;
 }
 
 // 设置分组标题
@@ -162,7 +164,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   showSpectrum,
   setShowSpectrum,
   spectrumFps,
-  setSpectrumFps
+  setSpectrumFps,
+  streamingMode,
+  setStreamingMode
 }) => {
   const handleReset = () => {
     localStorage.clear();
@@ -174,6 +178,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setShowTranslation(true);
     setShowSpectrum(true);
     setSpectrumFps(60);
+    setStreamingMode(false);
   };
 
   const handleDebug = () => {
@@ -206,7 +211,21 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 localStorage.setItem('chunkCount', value.toString());
               }}
             />
-            <p className="text-[11px] text-white/30 mt-2">数值越大加载越快，但可能增加服务器压力</p>
+            <p className="text-[13px] text-white/30 mt-2">数值越大<u>不一定</u>加载越快，但可能增加服务器压力</p>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <span className="text-sm text-white/60">流媒体播放模式 （不支持封面背景）</span>
+              <p className="text-[13px] text-white/30 mt-0.5">开启后直接流式播放，关闭则先下载完整文件</p>
+            </div>
+            <ToggleSwitch
+              checked={streamingMode}
+              onChange={(value) => {
+                setStreamingMode(value);
+                localStorage.setItem('streamingMode', value.toString());
+              }}
+            />
           </div>
         </div>
       </section>
@@ -254,7 +273,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </div>
           )}
           
-          <p className="text-[11px] text-white/30 flex items-center gap-1.5">
+          <p className="text-[13px] text-white/30 flex items-center gap-1.5">
             <span className="w-1 h-1 rounded-full bg-yellow-500/80" />
             修改后需要刷新页面生效
           </p>

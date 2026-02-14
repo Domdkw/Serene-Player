@@ -77,6 +77,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         artist: song.artists.map(a => a.name).join(', '),
         url: songUrl,
         themeColor: '#C20C0C',
+        neteaseId: song.id,
       };
 
       const existingIndex = localPlaylist.findIndex(p => p.url === songUrl);

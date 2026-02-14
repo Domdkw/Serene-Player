@@ -42,24 +42,12 @@ export async function searchNeteaseMusic(keywords: string, limit: number = 30, o
 }
 
 export function getNeteaseSongUrl(id: number): string {
-  return `${BASE_URL}/song/url?id=${id}`;
+  return `https://music.163.com/song/media/outer/url?id=${id}.mp3`;
 }
 
 export async function getSongUrl(id: number): Promise<string | null> {
   const url = getNeteaseSongUrl(id);
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`获取歌曲URL失败: ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  if (data.code !== 200 || !data.data || data.data.length === 0) {
-    return null;
-  }
-
-  return data.data[0].url;
+  return url;
 }
 
 export function formatDuration(duration: number): string {

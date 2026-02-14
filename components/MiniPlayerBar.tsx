@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive } from 'lucide-react';
 import { Track } from '../types';
 import AudioSpectrum from './AudioSpectrum';
 
@@ -52,6 +52,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
 }) => {
   const hasTrack = track !== null;
   const hasLyrics = hasTrack && track.metadata.parsedLyrics && track.metadata.parsedLyrics.length > 0;
+  const isStreaming = hasTrack && track.sourceType === 'streaming';
   const [isDiscHovered, setIsDiscHovered] = useState(false);
   const discRef = useRef<HTMLDivElement>(null);
 
@@ -194,6 +195,15 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
                   />
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/80 backdrop-blur-sm text-xs text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10">
                     此歌曲没有内嵌歌词
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black/80"></div>
+                  </div>
+                </div>
+              )}
+              {isStreaming && (
+                <div className="relative group">
+                  <Cloud size={16} className="text-blue-400" />
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/80 backdrop-blur-sm text-xs text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10">
+                    流媒体播放
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black/80"></div>
                   </div>
                 </div>
