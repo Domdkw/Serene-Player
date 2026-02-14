@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive, Download } from 'lucide-react';
 import { Track } from '../types';
 
 interface MiniPlayerBarProps {
@@ -129,6 +129,16 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
 
           <div className="flex flex-col items-center gap-2 flex-1 max-w-xl">
             <div className="flex items-center gap-6">
+              {hasTrack && (
+                <a
+                  href={track.objectUrl}
+                  download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
+                  className="transition-colors text-white/60 hover:text-white"
+                  title="下载当前歌曲"
+                >
+                  <Download size={18} />
+                </a>
+              )}
               <button
                 onClick={onCyclePlaybackMode}
                 disabled={!hasTrack}
