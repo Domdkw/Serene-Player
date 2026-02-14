@@ -50,8 +50,17 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   const [loadingSongId, setLoadingSongId] = useState<number | null>(null);
   const [localPlaylist, setLocalPlaylist] = useState<PlaylistItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteSong[]>(() => loadFavorites());
-  const [showSearch, setShowSearch] = useState(false);
+  const [showSearch, setShowSearch] = useState(() => loadFavorites().length === 0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * 当喜欢列表为空时，自动显示搜索界面
+   */
+  useEffect(() => {
+    if (favorites.length === 0 && !showSearch) {
+      setShowSearch(true);
+    }
+  }, [favorites.length, showSearch]);
 
   const isFavorite = useCallback((songId: number) => {
     return favorites.some(f => f.id === songId);
@@ -466,7 +475,6 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
                 title="清空喜欢列表"
               >
                 <Trash2 size={16} />
-                清空
               </button>
             )}
             

@@ -143,9 +143,10 @@ const App: React.FC = () => {
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('single');
   
   //region Navigation state
-  const [activeTab, setActiveTab] = useState<NavTab>('songs');
+  const [activeTab, setActiveTab] = useState<NavTab>('netease');
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [localSongsLoaded, setLocalSongsLoaded] = useState(false);
   
   //region UI states
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
@@ -252,20 +253,21 @@ const App: React.FC = () => {
     localStorage.setItem('streamingMode', streamingMode.toString());
   }, [streamingMode]);
 
-  //region 性能优化：使用useCallback缓存函数
-  const handleTabChange = useCallback((tab: NavTab) => {
-    if (tab === activeTab) return;
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setActiveTab(tab);
-      setSelectedArtist(null);
-      setIsTransitioning(false);
-    }, 200);
-  }, [activeTab]);
+  //region 应用启动时隐藏加载界面
+  useEffect(() => {
+    if ((window as any).hideAppLoader) {
+      (window as any).hideAppLoader();
+    }
+  }, []);
 
   //region Load playlist on mount
   const defaultSourceUrl = './discList.json';
   
+  /**
+   * 从指定URL加载播放列表
+   * @param url - 播放列表JSON文件的URL
+   * @returns 加载成功返回true，失败返回false
+   */
   const loadPlaylistFromUrl = useCallback(async (url: string) => {
     try {
       const res = await fetch(url);
@@ -286,26 +288,35 @@ const App: React.FC = () => {
       
       setPlaylistFolders(processedFolders);
       setPlaylist(allTracks);
-      
-      if ((window as any).hideAppLoader) {
-        (window as any).hideAppLoader();
-      }
       return true;
     } catch (err) {
       console.error("Failed to load playlist", err);
       setErrorMessage(`Could not load playlist from: ${url}`);
-      if ((window as any).hideAppLoader) {
-        (window as any).hideAppLoader();
-      }
       return false;
     }
   }, []);
-  
-  useEffect(() => {
-    const url = customSourceUrl || defaultSourceUrl;
-    loadPlaylistFromUrl(url);
-  }, [customSourceUrl, loadPlaylistFromUrl]);
 
+  //region 性能优化：使用useCallback缓存函数
+  /**
+   * 处理标签页切换
+   * 当切换到歌曲标签页时，延迟加载本地歌曲列表
+   */
+  const handleTabChange = useCallback((tab: NavTab) => {
+    if (tab === activeTab) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setActiveTab(tab);
+      setSelectedArtist(null);
+      setIsTransitioning(false);
+    }, 200);
+    
+    if (tab === 'songs' && !localSongsLoaded) {
+      const url = customSourceUrl || defaultSourceUrl;
+      loadPlaylistFromUrl(url);
+      setLocalSongsLoaded(true);
+    }
+  }, [activeTab, localSongsLoaded, customSourceUrl, loadPlaylistFromUrl]);
+  
   //region 艺术家按首字母分组（支持中文转拼音）
   const [artistsByLetter, setArtistsByLetter] = useState<Record<string, string[]>>({});
   const [artistLetterMap, setArtistLetterMap] = useState<Record<string, string>>({});
@@ -898,6 +909,12 @@ const App: React.FC = () => {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         <SidebarItem
+          icon={Cloud}
+          label="网易云"
+          isActive={activeTab === 'netease'}
+          onClick={() => handleTabChange('netease')}
+        />
+        <SidebarItem
           icon={ListMusic}
           label="歌曲"
           isActive={activeTab === 'songs'}
@@ -910,12 +927,6 @@ const App: React.FC = () => {
           isActive={activeTab === 'artists'}
           onClick={() => handleTabChange('artists')}
           badge={Object.values(artistsByLetter).flat().length}
-        />
-        <SidebarItem
-          icon={Cloud}
-          label="网易云"
-          isActive={activeTab === 'netease'}
-          onClick={() => handleTabChange('netease')}
         />
         <SidebarItem
           icon={Settings}
