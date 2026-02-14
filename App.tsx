@@ -1179,16 +1179,12 @@ const App: React.FC = () => {
           setSelectedFont={setSelectedFont}
           showTranslation={showTranslation}
           setShowTranslation={setShowTranslation}
-          showSpectrum={showSpectrum}
-          setShowSpectrum={setShowSpectrum}
-          spectrumFps={spectrumFps}
-          setSpectrumFps={setSpectrumFps}
           streamingMode={streamingMode}
           setStreamingMode={setStreamingMode}
         />
       </div>
     </div>
-  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, showSpectrum, spectrumFps, streamingMode, setStreamingMode]);
+  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, streamingMode, setStreamingMode]);
 
   //region 渲染主内容
   const renderMainContent = useCallback(() => {
@@ -1285,8 +1281,6 @@ const App: React.FC = () => {
         duration={duration}
         playbackMode={playbackMode}
         showTranslation={showTranslation}
-        showSpectrum={showSpectrum}
-        spectrumFps={spectrumFps}
         audioRef={audioRef}
         onTogglePlay={togglePlay}
         onPrev={handlePrev}

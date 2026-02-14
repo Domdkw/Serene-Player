@@ -2,13 +2,10 @@ import React, { memo } from 'react';
 import { 
   HardDrive, 
   Type, 
-  AlignCenter, 
-  ArrowUpDown, 
   Languages,
   RotateCcw,
   Bug,
   Music,
-  Activity,
   Palette,
   Sparkles,
   Github,
@@ -29,10 +26,6 @@ interface SettingsPanelProps {
   setSelectedFont: (value: string) => void;
   showTranslation: boolean;
   setShowTranslation: (value: boolean) => void;
-  showSpectrum: boolean;
-  setShowSpectrum: (value: boolean) => void;
-  spectrumFps: number;
-  setSpectrumFps: (value: number) => void;
   streamingMode: boolean;
   setStreamingMode: (value: boolean) => void;
 }
@@ -161,10 +154,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setSelectedFont,
   showTranslation,
   setShowTranslation,
-  showSpectrum,
-  setShowSpectrum,
-  spectrumFps,
-  setSpectrumFps,
   streamingMode,
   setStreamingMode
 }) => {
@@ -176,8 +165,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setLineHeight(1.5);
     setSelectedFont('default');
     setShowTranslation(true);
-    setShowSpectrum(true);
-    setSpectrumFps(60);
     setStreamingMode(false);
   };
 
@@ -227,56 +214,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               }}
             />
           </div>
-        </div>
-      </section>
-
-      {/* 频谱图设置 */}
-      <section className="p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] backdrop-blur-sm">
-        <SectionTitle
-          icon={Activity}
-          title="频谱图"
-          subtitle="音频可视化效果配置"
-        />
-        <div className="space-y-4 pl-12">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-white/60">显示频谱图</span>
-            <ToggleSwitch
-              checked={showSpectrum}
-              onChange={(value) => {
-                setShowSpectrum(value);
-                localStorage.setItem('showSpectrum', value.toString());
-              }}
-            />
-          </div>
-          
-          {showSpectrum && (
-            <div className="pt-2">
-              <label className="text-xs text-white/40 mb-2 block">帧率限制</label>
-              <div className="flex gap-2">
-                {[15, 30, 60].map((fps) => (
-                  <button
-                    key={fps}
-                    onClick={() => {
-                      setSpectrumFps(fps);
-                      localStorage.setItem('spectrumFps', fps.toString());
-                    }}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      spectrumFps === fps
-                        ? 'bg-white text-black shadow-lg shadow-white/10'
-                        : 'bg-white/[0.03] text-white/50 hover:bg-white/[0.08] hover:text-white/70 border border-white/[0.06]'
-                    }`}
-                  >
-                    {fps === 60 ? '不限制' : `${fps} FPS`}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          <p className="text-[13px] text-white/30 flex items-center gap-1.5">
-            <span className="w-1 h-1 rounded-full bg-yellow-500/80" />
-            修改后需要刷新页面生效
-          </p>
         </div>
       </section>
 

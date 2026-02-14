@@ -1,7 +1,6 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive } from 'lucide-react';
 import { Track } from '../types';
-import AudioSpectrum from './AudioSpectrum';
 
 interface MiniPlayerBarProps {
   track: Track | null;
@@ -10,8 +9,6 @@ interface MiniPlayerBarProps {
   duration: number;
   playbackMode: 'single' | 'list' | 'shuffle';
   showTranslation: boolean;
-  showSpectrum: boolean;
-  spectrumFps: number;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   onTogglePlay: () => void;
   onPrev: () => void;
@@ -37,8 +34,6 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   duration,
   playbackMode,
   showTranslation,
-  showSpectrum,
-  spectrumFps,
   audioRef,
   onTogglePlay,
   onPrev,
@@ -55,10 +50,6 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   const isStreaming = hasTrack && track.sourceType === 'streaming';
   const [isDiscHovered, setIsDiscHovered] = useState(false);
   const discRef = useRef<HTMLDivElement>(null);
-
-  // 使用useMemo缓存初始值，确保设置只在应用启动时读取一次
-  const spectrumEnabled = useMemo(() => showSpectrum, []);
-  const spectrumFrameRate = useMemo(() => spectrumFps, []);
 
   // 处理圆盘滚动事件
   const handleDiscWheel = useCallback((e: WheelEvent) => {
@@ -244,20 +235,10 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
               )}
             </div>
             
-            {/* 时间显示 - 放在波形图左方 */}
+            {/* 时间显示 */}
             <span className="text-xs text-white/50 whitespace-nowrap">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
-            {spectrumEnabled && (
-              <div className="w-full max-w-[200px] h-16 relative">
-                <AudioSpectrum 
-                  audioRef={audioRef} 
-                  isPlaying={isPlaying} 
-                  enabled={spectrumEnabled}
-                  fps={spectrumFrameRate}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
