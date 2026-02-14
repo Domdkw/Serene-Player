@@ -1,14 +1,15 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { 
   Upload, Play, Pause, SkipBack, SkipForward, 
-  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages, Disc, User, Search, Plus, Link2, RotateCcw
+  Music, ListMusic, X, Repeat, Repeat1, Loader2, AlertCircle, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Shuffle, Languages, Disc, User, Search, Plus, Link2, RotateCcw, Cloud
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata, parseLyrics } from '../utils/metadata';
 import { MusicLibrary } from '../components/MusicLibrary';
 import { ArtistsView } from './ArtistsView';
 import { SearchPanel } from '../components/SearchPanel';
+import { NeteasePanel } from '../components/NeteasePanel';
 import SettingsPanel from './SettingsPanel';
 import LyricLine from '../components/LyricLine';
 import fetchInChunks from 'fetch-in-chunks';
@@ -129,13 +130,23 @@ const App: React.FC = () => {
   const [isManualScrolling, setIsManualScrolling] = useState(false);
 
   // Library view states
-  const [libraryView, setLibraryView] = useState<'songs' | 'artists'>('songs');
+  const [libraryView, setLibraryView] = useState<'songs' | 'artists' | 'netease'>('netease');
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [artistsByLetter, setArtistsByLetter] = useState<Record<string, string[]>>({});
   const [artistLetterMap, setArtistLetterMap] = useState<Record<string, string>>({});
   const [hasChineseArtists, setHasChineseArtists] = useState(false);
   const [pinyinLoaded, setPinyinLoaded] = useState(false);
   const [pinyinLoadError, setPinyinLoadError] = useState(false);
+  
+  // Streaming mode state
+  const [streamingMode, setStreamingMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('streamingMode');
+    return saved ? saved === 'true' : true;
+  });
+  
+  // Page 0 visited state - 用于延迟加载
+  const [page0Visited, setPage0Visited] = useState(false);
+  const [localSongsLoaded, setLocalSongsLoaded] = useState(false);
 
   // Load playlist on mount
   const defaultSourceUrl = './discList.json';
@@ -180,15 +191,24 @@ const App: React.FC = () => {
   };
   
   useEffect(() => {
-    const url = customSourceUrl || defaultSourceUrl;
-    loadPlaylistFromUrl(url);
-  }, [customSourceUrl]);
+    if ((window as any).hideAppLoader) {
+      (window as any).hideAppLoader();
+    }
+  }, []);
 
   useEffect(() => {
-    if (!track && playlist.length > 0) {
-      setCurrentPage(0);
+    if (page0Visited && !localSongsLoaded) {
+      const url = customSourceUrl || defaultSourceUrl;
+      loadPlaylistFromUrl(url);
+      setLocalSongsLoaded(true);
     }
-  }, [track, playlist.length]);
+  }, [page0Visited, localSongsLoaded, customSourceUrl, loadPlaylistFromUrl]);
+
+  useEffect(() => {
+    if (currentPage === 0 && !page0Visited) {
+      setPage0Visited(true);
+    }
+  }, [currentPage, page0Visited]);
 
   // 艺术家按首字母分组（支持中文转拼音）
   useEffect(() => {
@@ -946,6 +966,39 @@ const App: React.FC = () => {
     );
   };
 
+  /**
+   * 渲染网易云音乐视图
+   * 只有在用户访问过第0页时才会渲染网易云面板
+   */
+  const renderNeteaseView = useCallback(() => {
+    if (!page0Visited) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-white/20 gap-4">
+          <Cloud size={48} className="opacity-50" />
+          <p className="text-sm opacity-50">网易云音乐</p>
+        </div>
+      );
+    }
+    
+    return (
+      <NeteasePanel
+        onTrackSelect={(item, index) => {
+          loadMusicFromUrl(item, index);
+        }}
+        currentTrackUrl={track?.objectUrl || null}
+        isPlaying={isPlaying}
+        onAddToPlaylist={(item) => {
+          setPlaylist(prev => {
+            if (prev.some(p => p.url === item.url)) {
+              return prev;
+            }
+            return [...prev, item];
+          });
+        }}
+      />
+    );
+  }, [page0Visited, loadMusicFromUrl, track?.objectUrl, isPlaying, setPlaylist]);
+
   return (
     <div className="h-dvh w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans" style={{ fontFamily: getFontFamily(selectedFont) }}>
       
@@ -1101,12 +1154,24 @@ const App: React.FC = () => {
                   </button>
                   <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
                     <button
+                      onClick={() => setLibraryView('netease')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        libraryView === 'netease'
+                          ? 'bg-white/20 text-white'
+                          : 'text-white/50 hover:text-white/80'
+                      }`}
+                      title="网易云音乐"
+                    >
+                      <Cloud size={14} />
+                    </button>
+                    <button
                       onClick={() => setLibraryView('songs')}
                       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
                         libraryView === 'songs'
                           ? 'bg-white/20 text-white'
                           : 'text-white/50 hover:text-white/80'
                       }`}
+                      title="本地歌曲"
                     >
                       <Disc size={14} />
                     </button>
@@ -1117,13 +1182,16 @@ const App: React.FC = () => {
                           ? 'bg-white/20 text-white'
                           : 'text-white/50 hover:text-white/80'
                       }`}
+                      title="艺术家"
                     >
                       <User size={14} />
                     </button>
                   </div>
                 </div>
               </div>
-              {libraryView === 'songs' ? (
+              {libraryView === 'netease' ? (
+                renderNeteaseView()
+              ) : libraryView === 'songs' ? (
                 <MusicLibrary
                   playlistFolders={playlistFolders}
                   currentFolder={currentFolder}
@@ -1303,6 +1371,17 @@ const App: React.FC = () => {
                 title="设置自定义音乐源"
               >
                 <Plus size={16} />
+              </button>
+              
+              <button
+                onClick={() => {
+                  setCurrentPage(0);
+                  setLibraryView('netease');
+                }}
+                className={`p-2 rounded-xl transition-all ${track?.neteaseId ? 'bg-red-500/20 text-red-400' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                title="网易云音乐"
+              >
+                <Cloud size={16} />
               </button>
 
               <div className="flex items-center gap-2">
