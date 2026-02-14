@@ -3,7 +3,8 @@ import {
   ChevronLeft, 
   Languages, 
   Music,
-  Loader2
+  Loader2,
+  Cloud
 } from 'lucide-react';
 import { Track, LyricLine as ParsedLyric } from '../types';
 import { getFontFamily } from '../utils/fontUtils';
@@ -196,7 +197,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
               {track.metadata.artist}
             </p>
             {/* Lyric Tags - AR & AL */}
-            {(track.metadata.lyricArtist || track.metadata.lyricAlbum) && (
+            {(track.metadata.lyricArtist || track.metadata.lyricAlbum || track.sourceType === 'streaming') && (
               <div className="flex items-center justify-center gap-2 mt-3">
                 {track.metadata.lyricArtist && (
                   <span className="text-xs text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
@@ -206,6 +207,12 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                 {track.metadata.lyricAlbum && (
                   <span className="text-xs text-white/60 font-medium tracking-wide bg-white/5 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
                     AL: {track.metadata.lyricAlbum}
+                  </span>
+                )}
+                {track.sourceType === 'streaming' && (
+                  <span className="text-xs text-blue-400 font-medium tracking-wide bg-blue-400/10 px-3 py-1.5 rounded-full backdrop-blur-sm border border-blue-400/20">
+                    <Cloud size={12} className="inline-block mr-1" />
+                    流媒体
                   </span>
                 )}
               </div>

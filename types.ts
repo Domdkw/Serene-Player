@@ -26,6 +26,8 @@ export interface Track {
   file?: File;
   objectUrl: string;
   metadata: TrackMetadata;
+  neteaseId?: number;
+  sourceType?: 'local' | 'streaming';
 }
 
 export interface PlaylistItem {
@@ -35,6 +37,10 @@ export interface PlaylistItem {
   url: string;
   link?: string;
   file?: File;
+  neteaseId?: number;
+  coverUrl?: string;
+  lyrics?: string;
+  album?: string;
 }
 
 export interface PlaylistFolder {

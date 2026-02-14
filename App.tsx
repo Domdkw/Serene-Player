@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import {
-  Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search, Plus, X, Link2, RotateCcw
+  Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search, Plus, X, Link2, RotateCcw, Cloud
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
-import { extractMetadata } from './utils/metadata';
+import { extractMetadata, parseLyrics } from './utils/metadata';
 import { MusicLibrary } from './components/MusicLibrary';
 import { ArtistsView } from './components/ArtistsView';
 import { SearchPanel } from './components/SearchPanel';
+import { NeteasePanel } from './components/NeteasePanel';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
@@ -16,7 +17,7 @@ import { getFontUrl, getFontFamily } from './utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
 import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
 
-type NavTab = 'songs' | 'artists' | 'settings';
+type NavTab = 'songs' | 'artists' | 'netease' | 'settings';
 
 //region 使用memo优化子组件，避免不必要的重渲染
 const SidebarItem = memo(({ 
@@ -142,9 +143,10 @@ const App: React.FC = () => {
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('single');
   
   //region Navigation state
-  const [activeTab, setActiveTab] = useState<NavTab>('songs');
+  const [activeTab, setActiveTab] = useState<NavTab>('netease');
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [localSongsLoaded, setLocalSongsLoaded] = useState(false);
   
   //region UI states
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
@@ -194,6 +196,10 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('showSpectrum');
     return saved ? saved === 'true' : true;
   });
+  const [streamingMode, setStreamingMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('streamingMode');
+    return saved ? saved === 'true' : false;
+  });
   const [spectrumFps, setSpectrumFps] = useState<number>(() => {
     const saved = localStorage.getItem('spectrumFps');
     return saved ? parseInt(saved, 10) : 60;
@@ -242,20 +248,26 @@ const App: React.FC = () => {
     localStorage.setItem('showTranslation', showTranslation.toString());
   }, [showTranslation]);
 
-  //region 性能优化：使用useCallback缓存函数
-  const handleTabChange = useCallback((tab: NavTab) => {
-    if (tab === activeTab) return;
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setActiveTab(tab);
-      setSelectedArtist(null);
-      setIsTransitioning(false);
-    }, 200);
-  }, [activeTab]);
+  //region 保存流媒体播放模式设置到 LocalStorage
+  useEffect(() => {
+    localStorage.setItem('streamingMode', streamingMode.toString());
+  }, [streamingMode]);
+
+  //region 应用启动时隐藏加载界面
+  useEffect(() => {
+    if ((window as any).hideAppLoader) {
+      (window as any).hideAppLoader();
+    }
+  }, []);
 
   //region Load playlist on mount
   const defaultSourceUrl = './discList.json';
   
+  /**
+   * 从指定URL加载播放列表
+   * @param url - 播放列表JSON文件的URL
+   * @returns 加载成功返回true，失败返回false
+   */
   const loadPlaylistFromUrl = useCallback(async (url: string) => {
     try {
       const res = await fetch(url);
@@ -276,26 +288,35 @@ const App: React.FC = () => {
       
       setPlaylistFolders(processedFolders);
       setPlaylist(allTracks);
-      
-      if ((window as any).hideAppLoader) {
-        (window as any).hideAppLoader();
-      }
       return true;
     } catch (err) {
       console.error("Failed to load playlist", err);
       setErrorMessage(`Could not load playlist from: ${url}`);
-      if ((window as any).hideAppLoader) {
-        (window as any).hideAppLoader();
-      }
       return false;
     }
   }, []);
-  
-  useEffect(() => {
-    const url = customSourceUrl || defaultSourceUrl;
-    loadPlaylistFromUrl(url);
-  }, [customSourceUrl, loadPlaylistFromUrl]);
 
+  //region 性能优化：使用useCallback缓存函数
+  /**
+   * 处理标签页切换
+   * 当切换到歌曲标签页时，延迟加载本地歌曲列表
+   */
+  const handleTabChange = useCallback((tab: NavTab) => {
+    if (tab === activeTab) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setActiveTab(tab);
+      setSelectedArtist(null);
+      setIsTransitioning(false);
+    }, 200);
+    
+    if (tab === 'songs' && !localSongsLoaded) {
+      const url = customSourceUrl || defaultSourceUrl;
+      loadPlaylistFromUrl(url);
+      setLocalSongsLoaded(true);
+    }
+  }, [activeTab, localSongsLoaded, customSourceUrl, loadPlaylistFromUrl]);
+  
   //region 艺术家按首字母分组（支持中文转拼音）
   const [artistsByLetter, setArtistsByLetter] = useState<Record<string, string[]>>({});
   const [artistLetterMap, setArtistLetterMap] = useState<Record<string, string>>({});
@@ -493,11 +514,23 @@ const App: React.FC = () => {
     setCurrentIndex(index);
     setIsPlaying(false);
     
+    if (!item.url) {
+      setErrorMessage('无效的歌曲链接');
+      return;
+    }
+
+    const isNeteaseSong = !!item.neteaseId;
+    const shouldUseStreaming = isNeteaseSong || streamingMode;
+
     try {
-      let file: File;
+      let file: File | undefined;
       let objectUrl: string;
       
-      if (item.file) {
+      if (shouldUseStreaming) {
+        objectUrl = item.url;
+        setLoadingProgress(100);
+        file = undefined;
+      } else if (item.file) {
         file = item.file;
         objectUrl = item.url;
         setLoadingProgress(100);
@@ -528,16 +561,46 @@ const App: React.FC = () => {
         objectUrl = URL.createObjectURL(blob);
       }
       
-      const metadata = await extractMetadata(file);
+      const metadata = file ? await extractMetadata(file) : {
+        title: item.name,
+        artist: item.artist,
+        album: item.album || '',
+        coverUrl: null,
+        lyrics: null,
+        parsedLyrics: [],
+        lyricArtist: null,
+        lyricAlbum: null,
+      };
+
+      if (!metadata.coverUrl && item.coverUrl) {
+        metadata.coverUrl = item.coverUrl;
+      }
+
+      if (!metadata.lyrics && item.lyrics) {
+        metadata.lyrics = item.lyrics;
+        const parsedResult = parseLyrics(item.lyrics);
+        metadata.parsedLyrics = parsedResult.lines;
+        if (parsedResult.lyricArtist) {
+          metadata.lyricArtist = parsedResult.lyricArtist;
+        }
+        if (parsedResult.lyricAlbum) {
+          metadata.lyricAlbum = parsedResult.lyricAlbum;
+        }
+      }
       
       const oldUrl = track?.objectUrl;
       
-      setTrack({ file, objectUrl, metadata });
+      setTrack({ 
+        file, 
+        objectUrl, 
+        metadata,
+        neteaseId: item.neteaseId,
+        sourceType: shouldUseStreaming ? 'streaming' : 'local'
+      });
       setLoadingProgress(null);
       setLoadingTrackUrl(null);
       setLyricsLoading(false);
       
-      // 延迟播放以避免 AbortError
       setTimeout(async () => {
         if (audioRef.current) {
           audioRef.current.src = objectUrl;
@@ -551,8 +614,7 @@ const App: React.FC = () => {
         }
       }, 100);
 
-      // 延迟释放旧 URL
-      if (oldUrl && !oldUrl.startsWith('blob:')) {
+      if (oldUrl && !oldUrl.startsWith('blob:') && !shouldUseStreaming) {
         setTimeout(() => {
           URL.revokeObjectURL(oldUrl);
         }, 1000);
@@ -566,7 +628,7 @@ const App: React.FC = () => {
       setErrorMessage(error.message || "An error occurred while loading the track.");
       setIsPlaying(false);
     }
-  }, [chunkCount, track?.objectUrl]);
+  }, [chunkCount, track?.objectUrl, streamingMode]);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -576,8 +638,7 @@ const App: React.FC = () => {
       try {
         const metadata = await extractMetadata(file);
         const objectUrl = URL.createObjectURL(file);
-        const oldUrl = track?.objectUrl;
-        setTrack({ file, objectUrl, metadata });
+        
         setLoadingProgress(null);
         if (audioRef.current) {
           audioRef.current.pause();
@@ -585,7 +646,8 @@ const App: React.FC = () => {
           audioRef.current.load();
           audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
         }
-        if (oldUrl) URL.revokeObjectURL(oldUrl);
+        
+        setTrack({ file, objectUrl, metadata });
       } catch (err) {
         setErrorMessage("Failed to process the uploaded file.");
         setLoadingProgress(null);
@@ -594,7 +656,7 @@ const App: React.FC = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [track?.objectUrl]);
+  }, []);
 
   const supportedAudioFormats = useMemo(() => ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma', '.ape', '.opus'], []);
 
@@ -658,15 +720,12 @@ const App: React.FC = () => {
     }));
 
     if (newTracks.length > 0) {
-      const firstTrack = newTracks[0];
       const file = audioFiles[0];
       setLoadingProgress(100);
       try {
         const metadata = await extractMetadata(file);
         const objectUrl = URL.createObjectURL(file);
-        const oldUrl = track?.objectUrl;
-        setTrack({ file, objectUrl, metadata });
-        setCurrentIndex(playlist.length);
+        
         setLoadingProgress(null);
         if (audioRef.current) {
           audioRef.current.pause();
@@ -674,7 +733,9 @@ const App: React.FC = () => {
           audioRef.current.load();
           audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
         }
-        if (oldUrl) URL.revokeObjectURL(oldUrl);
+        
+        setTrack({ file, objectUrl, metadata });
+        setCurrentIndex(prev => prev + newTracks.length);
       } catch (err) {
         setErrorMessage("Failed to process the uploaded file.");
         setLoadingProgress(null);
@@ -684,7 +745,7 @@ const App: React.FC = () => {
     if (folderInputRef.current) {
       folderInputRef.current.value = '';
     }
-  }, [isAudioFile, playlist.length, track?.objectUrl]);
+  }, [isAudioFile]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -847,6 +908,12 @@ const App: React.FC = () => {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
+        <SidebarItem
+          icon={Cloud}
+          label="网易云"
+          isActive={activeTab === 'netease'}
+          onClick={() => handleTabChange('netease')}
+        />
         <SidebarItem
           icon={ListMusic}
           label="歌曲"
@@ -1080,6 +1147,27 @@ const App: React.FC = () => {
     </div>
   ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef, isSearchOpen, customSourceUrl, handleOpenCustomSource, isCustomSourceOpen, sourceInputValue, handleCloseCustomSource, handleSaveCustomSource, handleResetToDefault]);
 
+  //region 渲染网易云视图
+  const renderNeteaseView = useCallback(() => (
+    <div className="h-full flex flex-col">
+      <NeteasePanel
+        onTrackSelect={(item, index) => {
+          loadMusicFromUrl(item, index);
+        }}
+        currentTrackUrl={track?.objectUrl || null}
+        isPlaying={isPlaying}
+        onAddToPlaylist={(item) => {
+          setPlaylist(prev => {
+            if (prev.some(p => p.url === item.url)) {
+              return prev;
+            }
+            return [...prev, item];
+          });
+        }}
+      />
+    </div>
+  ), [track?.objectUrl, isPlaying, loadMusicFromUrl, setPlaylist]);
+
   //region 渲染设置视图
   const renderSettingsView = useCallback(() => (
     <div className="h-full flex flex-col">
@@ -1102,14 +1190,12 @@ const App: React.FC = () => {
           setSelectedFont={setSelectedFont}
           showTranslation={showTranslation}
           setShowTranslation={setShowTranslation}
-          showSpectrum={showSpectrum}
-          setShowSpectrum={setShowSpectrum}
-          spectrumFps={spectrumFps}
-          setSpectrumFps={setSpectrumFps}
+          streamingMode={streamingMode}
+          setStreamingMode={setStreamingMode}
         />
       </div>
     </div>
-  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, showSpectrum, spectrumFps]);
+  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, streamingMode, setStreamingMode]);
 
   //region 渲染主内容
   const renderMainContent = useCallback(() => {
@@ -1117,6 +1203,9 @@ const App: React.FC = () => {
     switch (activeTab) {
       case 'artists':
         content = renderArtistsView();
+        break;
+      case 'netease':
+        content = renderNeteaseView();
         break;
       case 'settings':
         content = renderSettingsView();
@@ -1128,7 +1217,7 @@ const App: React.FC = () => {
     }
 
     return (
-      <div 
+      <div
         className={`flex-1 overflow-hidden transition-all duration-300 ease-out ${
           isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
         }`}
@@ -1136,7 +1225,7 @@ const App: React.FC = () => {
         {content}
       </div>
     );
-  }, [activeTab, isTransitioning, renderArtistsView, renderSettingsView, renderSongsView]);
+  }, [activeTab, isTransitioning, renderArtistsView, renderNeteaseView, renderSettingsView, renderSongsView]);
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(selectedFont) }}>
@@ -1146,6 +1235,8 @@ const App: React.FC = () => {
       {/* Audio element - always present */}
       <audio 
         ref={audioRef}
+        //crossOrigin="anonymous"
+        //不能加crossorigin不然网易云会阻止跨域请求，同时禁止频谱图
         onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
         onEnded={onEnded}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
@@ -1201,8 +1292,6 @@ const App: React.FC = () => {
         duration={duration}
         playbackMode={playbackMode}
         showTranslation={showTranslation}
-        showSpectrum={showSpectrum}
-        spectrumFps={spectrumFps}
         audioRef={audioRef}
         onTogglePlay={togglePlay}
         onPrev={handlePrev}

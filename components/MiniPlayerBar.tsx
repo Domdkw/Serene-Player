@@ -1,7 +1,6 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive, Download } from 'lucide-react';
 import { Track } from '../types';
-import AudioSpectrum from './AudioSpectrum';
 
 interface MiniPlayerBarProps {
   track: Track | null;
@@ -10,8 +9,6 @@ interface MiniPlayerBarProps {
   duration: number;
   playbackMode: 'single' | 'list' | 'shuffle';
   showTranslation: boolean;
-  showSpectrum: boolean;
-  spectrumFps: number;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   onTogglePlay: () => void;
   onPrev: () => void;
@@ -37,8 +34,6 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   duration,
   playbackMode,
   showTranslation,
-  showSpectrum,
-  spectrumFps,
   audioRef,
   onTogglePlay,
   onPrev,
@@ -52,12 +47,9 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
 }) => {
   const hasTrack = track !== null;
   const hasLyrics = hasTrack && track.metadata.parsedLyrics && track.metadata.parsedLyrics.length > 0;
+  const isStreaming = hasTrack && track.sourceType === 'streaming';
   const [isDiscHovered, setIsDiscHovered] = useState(false);
   const discRef = useRef<HTMLDivElement>(null);
-
-  // 使用useMemo缓存初始值，确保设置只在应用启动时读取一次
-  const spectrumEnabled = useMemo(() => showSpectrum, []);
-  const spectrumFrameRate = useMemo(() => spectrumFps, []);
 
   // 处理圆盘滚动事件
   const handleDiscWheel = useCallback((e: WheelEvent) => {
@@ -137,6 +129,16 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
 
           <div className="flex flex-col items-center gap-2 flex-1 max-w-xl">
             <div className="flex items-center gap-6">
+              {hasTrack && (
+                <a
+                  href={track.objectUrl}
+                  download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
+                  className="transition-colors text-white/60 hover:text-white"
+                  title="下载当前歌曲"
+                >
+                  <Download size={18} />
+                </a>
+              )}
               <button
                 onClick={onCyclePlaybackMode}
                 disabled={!hasTrack}
@@ -198,6 +200,15 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
                   </div>
                 </div>
               )}
+              {isStreaming && (
+                <div className="relative group">
+                  <Cloud size={16} className="text-blue-400" />
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/80 backdrop-blur-sm text-xs text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10">
+                    流媒体播放
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black/80"></div>
+                  </div>
+                </div>
+              )}
             </div>
             
           </div>
@@ -234,20 +245,10 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
               )}
             </div>
             
-            {/* 时间显示 - 放在波形图左方 */}
+            {/* 时间显示 */}
             <span className="text-xs text-white/50 whitespace-nowrap">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
-            {spectrumEnabled && (
-              <div className="w-full max-w-[200px] h-16 relative">
-                <AudioSpectrum 
-                  audioRef={audioRef} 
-                  isPlaying={isPlaying} 
-                  enabled={spectrumEnabled}
-                  fps={spectrumFrameRate}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>

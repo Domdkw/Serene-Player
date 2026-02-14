@@ -64,7 +64,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   return (
     <div className={`absolute inset-0 ${isMobile ? 'top-0 bg-[#0f0f13]/90' : 'top-[120px] bg-[#0f0f13]/25'} bottom-0 left-0 right-0 backdrop-blur-xl z-40 animate-in fade-in slide-in-from-top-4 duration-300`}>
-      <div className="h-full flex flex-col p-6">
+      <div className="h-full flex flex-col px-2 py-4 md:p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="flex-1 relative">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
