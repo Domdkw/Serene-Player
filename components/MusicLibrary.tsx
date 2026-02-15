@@ -256,22 +256,22 @@ export const MusicLibrary: React.FC<MusicLibraryProps> = ({
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full flex flex-col">
       {currentFolder && (
         <button 
           onClick={() => setCurrentFolder(null)}
-          className="w-full px-4 py-3 border-b border-white/10 text-[10px] uppercase tracking-widest font-bold text-white/60 hover:text-white flex items-center gap-2 transition-all"
+          className="w-full px-4 py-3 border-b border-white/10 text-[10px] uppercase tracking-widest font-bold text-white/60 hover:text-white flex items-center gap-2 transition-all shrink-0"
         >
           <ChevronLeft size={14} />
           Back to Folders
         </button>
       )}
-      <div className="flex items-center px-4 py-3 border-b border-white/10 text-[10px] uppercase tracking-widest font-bold text-white">
+      <div className="flex items-center px-4 py-3 border-b border-white/10 text-[10px] uppercase tracking-widest font-bold text-white shrink-0">
         <div className="w-3 h-3 mr-3 flex-shrink-0" />
         <span className="w-1/2 truncate">标题</span>
         <span className="w-1/2 truncate pl-4 text-center">作曲家</span>
       </div>
-      <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden playlist-scrollbar">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden playlist-scrollbar">
         {currentFolder ? renderTrackView() : (
           <>
             {folderDisplay.renderFolderView()}

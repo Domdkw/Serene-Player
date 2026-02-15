@@ -20,31 +20,35 @@ import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
 type NavTab = 'songs' | 'artists' | 'netease' | 'settings';
 
 //region 使用memo优化子组件，避免不必要的重渲染
-const SidebarItem = memo(({ 
-  icon: Icon, 
-  label, 
-  isActive, 
+const SidebarItem = memo(({
+  icon: Icon,
+  label,
+  isActive,
   onClick,
   badge
-}: { 
-  icon: React.ElementType; 
-  label: string; 
-  isActive: boolean; 
+}: {
+  icon: React.ElementType | (() => React.ReactNode);
+  label: string;
+  isActive: boolean;
   onClick: () => void;
   badge?: number;
 }) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ease-out group relative overflow-hidden ${
-      isActive 
-        ? 'bg-white text-black shadow-lg shadow-white/10' 
+      isActive
+        ? 'bg-white text-black shadow-lg shadow-white/10'
         : 'text-white/60 hover:text-white hover:bg-white/5'
     }`}
   >
     <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
       isActive ? 'bg-black/10' : 'bg-white/5'
     }`}>
-      <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+      {typeof Icon === 'function' && Icon.length === 0 ? (
+        <Icon />
+      ) : (
+        <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+      )}
     </div>
     <span className="font-medium text-sm">{label}</span>
     {badge !== undefined && badge > 0 && (
@@ -909,14 +913,14 @@ const App: React.FC = () => {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         <SidebarItem
-          icon={Cloud}
+          icon={() => <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-4.5 h-4.5" />}
           label="网易云"
           isActive={activeTab === 'netease'}
           onClick={() => handleTabChange('netease')}
         />
         <SidebarItem
           icon={ListMusic}
-          label="歌曲"
+          label="本地歌曲"
           isActive={activeTab === 'songs'}
           onClick={() => handleTabChange('songs')}
           badge={playlist.length}

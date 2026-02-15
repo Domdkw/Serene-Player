@@ -203,7 +203,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
           <div className="flex items-center justify-between pt-2">
             <div>
-              <span className="text-sm text-white/60">流媒体播放模式 （不支持封面背景）</span>
+              <span className="text-sm text-white/60">开发者：流媒体播放模式 （不支持封面背景）</span>
               <p className="text-[13px] text-white/30 mt-0.5">开启后直接流式播放，关闭则先下载完整文件</p>
             </div>
             <ToggleSwitch

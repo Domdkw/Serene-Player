@@ -146,6 +146,7 @@ const App: React.FC = () => {
   
   // Page 0 visited state - 用于延迟加载
   const [page0Visited, setPage0Visited] = useState(false);
+  const [songsTabVisited, setSongsTabVisited] = useState(false);
   const [localSongsLoaded, setLocalSongsLoaded] = useState(false);
 
   // Load playlist on mount
@@ -197,18 +198,24 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (page0Visited && !localSongsLoaded) {
+    if (songsTabVisited && !localSongsLoaded) {
       const url = customSourceUrl || defaultSourceUrl;
       loadPlaylistFromUrl(url);
       setLocalSongsLoaded(true);
     }
-  }, [page0Visited, localSongsLoaded, customSourceUrl, loadPlaylistFromUrl]);
+  }, [songsTabVisited, localSongsLoaded, customSourceUrl, loadPlaylistFromUrl]);
 
   useEffect(() => {
     if (currentPage === 0 && !page0Visited) {
       setPage0Visited(true);
     }
   }, [currentPage, page0Visited]);
+
+  useEffect(() => {
+    if (libraryView === 'songs' && !songsTabVisited) {
+      setSongsTabVisited(true);
+    }
+  }, [libraryView, songsTabVisited]);
 
   // 艺术家按首字母分组（支持中文转拼音）
   useEffect(() => {
@@ -1058,16 +1065,59 @@ const App: React.FC = () => {
         >
           
           {/* Page 0: Music Library (Left) */}
-          <section className="w-full h-full flex-shrink-0 flex flex-col p-4 md:p-8 bg-black/20 backdrop-blur-xl overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6 md:mb-10 shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shadow-inner">
-                   <Music size={16} className="text-white" />
-                </div>
-                <span className="font-extrabold tracking-tighter text-white uppercase text-sm drop-shadow-lg">Serene</span>
+          <section className="w-full h-full flex-shrink-0 flex flex-col p-4 md:p-8 bg-black/20 backdrop-blur-xl overflow-hidden !pb-0">
+            {/* 顶部标签页切换和上传按钮 */}
+            <div className="flex items-center justify-center gap-4 mb-6 md:mb-10 shrink-0">
+              {/* 标签页切换组件 */}
+              <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+                <button
+                  onClick={() => setLibraryView('netease')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    libraryView === 'netease'
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/50 hover:text-white/80'
+                  }`}
+                  title="网易云音乐"
+                >
+                  <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setLibraryView('songs')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    libraryView === 'songs'
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/50 hover:text-white/80'
+                  }`}
+                  title="本地歌曲"
+                >
+                  <Disc size={14} />
+                </button>
+                <button
+                  onClick={() => setLibraryView('artists')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    libraryView === 'artists'
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/50 hover:text-white/80'
+                  }`}
+                  title="艺术家"
+                >
+                  <User size={14} />
+                </button>
               </div>
-              {/* Upload Menu */}
+
+              {/* 搜索按钮 - 仅在歌曲标签页显示 */}
+              {libraryView === 'songs' && (
+                <button
+                  onClick={() => setIsSearchOpen(!isSearchOpen)}
+                  className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                    isSearchOpen ? 'bg-white/20 text-white' : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white'
+                  }`}
+                >
+                  <Search size={14} />
+                </button>
+              )}
+
+              {/* 上传按钮 */}
               <div className="relative" ref={uploadMenuRef}>
                 <button
                   onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
@@ -1076,7 +1126,7 @@ const App: React.FC = () => {
                   <Upload size={12} className="text-white" />
                   <span className="text-[10px] font-bold uppercase tracking-widest">Local</span>
                 </button>
-                
+
                 {/* Dropdown Menu */}
                 {isUploadMenuOpen && (
                   <div className="absolute top-full right-0 mt-2 w-40 bg-black/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1103,7 +1153,7 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 )}
-                
+
                 {/* Hidden File Inputs */}
                 <input
                   ref={fileInputRef}
@@ -1123,72 +1173,10 @@ const App: React.FC = () => {
                   onChange={handleFolderUpload}
                 />
               </div>
-              {track && (
-                <a
-                  href={track.objectUrl}
-                  download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-all cursor-pointer border border-white/10 active:scale-95"
-                  title="下载当前歌曲"
-                >
-                  <Download size={12} className="text-white" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">下载</span>
-                </a>
-              )}
             </div>
-            
+
             {/* Music Library Content */}
-            <div className="flex-1 overflow-y-auto hide-scrollbar">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xs font-black text-white/40 flex items-center gap-3 uppercase">
-                  <ListMusic size={18} />
-                  Music Library
-                </h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsSearchOpen(!isSearchOpen)}
-                    className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
-                      isSearchOpen ? 'bg-white/20 text-white' : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white'
-                    }`}
-                  >
-                    <Search size={14} />
-                  </button>
-                  <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
-                    <button
-                      onClick={() => setLibraryView('netease')}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                        libraryView === 'netease'
-                          ? 'bg-white/20 text-white'
-                          : 'text-white/50 hover:text-white/80'
-                      }`}
-                      title="网易云音乐"
-                    >
-                      <Cloud size={14} />
-                    </button>
-                    <button
-                      onClick={() => setLibraryView('songs')}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                        libraryView === 'songs'
-                          ? 'bg-white/20 text-white'
-                          : 'text-white/50 hover:text-white/80'
-                      }`}
-                      title="本地歌曲"
-                    >
-                      <Disc size={14} />
-                    </button>
-                    <button
-                      onClick={() => setLibraryView('artists')}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                        libraryView === 'artists'
-                          ? 'bg-white/20 text-white'
-                          : 'text-white/50 hover:text-white/80'
-                      }`}
-                      title="艺术家"
-                    >
-                      <User size={14} />
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <div className="flex-1 overflow-y-auto hide-scrollbar pb-0">
               {libraryView === 'netease' ? (
                 renderNeteaseView()
               ) : libraryView === 'songs' ? (
@@ -1371,17 +1359,6 @@ const App: React.FC = () => {
                 title="设置自定义音乐源"
               >
                 <Plus size={16} />
-              </button>
-              
-              <button
-                onClick={() => {
-                  setCurrentPage(0);
-                  setLibraryView('netease');
-                }}
-                className={`p-2 rounded-xl transition-all ${track?.neteaseId ? 'bg-red-500/20 text-red-400' : 'bg-white/5 text-white/40 hover:text-white'}`}
-                title="网易云音乐"
-              >
-                <Cloud size={16} />
               </button>
 
               <div className="flex items-center gap-2">

@@ -290,7 +290,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   }, [showSearch]);
 
   const renderSearchResults = () => (
-    <div className="space-y-2">
+    <div className="space-y-1.5 md:space-y-2">
       {searchResults.map((song) => {
         const isCurrentTrack = currentTrackUrl && localPlaylist.some(
           p => p.url === currentTrackUrl && p.name === song.name
@@ -303,64 +303,54 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         return (
           <div
             key={song.id}
-            className={`group flex items-center gap-4 p-4 rounded-xl transition-all ${
+            onClick={() => handlePlaySong(song)}
+            className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer ${
               isCurrentTrack
                 ? 'bg-white/10 border border-white/20'
                 : 'bg-white/5 border border-white/[0.05] hover:bg-white/[0.08]'
             }`}
           >
-            <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
               {coverUrl ? (
                 <LazyImage
                   src={coverUrl}
                   alt={song.name}
                   className="w-full h-full object-cover"
-                  placeholder={<Music size={20} className="text-white/40" />}
+                  placeholder={<Music size={16} className="text-white/40" />}
                 />
               ) : (
-                <Music size={20} className="text-white/40" />
+                <Music size={16} className="text-white/40" />
               )}
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className={`font-medium truncate ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
+              <p className={`font-medium truncate text-sm md:text-base ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
                 {song.name}
               </p>
-              <p className="text-sm text-white/50 truncate">
+              <p className="text-xs md:text-sm text-white/50 truncate">
                 {song.artists.map(a => a.name).join(', ')} · {song.album.name}
               </p>
             </div>
 
-            <div className="text-sm text-white/40 flex-shrink-0">
+            <div className="hidden md:block text-sm text-white/40 flex-shrink-0">
               {formatDuration(song.duration)}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2">
               <button
-                onClick={() => toggleFavorite(song)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFavorite(song);
+                }}
                 disabled={isLoading}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all ${
                   isLiked 
                     ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' 
                     : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
                 }`}
                 title={isLiked ? '从喜欢中移除' : '添加到喜欢'}
               >
-                <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
-              </button>
-
-              <button
-                onClick={() => handlePlaySong(song)}
-                disabled={isLoading}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-50 flex items-center justify-center text-white transition-all"
-              >
-                {isLoading ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : isCurrentTrack && isPlaying ? (
-                  <Pause size={18} />
-                ) : (
-                  <Play size={18} />
-                )}
+                <Heart size={14} md:size={18} fill={isLiked ? 'currentColor' : 'none'} />
               </button>
             </div>
           </div>
@@ -381,7 +371,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
     }
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-1.5 md:space-y-2">
         {favorites.map((favorite) => {
           const isCurrentTrack = currentTrackUrl && localPlaylist.some(
             p => p.url === currentTrackUrl && p.name === favorite.name
@@ -391,60 +381,50 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
           return (
             <div
               key={favorite.id}
-              className={`group flex items-center gap-4 p-4 rounded-xl transition-all ${
+              onClick={() => handlePlayFavorite(favorite)}
+              className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer ${
                 isCurrentTrack
                   ? 'bg-white/10 border border-white/20'
                   : 'bg-white/5 border border-white/[0.05] hover:bg-white/[0.08]'
               }`}
             >
-              <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                 {favorite.coverUrl ? (
                   <LazyImage
                     src={favorite.coverUrl}
                     alt={favorite.name}
                     className="w-full h-full object-cover"
-                    placeholder={<Music size={20} className="text-white/40" />}
+                    placeholder={<Music size={16} className="text-white/40" />}
                   />
                 ) : (
-                  <Music size={20} className="text-white/40" />
+                  <Music size={16} className="text-white/40" />
                 )}
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className={`font-medium truncate ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
+                <p className={`font-medium truncate text-sm md:text-base ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
                   {favorite.name}
                 </p>
-                <p className="text-sm text-white/50 truncate">
+                <p className="text-xs md:text-sm text-white/50 truncate">
                   {favorite.artist} · {favorite.album}
                 </p>
               </div>
 
-              <div className="text-sm text-white/40 flex-shrink-0">
+              <div className="hidden md:block text-sm text-white/40 flex-shrink-0">
                 {formatDuration(favorite.duration)}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 md:gap-2">
                 <button
-                  onClick={() => toggleFavorite({ id: favorite.id } as NeteaseSong)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite({ id: favorite.id } as NeteaseSong);
+                  }}
                   disabled={isLoading}
-                  className="w-10 h-10 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 flex items-center justify-center transition-all"
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all bg-red-500/20 text-red-400 hover:bg-red-500/30"
                   title="从喜欢中移除"
                 >
-                  <Heart size={18} fill="currentColor" />
-                </button>
-
-                <button
-                  onClick={() => handlePlayFavorite(favorite)}
-                  disabled={isLoading}
-                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-50 flex items-center justify-center text-white transition-all"
-                >
-                  {isLoading ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : isCurrentTrack && isPlaying ? (
-                    <Pause size={18} />
-                  ) : (
-                    <Play size={18} />
-                  )}
+                  <Heart size={14} md:size={18} fill="currentColor" />
                 </button>
               </div>
             </div>
@@ -455,11 +435,11 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col p-6">
+    <div className="h-full flex flex-col p-1">
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-white mb-2">
+            <h2 className="text-xl font-bold text-white mb-2">
               {showSearch ? '搜索歌曲' : '我喜欢'}
             </h2>
             <p className="text-white/40 text-sm">
@@ -480,17 +460,14 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
             
             <button
               onClick={() => setShowSearch(!showSearch)}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-all flex items-center gap-2"
+              className="w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-all flex items-center justify-center md:justify-start gap-2"
             >
               {showSearch ? (
-                <>
-                  <ArrowLeft size={16} />
-                  返回
-                </>
+                <ArrowLeft size={16} />
               ) : (
                 <>
                   <Search size={16} />
-                  搜索
+                  <span className="hidden md:inline">搜索</span>
                 </>
               )}
             </button>
@@ -499,9 +476,9 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
       </div>
 
       {showSearch && (
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
           <div className="flex-1 relative">
-            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
+            <Search size={14} md:size={18} className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-white/40" />
             <input
               ref={searchInputRef}
               type="text"
@@ -509,23 +486,23 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="搜索歌曲、艺术家..."
-              className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/[0.05] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] transition-all"
+              className="w-full pl-10 md:pl-12 pr-3 md:pr-4 py-2 md:py-3 bg-white/5 border border-white/[0.05] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] transition-all text-sm md:text-base"
             />
           </div>
           <button
             onClick={handleSearch}
             disabled={isLoading || !searchQuery.trim()}
-            className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-all flex items-center gap-2"
+            className="px-4 md:px-6 py-2 md:py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-all flex items-center gap-1 md:gap-2 text-sm md:text-base"
           >
             {isLoading ? (
               <>
-                <Loader2 size={18} className="animate-spin" />
-                搜索中
+                <Loader2 size={14} md:size={18} className="animate-spin" />
+                <span className="hidden md:inline">搜索中</span>
               </>
             ) : (
               <>
-                <Search size={18} />
-                搜索
+                <Search size={14} md:size={18} />
+                <span className="hidden md:inline">搜索</span>
               </>
             )}
           </button>
