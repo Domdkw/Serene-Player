@@ -16,6 +16,7 @@ import fetchInChunks from 'fetch-in-chunks';
 import { getFontFamily, getFontUrl } from '../utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from '../utils/pinyinLoader';
 import { parseComposers, groupComposersByInitial } from '../utils/composerUtils';
+import { createSwipeManager, SwipeDirection } from '../utils/swipeUtils';
 
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
@@ -43,10 +44,11 @@ const App: React.FC = () => {
   // Page navigation states (0: list, 1: player, 2: lyrics)
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
+  const [swipeDirection, setSwipeDirection] = useState<SwipeDirection>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const swipeManagerRef = useRef<ReturnType<typeof createSwipeManager> | null>(null);
   
   // 3D cover effect states
   const [coverMousePos, setCoverMousePos] = useState({ x: 0, y: 0 });
@@ -835,49 +837,92 @@ const App: React.FC = () => {
     }
   };
 
-  
+  /**
+   * 滑动状态引用，用于在回调中获取最新状态
+   */
+  const currentPageRef = useRef(currentPage);
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
-  // Page navigation handlers
+  /**
+   * 初始化滑动管理器
+   */
+  useEffect(() => {
+    swipeManagerRef.current = createSwipeManager({
+      lockThreshold: 10,
+      swipeThreshold: window.innerWidth * 0.15,
+      maxPage: 2,
+      minPage: 0,
+      onHorizontalSwipeStart: () => {
+        setSwipeDirection('horizontal');
+      },
+      onVerticalSwipeStart: () => {
+        setSwipeDirection('vertical');
+      },
+      onHorizontalSwipeMove: (offset) => {
+        let adjustedOffset = offset;
+        const page = currentPageRef.current;
+        if (page === 0 && offset > 0) {
+          adjustedOffset = 0;
+        }
+        if (page === 2 && offset < 0) {
+          adjustedOffset = 0;
+        }
+        setDragOffset(adjustedOffset);
+      },
+      onHorizontalSwipeEnd: (direction) => {
+        const page = currentPageRef.current;
+        if (direction === 'right' && page > 0) {
+          setCurrentPage(page - 1);
+        } else if (direction === 'left' && page < 2) {
+          setCurrentPage(page + 1);
+        }
+        setDragOffset(0);
+        setSwipeDirection(null);
+      },
+      onVerticalSwipeEnd: () => {
+        setSwipeDirection(null);
+      },
+      onSwipeCancel: () => {
+        setDragOffset(0);
+        setSwipeDirection(null);
+      },
+    });
+  }, []);
+
+  /**
+   * 处理触摸开始事件
+   */
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     setIsDragging(true);
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    setDragStartX(clientX);
-    setDragOffset(0);
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    swipeManagerRef.current?.handleTouchStart(clientX, clientY);
   };
 
+  /**
+   * 处理触摸移动事件
+   */
   const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
     if (!isDragging) return;
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    let offset = clientX - dragStartX;
-    
-    // 在第0页（最左）时禁止向右滑动（offset > 0）
-    if (currentPage === 0 && offset > 0) {
-      offset = 0;
-    }
-    // 在第2页（最右）时禁止向左滑动（offset < 0）
-    if (currentPage === 2 && offset < 0) {
-      offset = 0;
-    }
-    
-    setDragOffset(offset);
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    swipeManagerRef.current?.handleTouchMove(clientX, clientY);
   };
 
+  /**
+   * 处理触摸结束事件
+   */
   const handleTouchEnd = () => {
     if (!isDragging) return;
     setIsDragging(false);
-    
-    const threshold = window.innerWidth * 0.15;
-    const velocity = dragOffset;
-    
-    if (velocity > threshold && currentPage > 0) {
-      setCurrentPage(currentPage - 1);
-    } else if (velocity < -threshold && currentPage < 2) {
-      setCurrentPage(currentPage + 1);
-    }
-    
-    setDragOffset(0);
+    swipeManagerRef.current?.handleTouchEnd();
   };
 
+  /**
+   * 处理鼠标滚轮事件
+   */
   const handleWheel = (e: WheelEvent) => {
     e.preventDefault();
     const threshold = 50;

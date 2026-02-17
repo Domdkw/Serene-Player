@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, SlidersHorizontal } from 'lucide-react';
 import { FONT_CONFIGS, getFontFamily } from '../utils/fontUtils';
+import { createStopPropagationProps } from '../utils/swipeUtils';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -66,9 +67,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
           maxHeight: '85vh'
         }}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
+        {...createStopPropagationProps()}
       >
         {/* Handle Bar */}
         <div className="flex justify-center pt-3 pb-1">

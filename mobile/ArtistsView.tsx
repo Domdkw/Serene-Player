@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react';
 import { PlaylistItem } from '../types';
 import { MusicLibrary } from '../components/MusicLibrary';
 import { parseComposers } from '../utils/composerUtils';
+import { createStopPropagationProps } from '../utils/swipeUtils';
 
 interface ArtistsViewProps {
   selectedArtist: string | null;
@@ -86,9 +87,7 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
 
       <div
         className="px-4 py-2 border-b border-white/[0.05] flex flex-row gap-2 overflow-x-auto hide-scrollbar"
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
+        {...createStopPropagationProps()}
       >
         {alphabet.map(letter => {
           const hasArtists = artistsByLetter[letter] && artistsByLetter[letter].length > 0;
@@ -116,9 +115,7 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
 
       <div
         className="flex-1 overflow-y-auto hide-scrollbar"
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
+        {...createStopPropagationProps()}
       >
         {alphabet.map(letter => {
           const artists = artistsByLetter[letter];

@@ -435,7 +435,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col p-1">
+    <div className="h-full flex flex-col p-1 md:p-3">
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
@@ -458,19 +458,24 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
               </button>
             )}
             
-            <button
-              onClick={() => setShowSearch(!showSearch)}
-              className="w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-all flex items-center justify-center md:justify-start gap-2"
-            >
-              {showSearch ? (
-                <ArrowLeft size={16} />
-              ) : (
-                <>
-                  <Search size={16} />
-                  <span className="hidden md:inline">搜索</span>
-                </>
-              )}
-            </button>
+            {!(showSearch && favorites.length === 0) && (
+              <button
+                onClick={() => setShowSearch(!showSearch)}
+                className="w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-all flex items-center justify-center md:justify-start gap-2"
+              >
+                {showSearch ? (
+                  <>
+                    <ArrowLeft size={16} />
+                    <span className="hidden md:inline">返回</span>
+                  </>
+                ) : (
+                  <>
+                    <Search size={16} />
+                    <span className="hidden md:inline">搜索</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
