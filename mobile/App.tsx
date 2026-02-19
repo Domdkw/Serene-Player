@@ -17,6 +17,7 @@ import { getFontFamily, getFontUrl } from '../utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from '../utils/pinyinLoader';
 import { parseComposers, groupComposersByInitial } from '../utils/composerUtils';
 import { createSwipeManager, SwipeDirection } from '../utils/swipeUtils';
+import { useQueryParams } from '../hooks/useQueryParams';
 
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
@@ -154,6 +155,10 @@ const App: React.FC = () => {
   // Load playlist on mount
   const defaultSourceUrl = './discList.json';
   
+  //region URL 参数处理状态
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
+  const [playlistReady, setPlaylistReady] = useState(false);
+
   const loadPlaylistFromUrl = async (url: string) => {
     try {
       const res = await fetch(url);
@@ -174,6 +179,7 @@ const App: React.FC = () => {
       
       setPlaylistFolders(processedFolders);
       setPlaylist(allTracks);
+      setPlaylistReady(true);
       
       if (allTracks.length === 0) {
         setCurrentPage(0);
@@ -527,6 +533,36 @@ const App: React.FC = () => {
       setIsPlaying(false);
     }
   };
+
+  //region URL 参数处理 Hook
+  const { processPendingParams, hasPendingParams } = useQueryParams({
+    onPlayNeteaseMusic: (item, index) => {
+      setPlaylist(prev => {
+        const existingIndex = prev.findIndex(p => p.url === item.url);
+        if (existingIndex === -1) {
+          return [...prev, item];
+        }
+        return prev;
+      });
+      loadMusicFromUrl(item, index);
+    },
+    onPlayLocalMusic: (item, index) => {
+      loadMusicFromUrl(item, index);
+    },
+    onOpenPlayer: () => {
+      setCurrentPage(1);
+    },
+    onLoadPlaylist: loadPlaylistFromUrl,
+    getPlaylist: () => playlist,
+    setShouldAutoPlay,
+  });
+
+  //region 当播放列表准备好后处理待处理的本地音乐参数
+  useEffect(() => {
+    if (playlistReady && hasPendingParams) {
+      processPendingParams();
+    }
+  }, [playlistReady, hasPendingParams, processPendingParams]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1324,7 +1360,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="h-6 md:h-44 w-full text-center px-6 shrink-0">
-                    <p className="mt-2 text-[20px] md:text-[25px] font-bold text-white/70 italic line-clamp-1 drop-shadow-md tracking-wide">
+                    <p className="mt-2 text-[20px] md:text-[25px] font-bold text-white/70 italic drop-shadow-md tracking-wide">
                       {activeIndex !== -1 ? track.metadata.parsedLyrics[activeIndex].text : ""}
                     </p>
                   </div>

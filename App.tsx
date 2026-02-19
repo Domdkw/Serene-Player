@@ -16,6 +16,7 @@ import fetchInChunks from 'fetch-in-chunks';
 import { getFontUrl, getFontFamily } from './utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
 import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
+import { useQueryParams } from './hooks/useQueryParams';
 
 type NavTab = 'songs' | 'artists' | 'netease' | 'settings';
 
@@ -264,6 +265,10 @@ const App: React.FC = () => {
     }
   }, []);
 
+  //region URL 参数处理状态
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
+  const [playlistReady, setPlaylistReady] = useState(false);
+
   //region Load playlist on mount
   const defaultSourceUrl = './discList.json';
   
@@ -292,6 +297,7 @@ const App: React.FC = () => {
       
       setPlaylistFolders(processedFolders);
       setPlaylist(allTracks);
+      setPlaylistReady(true);
       return true;
     } catch (err) {
       console.error("Failed to load playlist", err);
@@ -633,6 +639,36 @@ const App: React.FC = () => {
       setIsPlaying(false);
     }
   }, [chunkCount, track?.objectUrl, streamingMode]);
+
+  //region URL 参数处理 Hook
+  const { processPendingParams, hasPendingParams } = useQueryParams({
+    onPlayNeteaseMusic: (item, index) => {
+      setPlaylist(prev => {
+        const existingIndex = prev.findIndex(p => p.url === item.url);
+        if (existingIndex === -1) {
+          return [...prev, item];
+        }
+        return prev;
+      });
+      loadMusicFromUrl(item, index);
+    },
+    onPlayLocalMusic: (item, index) => {
+      loadMusicFromUrl(item, index);
+    },
+    onOpenPlayer: () => {
+      setShowFullPlayer(true);
+    },
+    onLoadPlaylist: loadPlaylistFromUrl,
+    getPlaylist: () => playlist,
+    setShouldAutoPlay,
+  });
+
+  //region 当播放列表准备好后处理待处理的本地音乐参数
+  useEffect(() => {
+    if (playlistReady && hasPendingParams) {
+      processPendingParams();
+    }
+  }, [playlistReady, hasPendingParams, processPendingParams]);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
