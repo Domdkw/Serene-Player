@@ -19,6 +19,14 @@ import { parseComposers, groupComposersByInitial } from '../utils/composerUtils'
 import { createSwipeManager, SwipeDirection } from '../utils/swipeUtils';
 import { useQueryParams } from '../hooks/useQueryParams';
 
+/**
+ * 网易云音乐图标组件
+ * 使用稳定的组件引用避免重复渲染导致的图片重复请求
+ */
+const NeteaseIcon = () => (
+  <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-3.5 h-3.5" />
+);
+
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1160,7 +1168,7 @@ const App: React.FC = () => {
                   }`}
                   title="网易云音乐"
                 >
-                  <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-3.5 h-3.5" />
+                  <NeteaseIcon />
                 </button>
                 <button
                   onClick={() => setLibraryView('songs')}
