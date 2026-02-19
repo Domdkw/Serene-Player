@@ -16,8 +16,17 @@ import fetchInChunks from 'fetch-in-chunks';
 import { getFontUrl, getFontFamily } from './utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
 import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
+import { useQueryParams } from './hooks/useQueryParams';
 
 type NavTab = 'songs' | 'artists' | 'netease' | 'settings';
+
+/**
+ * 网易云音乐图标组件
+ * 使用稳定的组件引用避免重复渲染导致的图片重复请求
+ */
+const NeteaseIcon = memo(() => (
+  <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-4.5 h-4.5" />
+));
 
 //region 使用memo优化子组件，避免不必要的重渲染
 const SidebarItem = memo(({
@@ -32,34 +41,43 @@ const SidebarItem = memo(({
   isActive: boolean;
   onClick: () => void;
   badge?: number;
-}) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ease-out group relative overflow-hidden ${
-      isActive
-        ? 'bg-white text-black shadow-lg shadow-white/10'
-        : 'text-white/60 hover:text-white hover:bg-white/5'
-    }`}
-  >
-    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-      isActive ? 'bg-black/10' : 'bg-white/5'
-    }`}>
-      {typeof Icon === 'function' && Icon.length === 0 ? (
-        <Icon />
-      ) : (
-        <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-      )}
-    </div>
-    <span className="font-medium text-sm">{label}</span>
-    {badge !== undefined && badge > 0 && (
-      <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
-        isActive ? 'bg-black/10 text-black' : 'bg-white/10 text-white/60'
+}) => {
+  /**
+   * 判断是否为自定义图标组件（不需要 size/strokeWidth props）
+   * lucide 图标组件的 length 属性表示其接受的参数个数，通常大于 0
+   * 自定义组件（如 NeteaseIcon）不需要额外 props
+   */
+  const isCustomIconComponent = typeof Icon === 'function' && (!('length' in Icon) || Icon.length === 0);
+  
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ease-out group relative overflow-hidden ${
+        isActive
+          ? 'bg-white text-black shadow-lg shadow-white/10'
+          : 'text-white/60 hover:text-white hover:bg-white/5'
+      }`}
+    >
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+        isActive ? 'bg-black/10' : 'bg-white/5'
       }`}>
-        {badge}
-      </span>
-    )}
-  </button>
-));
+        {isCustomIconComponent ? (
+          <Icon />
+        ) : (
+          <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+        )}
+      </div>
+      <span className="font-medium text-sm">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
+          isActive ? 'bg-black/10 text-black' : 'bg-white/10 text-white/60'
+        }`}>
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+});
 
 //region 流光加载条组件
 const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
@@ -264,6 +282,10 @@ const App: React.FC = () => {
     }
   }, []);
 
+  //region URL 参数处理状态
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
+  const [playlistReady, setPlaylistReady] = useState(false);
+
   //region Load playlist on mount
   const defaultSourceUrl = './discList.json';
   
@@ -292,6 +314,7 @@ const App: React.FC = () => {
       
       setPlaylistFolders(processedFolders);
       setPlaylist(allTracks);
+      setPlaylistReady(true);
       return true;
     } catch (err) {
       console.error("Failed to load playlist", err);
@@ -634,6 +657,36 @@ const App: React.FC = () => {
     }
   }, [chunkCount, track?.objectUrl, streamingMode]);
 
+  //region URL 参数处理 Hook
+  const { processPendingParams, hasPendingParams } = useQueryParams({
+    onPlayNeteaseMusic: (item, index) => {
+      setPlaylist(prev => {
+        const existingIndex = prev.findIndex(p => p.url === item.url);
+        if (existingIndex === -1) {
+          return [...prev, item];
+        }
+        return prev;
+      });
+      loadMusicFromUrl(item, index);
+    },
+    onPlayLocalMusic: (item, index) => {
+      loadMusicFromUrl(item, index);
+    },
+    onOpenPlayer: () => {
+      setShowFullPlayer(true);
+    },
+    onLoadPlaylist: loadPlaylistFromUrl,
+    getPlaylist: () => playlist,
+    setShouldAutoPlay,
+  });
+
+  //region 当播放列表准备好后处理待处理的本地音乐参数
+  useEffect(() => {
+    if (playlistReady && hasPendingParams) {
+      processPendingParams();
+    }
+  }, [playlistReady, hasPendingParams, processPendingParams]);
+
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -897,6 +950,8 @@ const App: React.FC = () => {
   }, [playbackMode]);
 
   //region 渲染侧边栏
+  const artistsCount = useMemo(() => Object.values(artistsByLetter).flat().length, [artistsByLetter]);
+
   const renderSidebar = useCallback(() => (
     <aside className="w-64 bg-transparent flex flex-col">
       {/* Logo */}
@@ -913,7 +968,7 @@ const App: React.FC = () => {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         <SidebarItem
-          icon={() => <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-4.5 h-4.5" />}
+          icon={NeteaseIcon}
           label="网易云"
           isActive={activeTab === 'netease'}
           onClick={() => handleTabChange('netease')}
@@ -930,7 +985,7 @@ const App: React.FC = () => {
           label="艺术家"
           isActive={activeTab === 'artists'}
           onClick={() => handleTabChange('artists')}
-          badge={Object.values(artistsByLetter).flat().length}
+          badge={artistsCount}
         />
         <SidebarItem
           icon={Settings}
@@ -946,7 +1001,7 @@ const App: React.FC = () => {
       </nav>
 
     </aside>
-  ), [activeTab, handleTabChange, playlist.length, artistsByLetter, isUploadMenuOpen]);
+  ), [activeTab, handleTabChange, playlist.length, artistsCount, isUploadMenuOpen]);
 
   const renderArtistsView = useCallback(() => {
     return (

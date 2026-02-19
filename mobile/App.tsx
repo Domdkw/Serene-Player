@@ -16,6 +16,16 @@ import fetchInChunks from 'fetch-in-chunks';
 import { getFontFamily, getFontUrl } from '../utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from '../utils/pinyinLoader';
 import { parseComposers, groupComposersByInitial } from '../utils/composerUtils';
+import { createSwipeManager, SwipeDirection } from '../utils/swipeUtils';
+import { useQueryParams } from '../hooks/useQueryParams';
+
+/**
+ * 网易云音乐图标组件
+ * 使用稳定的组件引用避免重复渲染导致的图片重复请求
+ */
+const NeteaseIcon = () => (
+  <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-3.5 h-3.5" />
+);
 
 const App: React.FC = () => {
   const [track, setTrack] = useState<Track | null>(null);
@@ -43,10 +53,11 @@ const App: React.FC = () => {
   // Page navigation states (0: list, 1: player, 2: lyrics)
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
+  const [swipeDirection, setSwipeDirection] = useState<SwipeDirection>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const swipeManagerRef = useRef<ReturnType<typeof createSwipeManager> | null>(null);
   
   // 3D cover effect states
   const [coverMousePos, setCoverMousePos] = useState({ x: 0, y: 0 });
@@ -152,6 +163,10 @@ const App: React.FC = () => {
   // Load playlist on mount
   const defaultSourceUrl = './discList.json';
   
+  //region URL 参数处理状态
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
+  const [playlistReady, setPlaylistReady] = useState(false);
+
   const loadPlaylistFromUrl = async (url: string) => {
     try {
       const res = await fetch(url);
@@ -172,6 +187,7 @@ const App: React.FC = () => {
       
       setPlaylistFolders(processedFolders);
       setPlaylist(allTracks);
+      setPlaylistReady(true);
       
       if (allTracks.length === 0) {
         setCurrentPage(0);
@@ -526,6 +542,36 @@ const App: React.FC = () => {
     }
   };
 
+  //region URL 参数处理 Hook
+  const { processPendingParams, hasPendingParams } = useQueryParams({
+    onPlayNeteaseMusic: (item, index) => {
+      setPlaylist(prev => {
+        const existingIndex = prev.findIndex(p => p.url === item.url);
+        if (existingIndex === -1) {
+          return [...prev, item];
+        }
+        return prev;
+      });
+      loadMusicFromUrl(item, index);
+    },
+    onPlayLocalMusic: (item, index) => {
+      loadMusicFromUrl(item, index);
+    },
+    onOpenPlayer: () => {
+      setCurrentPage(1);
+    },
+    onLoadPlaylist: loadPlaylistFromUrl,
+    getPlaylist: () => playlist,
+    setShouldAutoPlay,
+  });
+
+  //region 当播放列表准备好后处理待处理的本地音乐参数
+  useEffect(() => {
+    if (playlistReady && hasPendingParams) {
+      processPendingParams();
+    }
+  }, [playlistReady, hasPendingParams, processPendingParams]);
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -835,49 +881,92 @@ const App: React.FC = () => {
     }
   };
 
-  
+  /**
+   * 滑动状态引用，用于在回调中获取最新状态
+   */
+  const currentPageRef = useRef(currentPage);
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
-  // Page navigation handlers
+  /**
+   * 初始化滑动管理器
+   */
+  useEffect(() => {
+    swipeManagerRef.current = createSwipeManager({
+      lockThreshold: 10,
+      swipeThreshold: window.innerWidth * 0.15,
+      maxPage: 2,
+      minPage: 0,
+      onHorizontalSwipeStart: () => {
+        setSwipeDirection('horizontal');
+      },
+      onVerticalSwipeStart: () => {
+        setSwipeDirection('vertical');
+      },
+      onHorizontalSwipeMove: (offset) => {
+        let adjustedOffset = offset;
+        const page = currentPageRef.current;
+        if (page === 0 && offset > 0) {
+          adjustedOffset = 0;
+        }
+        if (page === 2 && offset < 0) {
+          adjustedOffset = 0;
+        }
+        setDragOffset(adjustedOffset);
+      },
+      onHorizontalSwipeEnd: (direction) => {
+        const page = currentPageRef.current;
+        if (direction === 'right' && page > 0) {
+          setCurrentPage(page - 1);
+        } else if (direction === 'left' && page < 2) {
+          setCurrentPage(page + 1);
+        }
+        setDragOffset(0);
+        setSwipeDirection(null);
+      },
+      onVerticalSwipeEnd: () => {
+        setSwipeDirection(null);
+      },
+      onSwipeCancel: () => {
+        setDragOffset(0);
+        setSwipeDirection(null);
+      },
+    });
+  }, []);
+
+  /**
+   * 处理触摸开始事件
+   */
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     setIsDragging(true);
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    setDragStartX(clientX);
-    setDragOffset(0);
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    swipeManagerRef.current?.handleTouchStart(clientX, clientY);
   };
 
+  /**
+   * 处理触摸移动事件
+   */
   const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
     if (!isDragging) return;
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    let offset = clientX - dragStartX;
-    
-    // 在第0页（最左）时禁止向右滑动（offset > 0）
-    if (currentPage === 0 && offset > 0) {
-      offset = 0;
-    }
-    // 在第2页（最右）时禁止向左滑动（offset < 0）
-    if (currentPage === 2 && offset < 0) {
-      offset = 0;
-    }
-    
-    setDragOffset(offset);
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    swipeManagerRef.current?.handleTouchMove(clientX, clientY);
   };
 
+  /**
+   * 处理触摸结束事件
+   */
   const handleTouchEnd = () => {
     if (!isDragging) return;
     setIsDragging(false);
-    
-    const threshold = window.innerWidth * 0.15;
-    const velocity = dragOffset;
-    
-    if (velocity > threshold && currentPage > 0) {
-      setCurrentPage(currentPage - 1);
-    } else if (velocity < -threshold && currentPage < 2) {
-      setCurrentPage(currentPage + 1);
-    }
-    
-    setDragOffset(0);
+    swipeManagerRef.current?.handleTouchEnd();
   };
 
+  /**
+   * 处理鼠标滚轮事件
+   */
   const handleWheel = (e: WheelEvent) => {
     e.preventDefault();
     const threshold = 50;
@@ -1079,7 +1168,7 @@ const App: React.FC = () => {
                   }`}
                   title="网易云音乐"
                 >
-                  <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-3.5 h-3.5" />
+                  <NeteaseIcon />
                 </button>
                 <button
                   onClick={() => setLibraryView('songs')}
@@ -1279,7 +1368,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="h-6 md:h-44 w-full text-center px-6 shrink-0">
-                    <p className="mt-2 text-[20px] md:text-[25px] font-bold text-white/70 italic line-clamp-1 drop-shadow-md tracking-wide">
+                    <p className="mt-2 text-[20px] md:text-[25px] font-bold text-white/70 italic drop-shadow-md tracking-wide">
                       {activeIndex !== -1 ? track.metadata.parsedLyrics[activeIndex].text : ""}
                     </p>
                   </div>
