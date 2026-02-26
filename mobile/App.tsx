@@ -100,11 +100,20 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('showTranslation');
     return saved ? saved === 'true' : true;
   });
+  const [backgroundRotate, setBackgroundRotate] = useState<boolean>(() => {
+    const saved = localStorage.getItem('backgroundRotate');
+    return saved ? saved === 'true' : true;
+  });
 
   // 保存翻译显示设置到 LocalStorage
   useEffect(() => {
     localStorage.setItem('showTranslation', showTranslation.toString());
   }, [showTranslation]);
+
+  // 保存背景旋转设置到 LocalStorage
+  useEffect(() => {
+    localStorage.setItem('backgroundRotate', backgroundRotate.toString());
+  }, [backgroundRotate]);
 
   // 加载字体
   useEffect(() => {
@@ -1133,8 +1142,10 @@ const App: React.FC = () => {
       {/* Dynamic Animated Ambient Background */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-neutral-800">
         {track?.metadata.coverUrl && (
-          <div 
-            className="animate-rotate-cover absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh]"
+          <div
+            className={`absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] transition-all duration-1000 ${
+              backgroundRotate ? 'animate-rotate-cover' : ''
+            }`}
             style={{
               backgroundImage: `url(${track.metadata.coverUrl})`,
               backgroundSize: 'cover',
@@ -1590,19 +1601,21 @@ const App: React.FC = () => {
 
         {/* Global Settings Panel */}
         <SettingsPanel
-        isOpen={isSettingsOpen}
-        chunkCount={chunkCount}
-        fontWeight={fontWeight}
-        letterSpacing={letterSpacing}
-        lineHeight={lineHeight}
-        selectedFont={selectedFont}
-        onChunkCountChange={setChunkCount}
-        onFontWeightChange={setFontWeight}
-        onLetterSpacingChange={setLetterSpacing}
-        onLineHeightChange={setLineHeight}
-        onFontChange={setSelectedFont}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+          isOpen={isSettingsOpen}
+          chunkCount={chunkCount}
+          fontWeight={fontWeight}
+          letterSpacing={letterSpacing}
+          lineHeight={lineHeight}
+          selectedFont={selectedFont}
+          backgroundRotate={backgroundRotate}
+          onChunkCountChange={setChunkCount}
+          onFontWeightChange={setFontWeight}
+          onLetterSpacingChange={setLetterSpacing}
+          onLineHeightChange={setLineHeight}
+          onFontChange={setSelectedFont}
+          onBackgroundRotateChange={setBackgroundRotate}
+          onClose={() => setIsSettingsOpen(false)}
+        />
 
         {/* Navigation Hints */}
         {currentPage === 1 && (

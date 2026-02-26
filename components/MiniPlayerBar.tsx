@@ -46,6 +46,28 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   const isStreaming = hasTrack && track.sourceType === 'streaming';
   const [isDiscHovered, setIsDiscHovered] = useState(false);
   const discRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<number>(0);
+
+  /**
+   * 处理进度条鼠标移动事件
+   * @param e - 鼠标事件
+   */
+  const handleProgressMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!hasTrack || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setHoverTime(percent * duration);
+    setHoverPosition(e.clientX - rect.left);
+  }, [hasTrack, duration]);
+
+  /**
+   * 处理进度条鼠标离开事件
+   */
+  const handleProgressMouseLeave = useCallback(() => {
+    setHoverTime(null);
+  }, []);
 
   // 处理圆盘滚动事件
   const handleDiscWheel = useCallback((e: WheelEvent) => {
@@ -75,21 +97,34 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   }, [handleDiscWheel]);
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 bg-black/10 backdrop-blur-xl border-t border-white/10 z-[70] overflow-hidden">
+    <footer className="fixed bottom-0 left-0 right-0 bg-black/10 backdrop-blur-xl border-t border-white/10 z-[70] overflow-visible">
       {/* 播放进度条 - 移到顶部，宽度占满整个播放栏 */}
       <div
-        className={`w-full h-1.5 bg-white/10 ${hasTrack ? 'cursor-pointer' : ''}`}
+        ref={progressRef}
+        className={`relative w-full h-1.5 bg-white/10 ${hasTrack ? 'cursor-pointer' : ''}`}
         onClick={(e) => {
           if (!hasTrack) return;
           const rect = e.currentTarget.getBoundingClientRect();
           const percent = (e.clientX - rect.left) / rect.width;
           onSeek(percent * duration);
         }}
+        onMouseMove={handleProgressMouseMove}
+        onMouseLeave={handleProgressMouseLeave}
       >
         <div
           className="h-full bg-white rounded-full transition-all"
           style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
         />
+        {/* 悬停时间提示框 */}
+        {hoverTime !== null && hasTrack && (
+          <div
+            className="absolute -top-8 px-2 py-1 bg-black/80 backdrop-blur-sm text-xs text-white rounded-lg pointer-events-none transform -translate-x-1/2 z-[80]"
+            style={{ left: hoverPosition }}
+          >
+            {formatTime(hoverTime)}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black/80" />
+          </div>
+        )}
       </div>
       <div className="relative px-6 py-3">
         <div className="relative z-10 flex items-center justify-between max-w-screen-2xl mx-auto">

@@ -22,6 +22,8 @@ interface NeteasePanelProps {
 }
 
 const FAVORITES_STORAGE_KEY = 'netease_favorites';
+const SEARCH_HISTORY_KEY = 'netease_search_history';
+const SEARCH_HISTORY_LIMIT = 5;
 
 const loadFavorites = (): FavoriteSong[] => {
   try {
@@ -34,6 +36,27 @@ const loadFavorites = (): FavoriteSong[] => {
 
 const saveFavorites = (favorites: FavoriteSong[]) => {
   localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+};
+
+const loadSearchHistory = (): string[] => {
+  try {
+    const stored = localStorage.getItem(SEARCH_HISTORY_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveSearchHistory = (history: string[]) => {
+  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+};
+
+const addSearchHistory = (keyword: string) => {
+  const history = loadSearchHistory();
+  const filtered = history.filter(h => h !== keyword);
+  const newHistory = [keyword, ...filtered].slice(0, SEARCH_HISTORY_LIMIT);
+  saveSearchHistory(newHistory);
+  return newHistory;
 };
 
 export const NeteasePanel: React.FC<NeteasePanelProps> = ({
@@ -51,6 +74,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   const [localPlaylist, setLocalPlaylist] = useState<PlaylistItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteSong[]>(() => loadFavorites());
   const [showSearch, setShowSearch] = useState(() => loadFavorites().length === 0);
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => loadSearchHistory());
   const [hotSearchList, setHotSearchList] = useState<NeteaseHotSearch[]>([]);
   const [suggestions, setSuggestions] = useState<{ keyword: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -66,6 +90,8 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
       setShowSearch(true);
     }
   }, [favorites.length, showSearch]);
+
+
 
   /**
    * 加载热搜列表
@@ -167,6 +193,8 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
     try {
       const result = await searchNeteaseMusic(searchWord.trim());
       setSearchResults(result.songs);
+      const newHistory = addSearchHistory(searchWord.trim());
+      setSearchHistory(newHistory);
 
       if (result.songs.length > 0) {
         const songIds = result.songs.map(song => song.id);
@@ -614,10 +642,44 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         {showSearch ? (
           !hasSearched ? (
             <div className="py-4">
-              <div className="flex items-center gap-2 mb-4 px-2">
-                <TrendingUp size={18} className="text-white/60" />
-                <h3 className="text-white/80 font-medium">热搜榜</h3>
-              </div>
+              {searchHistory.length > 0 ? (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3 px-2">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12,6 12,12 16,14" />
+                      </svg>
+                      <h3 className="text-white/80 font-medium text-sm">最近搜索</h3>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSearchHistory([]);
+                        localStorage.removeItem(SEARCH_HISTORY_KEY);
+                      }}
+                      className="text-xs text-white/40 hover:text-white/60 transition-colors"
+                    >
+                      清空
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 px-2">
+                    {searchHistory.map((keyword, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSearch(keyword)}
+                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/80 text-sm rounded-lg transition-colors border border-white/5"
+                      >
+                        {keyword}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mb-4 px-2">
+                  <TrendingUp size={18} className="text-white/60" />
+                  <h3 className="text-white/80 font-medium">热搜榜</h3>
+                </div>
+              )}
               <div className="space-y-1">
                 {hotSearchList.slice(0, 10).map((item, index) => (
                   <div
