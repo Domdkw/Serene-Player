@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useCallback, memo } from 'react';
-import { 
-  ChevronLeft, 
-  Languages, 
+import {
+  ChevronLeft,
+  Languages,
   Music,
   Loader2,
   Cloud,
-  ChevronDown
+  ChevronDown,
+  Download
 } from 'lucide-react';
 import { Track, LyricLine as ParsedLyric } from '../types';
 import { getFontFamily } from '../utils/fontUtils';
@@ -197,6 +198,32 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <p className="text-sm text-white/60 font-medium">
               {track.metadata.artist}
             </p>
+            {/* 下载和翻译按钮 */}
+            <div className="flex items-center justify-center gap-3 mt-4">
+              {/* 下载按钮 */}
+              <div className="relative group">
+                <a
+                  href={track.objectUrl}
+                  download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
+                  className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/20 text-white/70 hover:text-white transition-all"
+                >
+                  <Download size={16} />
+                </a>
+              </div>
+              {/* 翻译按钮 */}
+              <div className="relative group">
+                <button
+                  onClick={() => setShowTranslation(!showTranslation)}
+                  className={`flex items-center justify-center w-9 h-9 rounded-full transition-all ${
+                    showTranslation
+                      ? 'bg-white/10 text-white hover:bg-white/20'
+                      : 'text-white/70 hover:bg-white/20 hover:text-white'
+                  }`}
+                >
+                  <Languages size={16} />
+                </button>
+              </div>
+            </div>
             {/* Lyric Tags - AR & AL */}
             {(track.metadata.lyricArtist || track.metadata.lyricAlbum || track.sourceType === 'streaming') && (
               <div className="flex items-center justify-center gap-2 mt-3">

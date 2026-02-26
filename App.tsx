@@ -226,6 +226,10 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('spectrumFps');
     return saved ? parseInt(saved, 10) : 60;
   });
+  const [backgroundRotate, setBackgroundRotate] = useState<boolean>(() => {
+    const saved = localStorage.getItem('backgroundRotate');
+    return saved ? saved === 'true' : true;
+  });
 
   //region Refs
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -1263,10 +1267,12 @@ const App: React.FC = () => {
           setShowTranslation={setShowTranslation}
           streamingMode={streamingMode}
           setStreamingMode={setStreamingMode}
+          backgroundRotate={backgroundRotate}
+          setBackgroundRotate={setBackgroundRotate}
         />
       </div>
     </div>
-  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, streamingMode, setStreamingMode]);
+  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, streamingMode, setStreamingMode, backgroundRotate, setBackgroundRotate]);
 
   //region 渲染主内容
   const renderMainContent = useCallback(() => {
@@ -1301,7 +1307,7 @@ const App: React.FC = () => {
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(selectedFont) }}>
       {/* Global Background - always visible */}
-      <GlobalBackground coverUrl={track?.metadata.coverUrl} />
+      <GlobalBackground coverUrl={track?.metadata.coverUrl} rotate={backgroundRotate} />
 
       {/* Audio element - always present */}
       <audio 
@@ -1362,13 +1368,11 @@ const App: React.FC = () => {
         currentTime={currentTime}
         duration={duration}
         playbackMode={playbackMode}
-        showTranslation={showTranslation}
         audioRef={audioRef}
         onTogglePlay={togglePlay}
         onPrev={handlePrev}
         onNext={handleNext}
         onCyclePlaybackMode={cyclePlaybackMode}
-        onToggleTranslation={() => setShowTranslation(!showTranslation)}
         onSeek={handleSeek}
         onOpenPlayer={() => setShowFullPlayer(!showFullPlayer)}
         isFullPlayerOpen={showFullPlayer}

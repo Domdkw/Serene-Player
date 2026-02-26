@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive, Download } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive } from 'lucide-react';
 import { Track } from '../types';
 
 interface MiniPlayerBarProps {
@@ -8,13 +8,11 @@ interface MiniPlayerBarProps {
   currentTime: number;
   duration: number;
   playbackMode: 'single' | 'list' | 'shuffle';
-  showTranslation: boolean;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   onTogglePlay: () => void;
   onPrev: () => void;
   onNext: () => void;
   onCyclePlaybackMode: () => void;
-  onToggleTranslation: () => void;
   onSeek: (time: number) => void;
   onOpenPlayer: () => void;
   isFullPlayerOpen: boolean;
@@ -33,13 +31,11 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   currentTime,
   duration,
   playbackMode,
-  showTranslation,
   audioRef,
   onTogglePlay,
   onPrev,
   onNext,
   onCyclePlaybackMode,
-  onToggleTranslation,
   onSeek,
   onOpenPlayer,
   isFullPlayerOpen,
@@ -129,16 +125,6 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
 
           <div className="flex flex-col items-center gap-2 flex-1 max-w-xl">
             <div className="flex items-center gap-6">
-              {hasTrack && (
-                <a
-                  href={track.objectUrl}
-                  download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
-                  className="transition-colors text-white/60 hover:text-white"
-                  title="下载当前歌曲"
-                >
-                  <Download size={18} />
-                </a>
-              )}
               <button
                 onClick={onCyclePlaybackMode}
                 disabled={!hasTrack}
@@ -175,18 +161,6 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
                 className={`transition-colors ${hasTrack ? 'text-white hover:text-white/80' : 'text-white/30 cursor-not-allowed'}`}
               >
                 <SkipForward size={22} fill="currentColor" />
-              </button>
-              <button
-                onClick={onToggleTranslation}
-                disabled={!hasTrack}
-                className={`transition-all ${
-                  hasTrack
-                    ? showTranslation ? 'text-white' : 'text-white/40 hover:text-white/60'
-                    : 'text-white/20 cursor-not-allowed'
-                }`}
-                title={showTranslation ? '隐藏翻译' : '显示翻译'}
-              >
-                <Languages size={18} />
               </button>
               {hasTrack && !hasLyrics && (
                 <div className="relative group">
