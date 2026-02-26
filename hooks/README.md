@@ -10,9 +10,11 @@ URL 查询参数处理 Hook，用于在应用启动时解析和处理 URL 参数
 | `open_player` | `boolean` | 打开音乐播放界面 (`true`/`1`) |
 | `auto_play` | `boolean` | 自动播放 (`true`/`1`) |
 | `playlist_origin` | `string` | 播放列表来源 URL |
-| `clear_params` | `boolean` | 处理完成后是否清除 URL 参数 (`true`/`1`) |
+| `keep_params` | `boolean` | 是否保留URL参数，默认自动清除 (`true`/`1`) |
 | `seek_to` | `number` | 歌曲空降时间点，支持秒数(60)或时间格式(1:30, 1:30:45) |
 | `track_index` | `number` | 歌曲在播放列表中的索引位置（从0开始） |
+
+> **注意**：URL参数在处理完成后会自动清除，除非设置了`keep_params=true`。
 
 ## 使用示例
 
@@ -31,8 +33,8 @@ https://your-site.com/?local_music=./music/song.mp3
 # 加载自定义播放列表
 https://your-site.com/?playlist_origin=./customList.json
 
-# 处理完成后清除 URL 参数
-https://your-site.com/?netease_music_id=123456&clear_params=true
+# 播放网易云音乐歌曲并保留URL参数
+https://your-site.com/?netease_music_id=123456&keep_params=true
 
 # 播放网易云音乐歌曲并跳转到指定时间点
 https://your-site.com/?netease_music_id=123456&seek_to=60
@@ -41,7 +43,10 @@ https://your-site.com/?netease_music_id=123456&seek_to=60
 https://your-site.com/?track_index=5&seek_to=1:30
 
 # 组合使用
-https://your-site.com/?netease_music_id=123456&auto_play=true&open_player=true&clear_params=1
+https://your-site.com/?netease_music_id=123456&auto_play=true&open_player=true
+
+# 组合使用并保留URL参数
+https://your-site.com/?netease_music_id=123456&auto_play=true&open_player=true&keep_params=1
 ```
 
 ## 处理流程
@@ -85,9 +90,9 @@ https://your-site.com/?netease_music_id=123456&auto_play=true&open_player=true&c
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              clear_params=true ?                            │
-│           是：清除 URL 参数                                  │
-│           否：保留 URL 参数（默认）                           │
+│              keep_params=true ?                             │
+│           是：保留 URL 参数                                  │
+│           否：清除 URL 参数（默认）                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -95,8 +100,8 @@ https://your-site.com/?netease_music_id=123456&auto_play=true&open_player=true&c
 
 1. **网易云音乐 ID** 会立即处理，不需要等待播放列表加载
 2. **本地音乐** 需要播放列表加载完成后才能匹配，如果列表为空会等待
-3. **默认不清除 URL 参数**，方便用户刷新页面重新触发或分享链接
-4. 如果需要处理完成后清除参数，请添加 `clear_params=true`
+3. **URL参数默认会自动清除**，避免重复处理和URL混乱
+4. 如果需要保留URL参数，请添加 `keep_params=true`
 5. **seek_to 参数** 支持多种时间格式：
    - 纯秒数：60, 90.5
    - 分:秒格式：1:30, 2:45

@@ -16,7 +16,9 @@ export interface QueryParams {
   auto_play?: boolean;
   /** 播放列表来源 URL */
   playlist_origin?: string;
-  /** 处理完成后是否清除 URL 参数 */
+  /** 处理完成后是否保留 URL 参数（默认自动清除） */
+  keep_params?: boolean;
+  /** 处理完成后是否清除 URL 参数（已废弃，现在默认自动清除） */
   clear_params?: boolean;
   /** 歌曲空降时间点，支持秒数(60)或时间格式(1:30, 1:30:45) */
   seek_to?: number;
@@ -135,6 +137,11 @@ export function parseQueryParams(): QueryParamsResult {
       }
     }
     
+    if (urlParams.has('keep_params')) {
+      const value = urlParams.get('keep_params');
+      params.keep_params = value === 'true' || value === '1';
+    }
+    
     if (urlParams.has('clear_params')) {
       const value = urlParams.get('clear_params');
       params.clear_params = value === 'true' || value === '1';
@@ -246,6 +253,7 @@ export function clearQueryParams(): void {
  * @param baseUrl - 基础 URL
  * @param params - 查询参数
  * @returns 完整的 URL 字符串
+ * @deprecated clear_params 参数已废弃，URL参数现在会自动清除
  */
 export function buildUrlWithParams(baseUrl: string, params: QueryParams): string {
   const url = new URL(baseUrl, window.location.origin);
@@ -264,6 +272,9 @@ export function buildUrlWithParams(baseUrl: string, params: QueryParams): string
   }
   if (params.playlist_origin) {
     url.searchParams.set('playlist_origin', params.playlist_origin);
+  }
+  if (params.keep_params !== undefined) {
+    url.searchParams.set('keep_params', params.keep_params.toString());
   }
   if (params.clear_params !== undefined) {
     url.searchParams.set('clear_params', params.clear_params.toString());

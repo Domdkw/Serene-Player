@@ -36,13 +36,16 @@ export interface QueryParamsHandlers {
  * - playlist_origin: 加载指定来源的播放列表
  * - seek_to: 歌曲空降时间点，支持秒数(60)或时间格式(1:30, 1:30:45)
  * - track_index: 歌曲在播放列表中的索引位置
+ * - keep_params: 是否保留URL参数（默认自动清除）
+ * 
+ * 注意：URL参数在处理完成后会自动清除，除非设置了keep_params=true
  * 
  * @param handlers - 处理各种参数的回调函数
  */
 export function useQueryParams(handlers: QueryParamsHandlers) {
   const hasProcessedRef = useRef(false);
   const pendingLocalMusicRef = useRef<string | null>(null);
-  const shouldClearParamsRef = useRef(false);
+  const shouldKeepParamsRef = useRef(false);
   const [hasPendingParams, setHasPendingParams] = useState(false);
 
   /**
@@ -129,9 +132,10 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
     }
   }, [handlers]);
 
-  /**
-   * 处理所有待处理的参数
-   */
+    /**
+     * 处理所有待处理的参数
+     * 默认会在处理完成后自动清除URL参数，避免重复处理
+     */
   const processParams = useCallback(async (params: QueryParams) => {
     console.log('[QueryParams] 开始处理参数:', params);
     
@@ -171,14 +175,17 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
       const success = handleLocalMusicByIndex(params.track_index);
       if (!success) {
         pendingLocalMusicRef.current = params.track_index.toString();
-        shouldClearParamsRef.current = params.clear_params || false;
+        shouldKeepParamsRef.current = params.keep_params || false;
         setHasPendingParams(true);
         return;
       }
     }
 
-    if (params.clear_params) {
-      console.log('[QueryParams] 清除 URL 参数');
+    // 处理完成后根据keep_params参数决定是否清除URL参数
+    if (params.keep_params) {
+      console.log('[QueryParams] keep_params为true，保留URL参数');
+    } else {
+      console.log('[QueryParams] 处理完成，清除URL参数');
       clearQueryParams();
     }
   }, [handlers, handleNeteaseMusicId, handleLocalMusicByIndex]);
@@ -204,20 +211,25 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
 
   /**
    * 当播放列表准备好后，处理待处理的本地音乐索引
+   * 根据keep_params参数决定是否清除URL参数
    */
   const processPendingParams = useCallback(() => {
     if (pendingLocalMusicRef.current) {
       const index = parseInt(pendingLocalMusicRef.current, 10);
-      const shouldClear = shouldClearParamsRef.current;
+      const shouldKeep = shouldKeepParamsRef.current;
       pendingLocalMusicRef.current = null;
-      shouldClearParamsRef.current = false;
+      shouldKeepParamsRef.current = false;
       setHasPendingParams(false);
       
       if (!isNaN(index)) {
         const success = handleLocalMusicByIndex(index);
-        if (success && shouldClear) {
-          console.log('[QueryParams] 清除 URL 参数');
-          clearQueryParams();
+        if (success) {
+          if (shouldKeep) {
+            console.log('[QueryParams] keep_params为true，保留URL参数');
+          } else {
+            console.log('[QueryParams] 处理待处理参数完成，清除URL参数');
+            clearQueryParams();
+          }
         }
       }
     }
