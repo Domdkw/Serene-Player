@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Search, Loader2, Play, Pause, Music, Heart, Trash2, ArrowLeft } from 'lucide-react';
-import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, NeteaseSong, NeteaseSongDetail, formatDuration } from '../apis/netease';
+import { Search, Loader2, Play, Pause, Music, Heart, Trash2, ArrowLeft, Flame, TrendingUp } from 'lucide-react';
+import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, getHotSearchDetail, getSearchSuggestion, NeteaseSong, NeteaseSongDetail, NeteaseHotSearch, formatDuration } from '../apis/netease';
 import { PlaylistItem } from '../types';
 import LazyImage from './LazyImage';
 
@@ -51,6 +51,11 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   const [localPlaylist, setLocalPlaylist] = useState<PlaylistItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteSong[]>(() => loadFavorites());
   const [showSearch, setShowSearch] = useState(() => loadFavorites().length === 0);
+  const [hotSearchList, setHotSearchList] = useState<NeteaseHotSearch[]>([]);
+  const [suggestions, setSuggestions] = useState<{ keyword: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const isSuggestionClickRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   /**
@@ -61,6 +66,52 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
       setShowSearch(true);
     }
   }, [favorites.length, showSearch]);
+
+  /**
+   * 加载热搜列表
+   */
+  useEffect(() => {
+    const loadHotSearch = async () => {
+      try {
+        const result = await getHotSearchDetail();
+        setHotSearchList(result);
+      } catch (error) {
+        console.error('加载热搜失败:', error);
+      }
+    };
+    loadHotSearch();
+  }, []);
+
+  /**
+   * 搜索建议防抖
+   */
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    if (isSuggestionClickRef.current) {
+      isSuggestionClickRef.current = false;
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsLoadingSuggestions(true);
+      try {
+        const result = await getSearchSuggestion(searchQuery.trim());
+        setSuggestions(result.allMatch);
+        setShowSuggestions(true);
+      } catch (error) {
+        console.error('获取搜索建议失败:', error);
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const isFavorite = useCallback((songId: number) => {
     return favorites.some(f => f.id === songId);
@@ -105,14 +156,16 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
     }
   }, []);
 
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = useCallback(async (keyword?: string) => {
+    const searchWord = keyword || searchQuery;
+    if (!searchWord.trim()) return;
 
     setIsLoading(true);
     setHasSearched(true);
+    setShowSuggestions(false);
 
     try {
-      const result = await searchNeteaseMusic(searchQuery.trim());
+      const result = await searchNeteaseMusic(searchWord.trim());
       setSearchResults(result.songs);
 
       if (result.songs.length > 0) {
@@ -134,8 +187,22 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      setShowSuggestions(false);
       handleSearch();
     }
+  }, [handleSearch]);
+
+  const handleHotSearchClick = useCallback((keyword: string) => {
+    setSearchQuery(keyword);
+    setShowSuggestions(false);
+    handleSearch();
+  }, [handleSearch]);
+
+  const handleSuggestionClick = useCallback((keyword: string) => {
+    isSuggestionClickRef.current = true;
+    setSearchQuery(keyword);
+    setShowSuggestions(false);
+    handleSearch(keyword);
   }, [handleSearch]);
 
   const handlePlaySong = useCallback(async (song: NeteaseSong) => {
@@ -481,45 +548,105 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
       </div>
 
       {showSearch && (
-        <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-          <div className="flex-1 relative">
-            <Search size={14} md:size={18} className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-white/40" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="搜索歌曲、艺术家..."
-              className="w-full pl-10 md:pl-12 pr-3 md:pr-4 py-2 md:py-3 bg-white/5 border border-white/[0.05] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] transition-all text-sm md:text-base"
-            />
+        <div className="mb-4 md:mb-6">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex-1 relative">
+              <Search size={14} md:size={18} className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-white/40" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                placeholder="搜索歌曲、艺术家..."
+                className="w-full pl-10 md:pl-12 pr-3 md:pr-4 py-2 md:py-3 bg-white/5 border border-white/[0.05] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] transition-all text-sm md:text-base"
+              />
+            </div>
+            <button
+              onClick={() => { setShowSuggestions(false); handleSearch(); }}
+              disabled={isLoading || !searchQuery.trim()}
+              className="px-4 md:px-6 py-2 md:py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-all flex items-center gap-1 md:gap-2 text-sm md:text-base"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 size={14} md:size={18} className="animate-spin" />
+                  <span className="hidden md:inline">搜索中</span>
+                </>
+              ) : (
+                <>
+                  <Search size={14} md:size={18} />
+                </>
+              )}
+            </button>
           </div>
-          <button
-            onClick={handleSearch}
-            disabled={isLoading || !searchQuery.trim()}
-            className="px-4 md:px-6 py-2 md:py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-all flex items-center gap-1 md:gap-2 text-sm md:text-base"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 size={14} md:size={18} className="animate-spin" />
-                <span className="hidden md:inline">搜索中</span>
-              </>
-            ) : (
-              <>
-                <Search size={14} md:size={18} />
-                <span className="hidden md:inline">搜索</span>
-              </>
-            )}
-          </button>
+
+          {showSuggestions && searchQuery.trim() && (
+            <div className="mt-2 bg-white/10 rounded-xl border border-white/10 overflow-hidden max-h-64 overflow-y-auto">
+              {isLoadingSuggestions ? (
+                <div className="p-4 text-white/50 text-sm flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" />
+                  加载中...
+                </div>
+              ) : suggestions.length > 0 ? (
+                <div className="p-1">
+                  {suggestions.map((item, index) => (
+                    <div
+                      key={index}
+                      onClick={() => handleSuggestionClick(item.keyword)}
+                      className="px-3 py-2.5 rounded-lg hover:bg-white/10 cursor-pointer flex items-center gap-2"
+                    >
+                      <Search size={14} className="text-white/40 flex-shrink-0" />
+                      <span className="text-white/90 text-sm truncate">{item.keyword}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 text-white/50 text-sm text-center">暂无搜索建议</div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto playlist-scrollbar">
         {showSearch ? (
           !hasSearched ? (
-            <div className="flex flex-col items-center justify-center h-full text-white/40">
-              <Search size={48} className="mb-4 opacity-50" />
-              <p>输入关键词开始搜索网易云音乐</p>
+            <div className="py-4">
+              <div className="flex items-center gap-2 mb-4 px-2">
+                <TrendingUp size={18} className="text-white/60" />
+                <h3 className="text-white/80 font-medium">热搜榜</h3>
+              </div>
+              <div className="space-y-1">
+                {hotSearchList.slice(0, 10).map((item, index) => (
+                  <div
+                    key={item.searchWord}
+                    onClick={() => handleHotSearchClick(item.searchWord)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
+                  >
+                    <span className={`text-sm font-medium w-6 ${
+                      index < 3 ? 'text-red-400' : 'text-white/40'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white/90 text-sm font-medium truncate">{item.searchWord}</p>
+                      {item.content && (
+                        <p className="text-white/40 text-xs truncate mt-0.5">{item.content}</p>
+                      )}
+                    </div>
+                    {item.iconUrl && (
+                      <Flame size={14} className="text-white/30 flex-shrink-0" />
+                    )}
+                  </div>
+                ))}
+                {hotSearchList.length === 0 && (
+                  <div className="text-center text-white/40 py-8">
+                    <p>暂无热搜数据</p>
+                  </div>
+                )}
+              </div>
             </div>
           ) : isLoading ? (
             <div className="flex flex-col items-center justify-center h-full text-white/40">
