@@ -49,7 +49,7 @@
    ```bash
    npm run dev
    ```
-3. 在浏览器中访问 `http://localhost:5173`
+3. 在浏览器中访问 `http://localhost:3000`
 
 ## 构建部署
 
@@ -102,46 +102,18 @@ npm run build
 
 ## 使用说明
 
-### 添加音乐
-
-1. 将音乐文件添加到 `public/music/` 目录
-2. 更新 `public/discList.json` 配置播放列表
-3. 启动应用并享受音乐
-
-### discList.json 格式
-
-```json
-{
-  "文件夹名称": [
-    {
-      "name": "歌曲名称",
-      "artist": "艺术家",
-      "url": "./music/音乐文件.mp3",
-      "themeColor": "#ff6b6b"
-    }
-  ],
-  "外链文件夹": {
-    "link": "https://example.com/discList.json"
-  }
-}
-```
+### 添加音乐方法
+1. 手动上传，临时
+2. 自定义音乐源，参考 [useMusicSource](./hooks/useMusicSource.md)
+3. - [Fork](https://github.com/Domdkw/Serene-Player/fork)
+  - 将音乐文件添加到 `public/music/` 目录
+  - 更新 `public/discList.json` 配置播放列表
 
 ### 网易云音乐功能
-使用第三方API(apis.netstart.cn)和网易官方外链播放音乐
+使用第三方API[apis.netstart.cn](https://apis.netstart.cn/music/)和网易官方外链播放音乐
+1. 在线搜索和播放
+2. 收藏功能
 
-#### 在线搜索和播放
-
-1. 点击应用界面上的网易云音乐面板
-2. 在搜索框中输入歌曲名称或艺术家名称
-3. 点击搜索按钮查看搜索结果
-4. 点击播放按钮直接播放，或点击收藏按钮添加到喜欢列表
-
-#### 收藏功能
-
-- 点击心形图标将歌曲添加到收藏列表
-- 收藏的歌曲会自动保存到本地存储
-- 切换到"我喜欢"视图查看所有收藏的歌曲
-- 支持清空收藏列表
 
 #### 歌词显示
 
@@ -224,12 +196,7 @@ python main.py
 ## 贡献指南
 
 欢迎提交 Issue 和 Pull Request！
-
-1. Fork 本仓库
-2. 创建您的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交您的更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开一个 Pull Request
+欢迎Fork 本仓库
 
 ## 许可证
 
@@ -237,12 +204,6 @@ python main.py
 
 ## 致谢
 
-- 感谢 [jsmediatags](https://github.com/aadsm/jsmediatags) 提供元数据提取功能
-- 感谢 [pinyin-pro](https://github.com/zh-lx/pinyin-pro) 提供拼音支持
-- 感谢 [fetch-in-chunks](https://github.com/AnthumChris/fetch-in-chunks) 提供分块加载支持
-
----
-
-### 英文版本
-
-如需查看英文版本，请访问 [README_EN.md](README_EN.md)
+- [jsmediatags](https://github.com/aadsm/jsmediatags) 提供元数据提取功能
+- [pinyin-pro](https://github.com/zh-lx/pinyin-pro) 提供拼音支持
+- [fetch-in-chunks](https://github.com/AnthumChris/fetch-in-chunks) 提供分块加载支持
