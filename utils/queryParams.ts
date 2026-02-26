@@ -1,4 +1,5 @@
 import { PlaylistItem } from '../types';
+import { parseSeekTime } from './seekTime';
 
 /**
  * URL 查询参数接口
@@ -17,6 +18,10 @@ export interface QueryParams {
   playlist_origin?: string;
   /** 处理完成后是否清除 URL 参数 */
   clear_params?: boolean;
+  /** 歌曲空降时间点，支持秒数(60)或时间格式(1:30, 1:30:45) */
+  seek_to?: number;
+  /** 歌曲在播放列表中的索引位置（从0开始） */
+  track_index?: number;
 }
 
 /**
@@ -44,6 +49,34 @@ export interface LocalMusicMatchResult {
   index?: number;
   /** 错误信息 */
   error?: string;
+}
+
+/**
+ * 通过索引获取播放列表中的歌曲
+ * @param index - 歌曲索引（从0开始）
+ * @param playlist - 播放列表
+ * @returns 匹配结果
+ */
+export function getMusicByIndex(index: number, playlist: PlaylistItem[]): LocalMusicMatchResult {
+  if (!playlist || playlist.length === 0) {
+    return {
+      matched: false,
+      error: '播放列表为空'
+    };
+  }
+
+  if (index < 0 || index >= playlist.length) {
+    return {
+      matched: false,
+      error: `索引 ${index} 超出范围，播放列表共有 ${playlist.length} 首歌曲`
+    };
+  }
+
+  return {
+    matched: true,
+    item: playlist[index],
+    index: index
+  };
 }
 
 /**
@@ -105,6 +138,30 @@ export function parseQueryParams(): QueryParamsResult {
     if (urlParams.has('clear_params')) {
       const value = urlParams.get('clear_params');
       params.clear_params = value === 'true' || value === '1';
+    }
+    
+    if (urlParams.has('seek_to')) {
+      const value = urlParams.get('seek_to');
+      if (value) {
+        const result = parseSeekTime(value);
+        if (result.success && result.timeInSeconds !== undefined) {
+          params.seek_to = result.timeInSeconds;
+        } else {
+          errors.push(`seek_to 参数无效: ${result.error || '未知错误'}`);
+        }
+      }
+    }
+
+    if (urlParams.has('track_index')) {
+      const value = urlParams.get('track_index');
+      if (value) {
+        const index = parseInt(value, 10);
+        if (!isNaN(index) && index >= 0) {
+          params.track_index = index;
+        } else {
+          errors.push('track_index 参数必须是有效的非负整数');
+        }
+      }
     }
   } catch (error) {
     errors.push(`URL 解析错误: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -210,6 +267,12 @@ export function buildUrlWithParams(baseUrl: string, params: QueryParams): string
   }
   if (params.clear_params !== undefined) {
     url.searchParams.set('clear_params', params.clear_params.toString());
+  }
+  if (params.seek_to !== undefined) {
+    url.searchParams.set('seek_to', params.seek_to.toString());
+  }
+  if (params.track_index !== undefined) {
+    url.searchParams.set('track_index', params.track_index.toString());
   }
   
   return url.toString();

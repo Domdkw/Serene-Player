@@ -675,9 +675,21 @@ const App: React.FC = () => {
     onOpenPlayer: () => {
       setShowFullPlayer(true);
     },
-    onLoadPlaylist: loadPlaylistFromUrl,
+    onLoadPlaylist: async (url: string) => {
+      const success = await loadPlaylistFromUrl(url);
+      if (success) {
+        setLocalSongsLoaded(true);
+      }
+      return success;
+    },
     getPlaylist: () => playlist,
     setShouldAutoPlay,
+    onSeekTo: (timeInSeconds: number) => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = timeInSeconds;
+        setCurrentTime(timeInSeconds);
+      }
+    },
   });
 
   //region 当播放列表准备好后处理待处理的本地音乐参数

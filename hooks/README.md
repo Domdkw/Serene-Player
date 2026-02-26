@@ -8,10 +8,11 @@ URL 查询参数处理 Hook，用于在应用启动时解析和处理 URL 参数
 |------|------|------|
 | `netease_music_id` | `string` | 网易云音乐歌曲 ID，自动获取歌曲信息并播放 |
 | `open_player` | `boolean` | 打开音乐播放界面 (`true`/`1`) |
-| `local_music` | `string` | 本地音乐 URL，匹配播放列表中的歌曲 |
 | `auto_play` | `boolean` | 自动播放 (`true`/`1`) |
 | `playlist_origin` | `string` | 播放列表来源 URL |
 | `clear_params` | `boolean` | 处理完成后是否清除 URL 参数 (`true`/`1`) |
+| `seek_to` | `number` | 歌曲空降时间点，支持秒数(60)或时间格式(1:30, 1:30:45) |
+| `track_index` | `number` | 歌曲在播放列表中的索引位置（从0开始） |
 
 ## 使用示例
 
@@ -33,53 +34,14 @@ https://your-site.com/?playlist_origin=./customList.json
 # 处理完成后清除 URL 参数
 https://your-site.com/?netease_music_id=123456&clear_params=true
 
+# 播放网易云音乐歌曲并跳转到指定时间点
+https://your-site.com/?netease_music_id=123456&seek_to=60
+
+# 播放播放列表中的指定歌曲并跳转到指定时间
+https://your-site.com/?track_index=5&seek_to=1:30
+
 # 组合使用
 https://your-site.com/?netease_music_id=123456&auto_play=true&open_player=true&clear_params=1
-```
-
-### 代码示例
-
-```tsx
-import { useQueryParams } from '../hooks/useQueryParams';
-
-function App() {
-  const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
-  const [playlistReady, setPlaylistReady] = useState(false);
-
-  const { processPendingParams, hasPendingParams } = useQueryParams({
-    // 播放网易云音乐歌曲
-    onPlayNeteaseMusic: (item, index) => {
-      setPlaylist(prev => [...prev, item]);
-      loadMusicFromUrl(item, index);
-    },
-    // 播放本地音乐
-    onPlayLocalMusic: (item, index) => {
-      loadMusicFromUrl(item, index);
-    },
-    // 打开播放器界面
-    onOpenPlayer: () => {
-      setShowFullPlayer(true);
-    },
-    // 加载播放列表
-    onLoadPlaylist: async (url) => {
-      const success = await loadPlaylistFromUrl(url);
-      return success;
-    },
-    // 获取当前播放列表
-    getPlaylist: () => playlist,
-    // 设置自动播放标志
-    setShouldAutoPlay,
-  });
-
-  // 当播放列表准备好后处理待处理的本地音乐参数
-  useEffect(() => {
-    if (playlistReady && hasPendingParams) {
-      processPendingParams();
-    }
-  }, [playlistReady, hasPendingParams, processPendingParams]);
-
-  return <div>...</div>;
-}
 ```
 
 ## 处理流程
@@ -129,14 +91,14 @@ function App() {
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 相关文件
-
-- `utils/queryParams.ts` - URL 参数解析和处理工具函数
-- `types.ts` - 类型定义
-
 ## 注意事项
 
 1. **网易云音乐 ID** 会立即处理，不需要等待播放列表加载
 2. **本地音乐** 需要播放列表加载完成后才能匹配，如果列表为空会等待
 3. **默认不清除 URL 参数**，方便用户刷新页面重新触发或分享链接
 4. 如果需要处理完成后清除参数，请添加 `clear_params=true`
+5. **seek_to 参数** 支持多种时间格式：
+   - 纯秒数：60, 90.5
+   - 分:秒格式：1:30, 2:45
+   - 时:分:秒格式：1:30:45
+6. **onSeekTo 处理函数** 必须实现才能使用空降功能，否则时间参数会被忽略
