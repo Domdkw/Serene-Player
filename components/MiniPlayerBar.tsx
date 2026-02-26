@@ -79,7 +79,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   }, [handleDiscWheel]);
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-t border-white/10 z-[70] overflow-hidden">
+    <footer className="fixed bottom-0 left-0 right-0 bg-black/10 backdrop-blur-xl border-t border-white/10 z-[70] overflow-hidden">
       {/* 播放进度条 - 移到顶部，宽度占满整个播放栏 */}
       <div
         className={`w-full h-1.5 bg-white/10 ${hasTrack ? 'cursor-pointer' : ''}`}

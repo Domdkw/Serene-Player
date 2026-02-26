@@ -157,7 +157,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
       {/* Main Content */}
       <main className="flex-1 flex relative z-10 overflow-hidden">
         {/* Left: Cover Art - 根据是否有歌词动态调整宽度 */}
-        <section className={`h-full flex flex-col items-center justify-center p-8 lg:p-12 bg-transparent transition-all duration-500 ${hasLyrics ? 'w-[40%]' : 'w-full'}`}>
+        <section className={`h-full flex flex-col items-center justify-center p-8 lg:p-12 bg-transparent transition-all duration-500 ${hasLyrics ? 'w-1/2' : 'w-full'}`}>
           <div
             ref={coverRef}
             onMouseMove={handleCoverMouseMove}
@@ -220,14 +220,14 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </div>
         </section>
 
-        {/* Right: Lyrics - 60% 宽度，仅在有时显示 */}
+        {/* Right: Lyrics - 50% 宽度，仅在有时显示 */}
         {hasLyrics && (
-          <section className="w-[60%] h-full relative bg-transparent">
+          <section className="w-1/2 h-full relative bg-transparent">
 
             {/* Lyrics Container */}
             <div
               ref={lyricsContainerRef}
-              className="h-full overflow-y-auto px-8 py-32 hide-scrollbar"
+              className="h-full overflow-y-auto px-12 hide-scrollbar"
               onWheel={handleUserInteraction}
               onTouchMove={handleUserInteraction}
               onMouseDown={handleUserInteraction}

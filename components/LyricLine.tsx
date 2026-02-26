@@ -109,9 +109,11 @@ export const LyricLine: React.FC<LyricLineProps> = ({
         marginTop: isActive ? '2rem' : '1rem',
       }}
     >
-      {/* 时间标签 */}
-      <div className="absolute left-1/2 md:left-0 -top-6 md:-top-10 -translate-x-1/2 md:translate-x-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-[10px] text-white/80 font-mono bg-white/10 px-2 py-1 rounded-lg border border-white/10 backdrop-blur-xl z-20">
-        <Clock size={10} />
+      {/* 时间标签 - 当前歌词激活或悬停时显示，位于歌词右侧水平居中 */}
+      <div className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-[calc(100%+18px)] flex items-center gap-1.5 text-[14px] text-white/80 font-mono px-2 py-1 rounded-lg z-20 transition-all duration-300 opacity-0 ${
+        isActive ? 'group-hover:opacity-100' : 'group-hover:opacity-100'
+      } ${isActive ? '!opacity-100' : ''}`}>
+        <Clock size={14} />
         {formatTime(line.time)}
       </div>
 
