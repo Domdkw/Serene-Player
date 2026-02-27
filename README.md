@@ -5,6 +5,7 @@
 </div>
 
 基于 React 和 TypeScript 构建的现代化优雅音乐播放器。由 Gemini 3 Flash + TRAE + Hand 开发
+#### 体验预览版：[DEV](https://github.com/Domdkw/Serene-Player/tree/dev)
 
 <div align="center">
 <img src="https://visitor-badge.laobi.icu/badge?page_id=domdkw.Serene-Player" alt="visitor badge" />

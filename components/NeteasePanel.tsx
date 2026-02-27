@@ -20,6 +20,10 @@ interface NeteasePanelProps {
   currentTrackUrl: string | null;
   isPlaying: boolean;
   onAddToPlaylist: (item: PlaylistItem) => void;
+  neteasePlaylist: PlaylistItem[];
+  neteaseCurrentIndex: number;
+  setNeteasePlaylist: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
+  setNeteaseCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const FAVORITES_STORAGE_KEY = 'netease_favorites';
@@ -69,6 +73,10 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   currentTrackUrl,
   isPlaying,
   onAddToPlaylist,
+  neteasePlaylist,
+  neteaseCurrentIndex,
+  setNeteasePlaylist,
+  setNeteaseCurrentIndex,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<NeteaseSong[]>([]);
@@ -76,7 +84,6 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [loadingSongId, setLoadingSongId] = useState<number | null>(null);
-  const [localPlaylist, setLocalPlaylist] = useState<PlaylistItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteSong[]>(() => loadFavorites());
   const [showSearch, setShowSearch] = useState(() => loadFavorites().length === 0);
   const [searchHistory, setSearchHistory] = useState<string[]>(() => loadSearchHistory());
@@ -275,12 +282,12 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         album: detail?.album.name || song.album.name,
       };
 
-      const existingIndex = localPlaylist.findIndex(p => p.url === songUrl);
+      const existingIndex = neteasePlaylist.findIndex(p => p.url === songUrl);
       let index: number;
 
       if (existingIndex === -1) {
-        setLocalPlaylist(prev => [...prev, playlistItem]);
-        index = localPlaylist.length;
+        setNeteasePlaylist(prev => [...prev, playlistItem]);
+        index = neteasePlaylist.length;
       } else {
         index = existingIndex;
       }
@@ -291,7 +298,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
     } finally {
       setLoadingSongId(null);
     }
-  }, [localPlaylist, onTrackSelect, songDetails]);
+  }, [neteasePlaylist, onTrackSelect, songDetails]);
 
   const handlePlayFavorite = useCallback(async (favorite: FavoriteSong) => {
     setLoadingSongId(favorite.id);
@@ -326,12 +333,12 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         album: favorite.album,
       };
 
-      const existingIndex = localPlaylist.findIndex(p => p.url === songUrl);
+      const existingIndex = neteasePlaylist.findIndex(p => p.url === songUrl);
       let index: number;
 
       if (existingIndex === -1) {
-        setLocalPlaylist(prev => [...prev, playlistItem]);
-        index = localPlaylist.length;
+        setNeteasePlaylist(prev => [...prev, playlistItem]);
+        index = neteasePlaylist.length;
       } else {
         index = existingIndex;
       }
@@ -342,7 +349,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
     } finally {
       setLoadingSongId(null);
     }
-  }, [localPlaylist, onTrackSelect]);
+  }, [neteasePlaylist, onTrackSelect]);
 
   const handleAddToPlaylist = useCallback(async (song: NeteaseSong) => {
     setLoadingSongId(song.id);
@@ -395,7 +402,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   const renderSearchResults = () => (
     <div className="space-y-1.5 md:space-y-2">
       {searchResults.map((song) => {
-        const isCurrentTrack = currentTrackUrl && localPlaylist.some(
+        const isCurrentTrack = currentTrackUrl && neteasePlaylist.some(
           p => p.url === currentTrackUrl && p.name === song.name
         );
         const isLoading = loadingSongId === song.id;
@@ -476,7 +483,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
     return (
       <div className="space-y-1.5 md:space-y-2">
         {favorites.map((favorite) => {
-          const isCurrentTrack = currentTrackUrl && localPlaylist.some(
+          const isCurrentTrack = currentTrackUrl && neteasePlaylist.some(
             p => p.url === currentTrackUrl && p.name === favorite.name
           );
           const isLoading = loadingSongId === favorite.id;
