@@ -118,7 +118,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
         {/* 悬停时间提示框 */}
         {hoverTime !== null && hasTrack && (
           <div
-            className="absolute -top-8 px-2 py-1 bg-black/80 backdrop-blur-sm text-xs text-white rounded-lg pointer-events-none transform -translate-x-1/2 z-[80]"
+            className="absolute -top-10 px-4 py-2 bg-black/60 backdrop-blur-sm text-ml text-white rounded-lg pointer-events-none transform -translate-x-1/2 z-[80]"
             style={{ left: hoverPosition }}
           >
             {formatTime(hoverTime)}

@@ -626,6 +626,7 @@ const App: React.FC = () => {
         objectUrl, 
         metadata,
         neteaseId: item.neteaseId,
+        artistIds: item.artistIds,
         sourceType: shouldUseStreaming ? 'streaming' : 'local'
       });
       setLoadingProgress(null);

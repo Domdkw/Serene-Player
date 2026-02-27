@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, memo } from 'react';
+import React, { useRef, useEffect, useCallback, memo, useState } from 'react';
 import {
   ChevronLeft,
   Languages,
@@ -6,10 +6,12 @@ import {
   Loader2,
   Cloud,
   ChevronDown,
-  Download
+  Download,
+  FileText
 } from 'lucide-react';
 import { Track, LyricLine as ParsedLyric } from '../types';
 import { getFontFamily } from '../utils/fontUtils';
+import { getArtistDetail, NeteaseArtistDetail } from '../apis/netease';
 import LyricLine from './LyricLine';
 
 interface MusicPlayerProps {
@@ -65,6 +67,41 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [coverMousePos, setCoverMousePos] = React.useState({ x: 0, y: 0 });
   const [isCoverHovered, setIsCoverHovered] = React.useState(false);
   const [isManualScrolling, setIsManualScrolling] = React.useState(false);
+  const [artistPictures, setArtistPictures] = React.useState<NeteaseArtistDetail[]>([]);
+  const [isLoadingArtists, setIsLoadingArtists] = React.useState(false);
+  // 歌词显示/隐藏状态，默认显示歌词（如果存在）
+  const [showLyrics, setShowLyrics] = React.useState(true);
+
+  // 解析歌手ID - 使用 artistIds 字段
+  const artistIds = React.useMemo(() => {
+    const ids = track.artistIds;
+    if (!ids || !Array.isArray(ids)) return [];
+    return ids.filter(id => !isNaN(id));
+  }, [track.artistIds]);
+
+  // 加载歌手图片
+  useEffect(() => {
+    if (artistIds.length === 0) {
+      setArtistPictures([]);
+      return;
+    }
+    
+    const fetchArtistPictures = async () => {
+      setIsLoadingArtists(true);
+      try {
+        const promises = artistIds.map(id => getArtistDetail(id));
+        const results = await Promise.all(promises);
+        const validResults = results.filter((r): r is NeteaseArtistDetail => r !== null && r.picUrl !== '');
+        setArtistPictures(validResults);
+      } catch (error) {
+        console.error('获取歌手图片失败:', error);
+      } finally {
+        setIsLoadingArtists(false);
+      }
+    };
+    
+    fetchArtistPictures();
+  }, [artistIds]);
 
   // 3D封面效果
   const handleCoverMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -158,8 +195,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
       {/* Main Content */}
       <main className="flex-1 flex relative z-10 overflow-hidden">
-        {/* Left: Cover Art - 根据是否有歌词动态调整宽度 */}
-        <section className={`h-full flex flex-col items-center justify-center p-8 lg:p-12 bg-transparent transition-all duration-500 ${hasLyrics ? 'w-1/2' : 'w-full'}`}>
+        {/* Left: Cover Art - 根据是否显示歌词动态调整宽度 */}
+        <section className={`h-full flex flex-col items-center justify-center p-8 lg:p-12 bg-transparent transition-all duration-500 ${hasLyrics && showLyrics ? 'w-1/2' : 'w-full'}`}>
           <div
             ref={coverRef}
             onMouseMove={handleCoverMouseMove}
@@ -195,10 +232,72 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <h1 className="text-xl lg:text-2xl font-black text-white mb-2 tracking-tight">
               {track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, '')}
             </h1>
-            <p className="text-sm text-white/60 font-medium">
-              {track.metadata.artist}
-            </p>
-            {/* 下载和翻译按钮 */}
+            {/* 歌手列表 - 头像与名称对应 */}
+            <div className="flex items-center justify-center gap-3 mt-2 flex-wrap">
+              {artistPictures.length > 0 ? (
+                artistPictures.map((artist, index) => (
+                  <div key={`${artist.id}-${index}`} className="group relative flex items-center gap-2 rounded-md bg-white/5 px-3 py-1.5 backdrop-blur-sm hover:bg-white/10 transition-colors cursor-default">
+                    <img
+                      src={artist.picUrl}
+                      alt={artist.name}
+                      className="w-6 h-6 rounded-full object-cover border border-white/20"
+                    />
+                    <span className="text-sm text-white/70 font-medium">{artist.name}</span>
+                    {/* 悬停显示的歌手信息卡片 */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      <div className="bg-black/90 backdrop-blur-md rounded p-3 border border-white/10 shadow-xl">
+                        {/* 歌手头像 */}
+                        <div className="flex justify-center mb-2">
+                          <img
+                            src={artist.picUrl}
+                            alt={artist.name}
+                            className="w-16 h-16 rounded-full object-cover border-2 border-white/20"
+                          />
+                        </div>
+                        {/* 歌手名称 */}
+                        <h3 className="text-center text-white font-bold text-sm mb-1 truncate">{artist.name}</h3>
+                        {/* 别名 */}
+                        {artist.alias && artist.alias.length > 0 && (
+                          <p className="text-center text-white/50 text-xs mb-2 truncate">
+                            {artist.alias.join(' / ')}
+                          </p>
+                        )}
+                        {/* 统计信息 */}
+                        <div className="flex justify-center gap-4 text-xs text-white/60">
+                          <div className="text-center">
+                            <div className="font-semibold text-white">{artist.musicSize}</div>
+                            <div>单曲</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-semibold text-white">{artist.albumSize}</div>
+                            <div>专辑</div>
+                          </div>
+                          {artist.followeds > 0 && (
+                            <div className="text-center">
+                              <div className="font-semibold text-white">
+                                {artist.followeds >= 10000 
+                                  ? `${(artist.followeds / 10000).toFixed(1)}万` 
+                                  : artist.followeds}
+                              </div>
+                              <div>粉丝</div>
+                            </div>
+                          )}
+                        </div>
+                        {/* 简介 */}
+                        {artist.briefDesc && (
+                          <p className="mt-2 text-xs text-white/50 text-center">
+                            {artist.briefDesc}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <span className="text-sm text-white/60 font-medium">{track.metadata.artist}</span>
+              )}
+            </div>
+            {/* 下载、歌词和翻译按钮 */}
             <div className="flex items-center justify-center gap-3 mt-4">
               {/* 下载按钮 */}
               <div className="relative group">
@@ -210,6 +309,22 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                   <Download size={16} />
                 </a>
               </div>
+              {/* 歌词显示/隐藏按钮 - 仅在歌曲有歌词时显示 */}
+              {hasLyrics && (
+                <div className="relative group">
+                  <button
+                    onClick={() => setShowLyrics(!showLyrics)}
+                    className={`flex items-center justify-center w-9 h-9 rounded-full transition-all ${
+                      showLyrics
+                        ? 'bg-white/10 text-white hover:bg-white/20'
+                        : 'text-white/70 hover:bg-white/20 hover:text-white'
+                    }`}
+                    title={showLyrics ? '隐藏歌词' : '显示歌词'}
+                  >
+                    <FileText size={16} />
+                  </button>
+                </div>
+              )}
               {/* 翻译按钮 */}
               <div className="relative group">
                 <button
@@ -242,8 +357,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </div>
         </section>
 
-        {/* Right: Lyrics - 50% 宽度，仅在有时显示 */}
-        {hasLyrics && (
+        {/* Right: Lyrics - 50% 宽度，仅在显示歌词时显示 */}
+        {hasLyrics && showLyrics && (
           <section className="w-1/2 h-full relative bg-transparent">
 
             {/* Lyrics Container */}

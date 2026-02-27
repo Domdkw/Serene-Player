@@ -8,6 +8,7 @@ interface FavoriteSong {
   id: number;
   name: string;
   artist: string;
+  artistIds: number[];
   album: string;
   coverUrl: string;
   duration: number;
@@ -28,7 +29,11 @@ const SEARCH_HISTORY_LIMIT = 5;
 const loadFavorites = (): FavoriteSong[] => {
   try {
     const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    const parsed = stored ? JSON.parse(stored) : [];
+    return parsed.map((fav: any) => ({
+      ...fav,
+      artistIds: fav.artistIds || [],
+    }));
   } catch {
     return [];
   }
@@ -161,6 +166,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         id: songId,
         name: song.name,
         artist: song.artists.map(a => a.name).join(', '),
+        artistIds: song.artists.map(a => a.id),
         album: song.album.name,
         coverUrl,
         duration: song.duration,
@@ -263,6 +269,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         url: songUrl,
         themeColor: '#C20C0C',
         neteaseId: song.id,
+        artistIds: song.artists.map(a => a.id),
         coverUrl: coverUrl || undefined,
         lyrics: lyrics,
         album: detail?.album.name || song.album.name,
@@ -313,6 +320,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         url: songUrl,
         themeColor: '#C20C0C',
         neteaseId: favorite.id,
+        artistIds: favorite.artistIds || [],
         coverUrl: favorite.coverUrl,
         lyrics: lyrics,
         album: favorite.album,
