@@ -147,6 +147,16 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
         return;
       }
       console.log('[QueryParams] 播放列表加载成功');
+      
+      // 如果设置了 written_origin，则将 playlist_origin 写入 localStorage
+      if (params.written_origin) {
+        try {
+          localStorage.setItem('playlist_origin', params.playlist_origin);
+          console.log('[QueryParams] 已将 playlist_origin 写入 localStorage');
+        } catch (error) {
+          console.error('[QueryParams] 写入 localStorage 失败:', error);
+        }
+      }
     }
 
     if (params.open_player) {

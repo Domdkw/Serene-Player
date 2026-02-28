@@ -232,7 +232,7 @@ const App: React.FC = () => {
   });
   const [backgroundRotate, setBackgroundRotate] = useState<boolean>(() => {
     const saved = localStorage.getItem('backgroundRotate');
-    return saved ? saved === 'true' : true;
+    return saved ? saved === 'true' : false;
   });
 
   //region Refs

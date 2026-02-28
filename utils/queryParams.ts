@@ -16,6 +16,8 @@ export interface QueryParams {
   auto_play?: boolean;
   /** 播放列表来源 URL */
   playlist_origin?: string;
+  /** 是否写入播放列表来源到 localStorage */
+  written_origin?: boolean;
   /** 处理完成后是否保留 URL 参数（默认自动清除） */
   keep_params?: boolean;
   /** 处理完成后是否清除 URL 参数（已废弃，现在默认自动清除） */
@@ -170,6 +172,13 @@ export function parseQueryParams(): QueryParamsResult {
         }
       }
     }
+
+    if (urlParams.has('written_origin')) {
+      const value = urlParams.get('written_origin');
+      if (value) {
+        params.written_origin = value === 'true' || value === '1';
+      }
+    }
   } catch (error) {
     errors.push(`URL 解析错误: ${error instanceof Error ? error.message : '未知错误'}`);
   }
@@ -284,6 +293,9 @@ export function buildUrlWithParams(baseUrl: string, params: QueryParams): string
   }
   if (params.track_index !== undefined) {
     url.searchParams.set('track_index', params.track_index.toString());
+  }
+  if (params.written_origin !== undefined) {
+    url.searchParams.set('written_origin', params.written_origin.toString());
   }
   
   return url.toString();

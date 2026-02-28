@@ -102,7 +102,7 @@ const App: React.FC = () => {
   });
   const [backgroundRotate, setBackgroundRotate] = useState<boolean>(() => {
     const saved = localStorage.getItem('backgroundRotate');
-    return saved ? saved === 'true' : true;
+    return saved ? saved === 'true' : false;
   });
 
   // 保存翻译显示设置到 LocalStorage
