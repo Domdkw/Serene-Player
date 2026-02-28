@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Search, Loader2, Play, Pause, Music, Heart, Trash2, ArrowLeft, Flame, TrendingUp } from 'lucide-react';
 import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, getHotSearchDetail, getSearchSuggestion, NeteaseSong, NeteaseSongDetail, NeteaseHotSearch, formatDuration } from '../apis/netease';
 import { PlaylistItem } from '../types';
@@ -15,6 +15,11 @@ interface FavoriteSong {
   addedAt: number;
 }
 
+export interface NeteasePanelRef {
+  triggerSearch: (keyword: string) => Promise<void>;
+  openSearch: () => void;
+}
+
 interface NeteasePanelProps {
   onTrackSelect: (item: PlaylistItem, index: number) => void;
   currentTrackUrl: string | null;
@@ -24,6 +29,7 @@ interface NeteasePanelProps {
   neteaseCurrentIndex: number;
   setNeteasePlaylist: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
   setNeteaseCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
+  onSearchComplete?: (results: NeteaseSong[]) => void;
 }
 
 const FAVORITES_STORAGE_KEY = 'netease_favorites';
@@ -68,7 +74,7 @@ const addSearchHistory = (keyword: string) => {
   return newHistory;
 };
 
-export const NeteasePanel: React.FC<NeteasePanelProps> = ({
+const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<NeteasePanelRef> }> = ({
   onTrackSelect,
   currentTrackUrl,
   isPlaying,
@@ -77,6 +83,8 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
   neteaseCurrentIndex,
   setNeteasePlaylist,
   setNeteaseCurrentIndex,
+  onSearchComplete,
+  ref,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<NeteaseSong[]>([]);
@@ -195,7 +203,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
     }
   }, []);
 
-  const handleSearch = useCallback(async (keyword?: string) => {
+  const handleSearch = useCallback(async (keyword?: string, addToHistory: boolean = true) => {
     const searchWord = keyword || searchQuery;
     if (!searchWord.trim()) return;
 
@@ -206,8 +214,11 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
     try {
       const result = await searchNeteaseMusic(searchWord.trim());
       setSearchResults(result.songs);
-      const newHistory = addSearchHistory(searchWord.trim());
-      setSearchHistory(newHistory);
+      
+      if (addToHistory) {
+        const newHistory = addSearchHistory(searchWord.trim());
+        setSearchHistory(newHistory);
+      }
 
       if (result.songs.length > 0) {
         const songIds = result.songs.map(song => song.id);
@@ -218,13 +229,38 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
         });
         setSongDetails(detailsMap);
       }
+      
+      // 触发搜索完成回调
+      if (onSearchComplete) {
+        onSearchComplete(result.songs);
+      }
     } catch (error) {
       console.error('搜索失败:', error);
       setSearchResults([]);
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, onSearchComplete]);
+
+  /**
+   * 外部触发搜索（不计入历史记录）
+   */
+  const triggerSearch = useCallback(async (keyword: string) => {
+    return handleSearch(keyword, false);
+  }, [handleSearch]);
+
+  /**
+   * 打开搜索界面
+   */
+  const openSearch = useCallback(() => {
+    setShowSearch(true);
+  }, []);
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    triggerSearch,
+    openSearch,
+  }), [triggerSearch, openSearch]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -745,3 +781,7 @@ export const NeteasePanel: React.FC<NeteasePanelProps> = ({
     </div>
   );
 };
+
+export const NeteasePanel = forwardRef<NeteasePanelRef, NeteasePanelProps>((props, ref) => {
+  return <NeteasePanelComponent {...props} ref={ref} />;
+});

@@ -29,6 +29,7 @@ interface MusicPlayerProps {
   selectedFont: string;
   onSeek: (time: number) => void;
   formatTime: (time: number) => string;
+  onArtistClick?: (artistName: string) => void;
 }
 
 // 流光加载条组件
@@ -57,7 +58,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   lineHeight,
   selectedFont,
   onSeek,
-  formatTime
+  formatTime,
+  onArtistClick
 }) => {
   const coverRef = useRef<HTMLDivElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
@@ -236,7 +238,12 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <div className="flex items-center justify-center gap-3 mt-2 flex-wrap">
               {artistPictures.length > 0 ? (
                 artistPictures.map((artist, index) => (
-                  <div key={`${artist.id}-${index}`} className="group relative flex items-center gap-2 rounded-md bg-white/5 px-3 py-1.5 backdrop-blur-sm hover:bg-white/10 transition-colors cursor-default">
+                  <button
+                    key={`${artist.id}-${index}`}
+                    onClick={() => onArtistClick?.(artist.name)}
+                    className="group relative flex items-center gap-2 rounded-md bg-white/5 px-3 py-1.5 backdrop-blur-sm hover:bg-white/10 transition-all cursor-pointer"
+                    title={`搜索歌手：${artist.name}`}
+                  >
                     <img
                       src={artist.picUrl}
                       alt={artist.name}
@@ -291,7 +298,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                         )}
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))
               ) : (
                 <span className="text-sm text-white/60 font-medium">{track.metadata.artist}</span>

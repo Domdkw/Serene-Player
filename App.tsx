@@ -7,7 +7,7 @@ import { extractMetadata, parseLyrics } from './utils/metadata';
 import { MusicLibrary } from './components/MusicLibrary';
 import { ArtistsView } from './components/ArtistsView';
 import { SearchPanel } from './components/SearchPanel';
-import { NeteasePanel } from './components/NeteasePanel';
+import { NeteasePanel, NeteasePanelRef } from './components/NeteasePanel';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
@@ -241,6 +241,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const uploadMenuRef = useRef<HTMLDivElement | null>(null);
+  const neteasePanelRef = useRef<NeteasePanelRef>(null);
 
   //region 加载字体
   useEffect(() => {
@@ -534,6 +535,25 @@ const App: React.FC = () => {
       });
     }
   }, [loadedLinks]);
+
+  /**
+   * 处理歌手点击事件：收起播放页并触发自动搜索
+   */
+  const handleArtistClick = useCallback(async (artistName: string) => {
+    // 1. 收起播放页
+    setShowFullPlayer(false);
+    
+    // 2. 切换到网易云标签页
+    setActiveTab('netease');
+    
+    // 3. 延迟一小段时间等待界面切换完成，然后触发搜索
+    setTimeout(() => {
+      if (neteasePanelRef.current) {
+        neteasePanelRef.current.openSearch();
+        neteasePanelRef.current.triggerSearch(artistName);
+      }
+    }, 300);
+  }, []);
 
   const loadMusicFromUrl = useCallback(async (item: PlaylistItem, index: number) => {
     setErrorMessage(null);
@@ -1252,6 +1272,7 @@ const App: React.FC = () => {
   const renderNeteaseView = useCallback(() => (
     <div className="h-full flex flex-col">
       <NeteasePanel
+        ref={neteasePanelRef}
         onTrackSelect={(item, index) => {
           loadNeteaseMusic(item, index);
         }}
@@ -1433,6 +1454,7 @@ const App: React.FC = () => {
             selectedFont={selectedFont}
             onSeek={handleSeek}
             formatTime={formatTime}
+            onArtistClick={handleArtistClick}
           />
         </div>
       )}
