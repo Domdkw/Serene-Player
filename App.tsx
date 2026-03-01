@@ -550,7 +550,7 @@ const App: React.FC = () => {
     setTimeout(() => {
       if (neteasePanelRef.current) {
         neteasePanelRef.current.openSearch();
-        neteasePanelRef.current.triggerSearch(artistName);
+        neteasePanelRef.current.triggerSearch(artistName, false);
       }
     }, 300);
   }, []);

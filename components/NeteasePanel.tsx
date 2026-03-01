@@ -16,7 +16,7 @@ interface FavoriteSong {
 }
 
 export interface NeteasePanelRef {
-  triggerSearch: (keyword: string) => Promise<void>;
+  triggerSearch: (keyword: string, addToHistory?: boolean) => Promise<void>;
   openSearch: () => void;
 }
 
@@ -100,6 +100,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const isSuggestionClickRef = useRef(false);
+  const skipSuggestionRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   /**
@@ -135,6 +136,12 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     if (!searchQuery.trim()) {
       setSuggestions([]);
       setShowSuggestions(false);
+      return;
+    }
+
+    // 如果是通过外部触发搜索（如点击歌手），跳过搜索建议
+    if (skipSuggestionRef.current) {
+      skipSuggestionRef.current = false;
       return;
     }
 
@@ -203,9 +210,13 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     }
   }, []);
 
-  const handleSearch = useCallback(async (keyword?: string, addToHistory: boolean = true) => {
+  const handleSearch = useCallback(async (keyword?: string, addToHistory: boolean = true, writeToQuery: boolean = false) => {
     const searchWord = keyword || searchQuery;
     if (!searchWord.trim()) return;
+
+    if (writeToQuery) {
+      setSearchQuery(searchWord.trim());
+    }
 
     setIsLoading(true);
     setHasSearched(true);
@@ -243,10 +254,19 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   }, [searchQuery, onSearchComplete]);
 
   /**
-   * 外部触发搜索（不计入历史记录）
+   * 外部触发搜索（不计入历史记录，不显示搜索建议）
    */
-  const triggerSearch = useCallback(async (keyword: string) => {
-    return handleSearch(keyword, false);
+  const triggerSearch = useCallback(async (keyword: string, addToHistory: boolean = false) => {
+    // 设置跳过搜索建议标志
+    skipSuggestionRef.current = true;
+    
+    // 直接设置搜索关键词，清空搜索建议并隐藏建议栏
+    setSearchQuery(keyword);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    
+    // 执行搜索，writeToQuery 设为 false 因为已经手动设置了 searchQuery
+    return handleSearch(keyword, addToHistory, false);
   }, [handleSearch]);
 
   /**
@@ -627,7 +647,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       </div>
 
       {showSearch && (
-        <div className="mb-4 md:mb-6">
+        <div className="mb-1">
           <div className="flex items-center gap-2 md:gap-3">
             <div className="flex-1 relative">
               <Search size={14} md:size={18} className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-white/40" />
@@ -638,7 +658,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onBlur={() => setShowSuggestions(false)}
                 placeholder="搜索歌曲、艺术家..."
                 className="w-full pl-10 md:pl-12 pr-3 md:pr-4 py-2 md:py-3 bg-white/5 border border-white/[0.05] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] transition-all text-sm md:text-base"
               />
