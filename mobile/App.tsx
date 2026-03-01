@@ -70,6 +70,10 @@ const App: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   
+  // Netease playlist states
+  const [neteasePlaylist, setNeteasePlaylist] = useState<PlaylistItem[]>([]);
+  const [neteaseCurrentIndex, setNeteaseCurrentIndex] = useState<number>(-1);
+  
   // Custom Source states
   const [isCustomSourceOpen, setIsCustomSourceOpen] = useState(false);
   const [customSourceUrl, setCustomSourceUrl] = useState<string>(() => {
@@ -421,7 +425,7 @@ const App: React.FC = () => {
     }
   };
 
-  const loadMusicFromUrl = async (item: PlaylistItem, index: number) => {
+  const loadMusicFromUrl = useCallback(async (item: PlaylistItem, index: number) => {
     setErrorMessage(null);
     setLyricsLoading(true);
     setLoadingTrackUrl(item.url);
@@ -435,12 +439,19 @@ const App: React.FC = () => {
     setCurrentIndex(index);
     setIsPlaying(false);
     
+    if (!item.url) {
+      setErrorMessage('无效的歌曲链接');
+      return;
+    }
+
+    const isNeteaseSong = !!item.neteaseId;
+    const shouldUseStreaming = isNeteaseSong || streamingMode;
+
     try {
       let file: File | undefined;
       let objectUrl: string;
-      const isNeteaseSong = !!item.neteaseId;
       
-      if (isNeteaseSong) {
+      if (shouldUseStreaming) {
         objectUrl = item.url;
         setLoadingProgress(100);
         file = undefined;
@@ -474,7 +485,7 @@ const App: React.FC = () => {
         if (signal.aborted) return;
 
         file = new File([blob], item.name, { type: 'audio/mpeg' });
-        objectUrl = URL.createObjectURL(file);
+        objectUrl = URL.createObjectURL(blob);
       }
       
       const metadata = file ? await extractMetadata(file) : {
@@ -511,34 +522,35 @@ const App: React.FC = () => {
         objectUrl, 
         metadata,
         neteaseId: item.neteaseId,
-        sourceType: isNeteaseSong ? 'streaming' : 'local'
+        sourceType: shouldUseStreaming ? 'streaming' : 'local'
       });
       setLoadingProgress(null);
       setLoadingTrackUrl(null);
       setLyricsLoading(false);
       setCurrentPage(1);
-      // 重置自动滚动
       setIsManualScrolling(false);
       if (manualScrollTimerRef.current) {
         clearTimeout(manualScrollTimerRef.current);
         manualScrollTimerRef.current = null;
       }
       
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = objectUrl;
-        audioRef.current.load();
-        try {
-          await audioRef.current.play();
-          setIsPlaying(true);
-        } catch (e) {
-          console.warn("Autoplay was prevented.", e);
+      setTimeout(async () => {
+        if (audioRef.current) {
+          audioRef.current.src = objectUrl;
+          audioRef.current.load();
+          try {
+            await audioRef.current.play();
+            setIsPlaying(true);
+          } catch (e) {
+            console.warn("Autoplay was prevented.", e);
+          }
         }
-      }
+      }, 100);
 
-      // 只清理非 blob URL 的旧 URL
-      if (oldUrl && !oldUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(oldUrl);
+      if (oldUrl && !oldUrl.startsWith('blob:') && !shouldUseStreaming) {
+        setTimeout(() => {
+          URL.revokeObjectURL(oldUrl);
+        }, 1000);
       }
     } catch (error: any) {
       if (error.name === 'AbortError') return;
@@ -549,7 +561,7 @@ const App: React.FC = () => {
       setErrorMessage(error.message || "An error occurred while loading the track.");
       setIsPlaying(false);
     }
-  };
+  }, [chunkCount, track?.objectUrl, streamingMode]);
 
   //region URL 参数处理 Hook
   const { processPendingParams, hasPendingParams } = useQueryParams({
@@ -1112,9 +1124,13 @@ const App: React.FC = () => {
             return [...prev, item];
           });
         }}
+        neteasePlaylist={neteasePlaylist}
+        neteaseCurrentIndex={neteaseCurrentIndex}
+        setNeteasePlaylist={setNeteasePlaylist}
+        setNeteaseCurrentIndex={setNeteaseCurrentIndex}
       />
     );
-  }, [page0Visited, loadMusicFromUrl, track?.objectUrl, isPlaying, setPlaylist]);
+  }, [page0Visited, loadMusicFromUrl, track?.objectUrl, isPlaying, setPlaylist, neteasePlaylist, neteaseCurrentIndex, setNeteasePlaylist, setNeteaseCurrentIndex]);
 
   return (
     <div className="h-dvh w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans" style={{ fontFamily: getFontFamily(selectedFont) }}>

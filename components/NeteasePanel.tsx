@@ -344,12 +344,13 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
         album: detail?.album.name || song.album.name,
       };
 
-      const existingIndex = neteasePlaylist.findIndex(p => p.url === songUrl);
+      const currentPlaylist = neteasePlaylist || [];
+      const existingIndex = currentPlaylist.findIndex(p => p.url === songUrl);
       let index: number;
 
       if (existingIndex === -1) {
-        setNeteasePlaylist(prev => [...prev, playlistItem]);
-        index = neteasePlaylist.length;
+        setNeteasePlaylist(prev => [...(prev || []), playlistItem]);
+        index = currentPlaylist.length;
       } else {
         index = existingIndex;
       }
@@ -369,7 +370,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       const songUrl = await getSongUrl(favorite.id);
 
       if (!songUrl) {
-        console.error('无法获取歌曲URL');
+        console.error('无法获取歌曲 URL');
         return;
       }
 
@@ -395,12 +396,13 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
         album: favorite.album,
       };
 
-      const existingIndex = neteasePlaylist.findIndex(p => p.url === songUrl);
+      const currentPlaylist = neteasePlaylist || [];
+      const existingIndex = currentPlaylist.findIndex(p => p.url === songUrl);
       let index: number;
 
       if (existingIndex === -1) {
-        setNeteasePlaylist(prev => [...prev, playlistItem]);
-        index = neteasePlaylist.length;
+        setNeteasePlaylist(prev => [...(prev || []), playlistItem]);
+        index = currentPlaylist.length;
       } else {
         index = existingIndex;
       }
