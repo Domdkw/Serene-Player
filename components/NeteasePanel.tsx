@@ -99,9 +99,9 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   const [suggestions, setSuggestions] = useState<{ keyword: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const isSuggestionClickRef = useRef(false);
   const skipSuggestionRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchQueryRef = useRef(searchQuery);
 
   /**
    * 当喜欢列表为空时，自动显示搜索界面
@@ -111,6 +111,11 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       setShowSearch(true);
     }
   }, [favorites.length, showSearch]);
+
+  // 更新 searchQueryRef
+  useEffect(() => {
+    searchQueryRef.current = searchQuery;
+  }, [searchQuery]);
 
 
 
@@ -139,14 +144,9 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       return;
     }
 
-    // 如果是通过外部触发搜索（如点击歌手），跳过搜索建议
+    // 如果是通过外部触发搜索（如点击歌手或搜索建议），跳过搜索建议
     if (skipSuggestionRef.current) {
       skipSuggestionRef.current = false;
-      return;
-    }
-
-    if (isSuggestionClickRef.current) {
-      isSuggestionClickRef.current = false;
       return;
     }
 
@@ -211,7 +211,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   }, []);
 
   const handleSearch = useCallback(async (keyword?: string, addToHistory: boolean = true, writeToQuery: boolean = false) => {
-    const searchWord = keyword || searchQuery;
+    const searchWord = keyword || searchQueryRef.current;
     if (!searchWord.trim()) return;
 
     if (writeToQuery) {
@@ -251,7 +251,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, onSearchComplete]);
+  }, [onSearchComplete]);
 
   /**
    * 外部触发搜索（不计入历史记录，不显示搜索建议）
@@ -290,16 +290,22 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   }, [handleSearch]);
 
   const handleHotSearchClick = useCallback((keyword: string) => {
-    setSearchQuery(keyword);
-    setShowSuggestions(false);
-    handleSearch();
-  }, [handleSearch]);
-
-  const handleSuggestionClick = useCallback((keyword: string) => {
-    isSuggestionClickRef.current = true;
+    skipSuggestionRef.current = true;
     setSearchQuery(keyword);
     setShowSuggestions(false);
     handleSearch(keyword);
+  }, [handleSearch]);
+
+  const handleSuggestionClick = useCallback((keyword: string) => {
+    skipSuggestionRef.current = true;
+    setSearchQuery(keyword);
+    setShowSuggestions(false);
+    handleSearch(keyword);
+    
+    // 重新聚焦到输入框
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
   }, [handleSearch]);
 
   const handlePlaySong = useCallback(async (song: NeteaseSong) => {
@@ -658,7 +664,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
-                onBlur={() => setShowSuggestions(false)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} //延迟两百毫秒等待结果传入,防止搜索建议DOM移除无法搜索
                 placeholder="搜索歌曲、艺术家..."
                 className="w-full pl-10 md:pl-12 pr-3 md:pr-4 py-2 md:py-3 bg-white/5 border border-white/[0.05] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/20 focus:bg-white/[0.08] transition-all text-sm md:text-base"
               />
