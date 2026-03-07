@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, SlidersHorizontal } from 'lucide-react';
+import { X, SlidersHorizontal, Image } from 'lucide-react';
 import { FONT_CONFIGS, getFontFamily } from '../utils/fontUtils';
 import { createStopPropagationProps } from '../utils/swipeUtils';
 
@@ -10,11 +10,13 @@ interface SettingsPanelProps {
   letterSpacing: number;
   lineHeight: number;
   selectedFont: string;
+  backgroundRotate: boolean;
   onChunkCountChange: (value: number) => void;
   onFontWeightChange: (value: string) => void;
   onLetterSpacingChange: (value: number) => void;
   onLineHeightChange: (value: number) => void;
   onFontChange: (value: string) => void;
+  onBackgroundRotateChange: (value: boolean) => void;
   onClose: () => void;
 }
 
@@ -25,11 +27,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   letterSpacing,
   lineHeight,
   selectedFont,
+  backgroundRotate,
   onChunkCountChange,
   onFontWeightChange,
   onLetterSpacingChange,
   onLineHeightChange,
   onFontChange,
+  onBackgroundRotateChange,
   onClose
 }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -228,6 +232,36 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </select>
           </div>
 
+          {/* Background Settings */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+              背景设置
+            </label>
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex items-center gap-2">
+                <Image size={16} className="text-white/60" />
+                <span className="text-sm text-white/70">背景封面旋转</span>
+              </div>
+              <button
+                onClick={() => {
+                  const newValue = !backgroundRotate;
+                  onBackgroundRotateChange(newValue);
+                  localStorage.setItem('backgroundRotate', newValue.toString());
+                }}
+                className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
+                  backgroundRotate ? 'bg-white/30' : 'bg-white/10'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                    backgroundRotate ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
           {/* Preview Section */}
           <div className="space-y-3 pt-2">
             <label className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-2">
@@ -258,6 +292,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 onFontWeightChange('medium');
                 onLetterSpacingChange(0.5);
                 onLineHeightChange(1.5);
+                onBackgroundRotateChange(true);
               }}
               className="py-3 text-xs font-bold rounded-xl transition-all active:scale-95 text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20"
             >

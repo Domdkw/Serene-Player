@@ -1,3 +1,16 @@
+/*
+ * 该组件为了适配网易云的跨越问题而被废弃,通过监听web audio API的`timeupdate`事件,
+ * 实时获取音频播放时间,并根据时间绘制频谱图。仅仅存档,不被调用
+ */
+
+/**
+ * 音频频谱可视化组件
+ * @param audioRef - 音频元素引用
+ * @param isPlaying - 是否正在播放
+ * @param enabled - 是否启用可视化
+ * @param fps - 帧率，默认 60
+ */
+
 import React, { useEffect, useRef, useCallback, memo } from 'react';
 
 interface AudioSpectrumProps {

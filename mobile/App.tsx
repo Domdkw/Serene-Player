@@ -70,6 +70,10 @@ const App: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   
+  // Netease playlist states
+  const [neteasePlaylist, setNeteasePlaylist] = useState<PlaylistItem[]>([]);
+  const [neteaseCurrentIndex, setNeteaseCurrentIndex] = useState<number>(-1);
+  
   // Custom Source states
   const [isCustomSourceOpen, setIsCustomSourceOpen] = useState(false);
   const [customSourceUrl, setCustomSourceUrl] = useState<string>(() => {
@@ -100,11 +104,20 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('showTranslation');
     return saved ? saved === 'true' : true;
   });
+  const [backgroundRotate, setBackgroundRotate] = useState<boolean>(() => {
+    const saved = localStorage.getItem('backgroundRotate');
+    return saved ? saved === 'true' : false;
+  });
 
   // 保存翻译显示设置到 LocalStorage
   useEffect(() => {
     localStorage.setItem('showTranslation', showTranslation.toString());
   }, [showTranslation]);
+
+  // 保存背景旋转设置到 LocalStorage
+  useEffect(() => {
+    localStorage.setItem('backgroundRotate', backgroundRotate.toString());
+  }, [backgroundRotate]);
 
   // 加载字体
   useEffect(() => {
@@ -412,7 +425,7 @@ const App: React.FC = () => {
     }
   };
 
-  const loadMusicFromUrl = async (item: PlaylistItem, index: number) => {
+  const loadMusicFromUrl = useCallback(async (item: PlaylistItem, index: number) => {
     setErrorMessage(null);
     setLyricsLoading(true);
     setLoadingTrackUrl(item.url);
@@ -426,12 +439,19 @@ const App: React.FC = () => {
     setCurrentIndex(index);
     setIsPlaying(false);
     
+    if (!item.url) {
+      setErrorMessage('无效的歌曲链接');
+      return;
+    }
+
+    const isNeteaseSong = !!item.neteaseId;
+    const shouldUseStreaming = isNeteaseSong || streamingMode;
+
     try {
       let file: File | undefined;
       let objectUrl: string;
-      const isNeteaseSong = !!item.neteaseId;
       
-      if (isNeteaseSong) {
+      if (shouldUseStreaming) {
         objectUrl = item.url;
         setLoadingProgress(100);
         file = undefined;
@@ -465,7 +485,7 @@ const App: React.FC = () => {
         if (signal.aborted) return;
 
         file = new File([blob], item.name, { type: 'audio/mpeg' });
-        objectUrl = URL.createObjectURL(file);
+        objectUrl = URL.createObjectURL(blob);
       }
       
       const metadata = file ? await extractMetadata(file) : {
@@ -502,34 +522,35 @@ const App: React.FC = () => {
         objectUrl, 
         metadata,
         neteaseId: item.neteaseId,
-        sourceType: isNeteaseSong ? 'streaming' : 'local'
+        sourceType: shouldUseStreaming ? 'streaming' : 'local'
       });
       setLoadingProgress(null);
       setLoadingTrackUrl(null);
       setLyricsLoading(false);
       setCurrentPage(1);
-      // 重置自动滚动
       setIsManualScrolling(false);
       if (manualScrollTimerRef.current) {
         clearTimeout(manualScrollTimerRef.current);
         manualScrollTimerRef.current = null;
       }
       
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = objectUrl;
-        audioRef.current.load();
-        try {
-          await audioRef.current.play();
-          setIsPlaying(true);
-        } catch (e) {
-          console.warn("Autoplay was prevented.", e);
+      setTimeout(async () => {
+        if (audioRef.current) {
+          audioRef.current.src = objectUrl;
+          audioRef.current.load();
+          try {
+            await audioRef.current.play();
+            setIsPlaying(true);
+          } catch (e) {
+            console.warn("Autoplay was prevented.", e);
+          }
         }
-      }
+      }, 100);
 
-      // 只清理非 blob URL 的旧 URL
-      if (oldUrl && !oldUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(oldUrl);
+      if (oldUrl && !oldUrl.startsWith('blob:') && !shouldUseStreaming) {
+        setTimeout(() => {
+          URL.revokeObjectURL(oldUrl);
+        }, 1000);
       }
     } catch (error: any) {
       if (error.name === 'AbortError') return;
@@ -540,7 +561,7 @@ const App: React.FC = () => {
       setErrorMessage(error.message || "An error occurred while loading the track.");
       setIsPlaying(false);
     }
-  };
+  }, [chunkCount, track?.objectUrl, streamingMode]);
 
   //region URL 参数处理 Hook
   const { processPendingParams, hasPendingParams } = useQueryParams({
@@ -560,9 +581,21 @@ const App: React.FC = () => {
     onOpenPlayer: () => {
       setCurrentPage(1);
     },
-    onLoadPlaylist: loadPlaylistFromUrl,
+    onLoadPlaylist: async (url: string) => {
+      const success = await loadPlaylistFromUrl(url);
+      if (success) {
+        setLocalSongsLoaded(true);
+      }
+      return success;
+    },
     getPlaylist: () => playlist,
     setShouldAutoPlay,
+    onSeekTo: (timeInSeconds: number) => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = timeInSeconds;
+        setCurrentTime(timeInSeconds);
+      }
+    },
   });
 
   //region 当播放列表准备好后处理待处理的本地音乐参数
@@ -1091,9 +1124,13 @@ const App: React.FC = () => {
             return [...prev, item];
           });
         }}
+        neteasePlaylist={neteasePlaylist}
+        neteaseCurrentIndex={neteaseCurrentIndex}
+        setNeteasePlaylist={setNeteasePlaylist}
+        setNeteaseCurrentIndex={setNeteaseCurrentIndex}
       />
     );
-  }, [page0Visited, loadMusicFromUrl, track?.objectUrl, isPlaying, setPlaylist]);
+  }, [page0Visited, loadMusicFromUrl, track?.objectUrl, isPlaying, setPlaylist, neteasePlaylist, neteaseCurrentIndex, setNeteasePlaylist, setNeteaseCurrentIndex]);
 
   return (
     <div className="h-dvh w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans" style={{ fontFamily: getFontFamily(selectedFont) }}>
@@ -1121,8 +1158,10 @@ const App: React.FC = () => {
       {/* Dynamic Animated Ambient Background */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-neutral-800">
         {track?.metadata.coverUrl && (
-          <div 
-            className="animate-rotate-cover absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh]"
+          <div
+            className={`absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] transition-all duration-1000 ${
+              backgroundRotate ? 'animate-rotate-cover' : ''
+            }`}
             style={{
               backgroundImage: `url(${track.metadata.coverUrl})`,
               backgroundSize: 'cover',
@@ -1578,19 +1617,21 @@ const App: React.FC = () => {
 
         {/* Global Settings Panel */}
         <SettingsPanel
-        isOpen={isSettingsOpen}
-        chunkCount={chunkCount}
-        fontWeight={fontWeight}
-        letterSpacing={letterSpacing}
-        lineHeight={lineHeight}
-        selectedFont={selectedFont}
-        onChunkCountChange={setChunkCount}
-        onFontWeightChange={setFontWeight}
-        onLetterSpacingChange={setLetterSpacing}
-        onLineHeightChange={setLineHeight}
-        onFontChange={setSelectedFont}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+          isOpen={isSettingsOpen}
+          chunkCount={chunkCount}
+          fontWeight={fontWeight}
+          letterSpacing={letterSpacing}
+          lineHeight={lineHeight}
+          selectedFont={selectedFont}
+          backgroundRotate={backgroundRotate}
+          onChunkCountChange={setChunkCount}
+          onFontWeightChange={setFontWeight}
+          onLetterSpacingChange={setLetterSpacing}
+          onLineHeightChange={setLineHeight}
+          onFontChange={setSelectedFont}
+          onBackgroundRotateChange={setBackgroundRotate}
+          onClose={() => setIsSettingsOpen(false)}
+        />
 
         {/* Navigation Hints */}
         {currentPage === 1 && (

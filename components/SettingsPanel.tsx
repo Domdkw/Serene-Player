@@ -9,7 +9,8 @@ import {
   Palette,
   Sparkles,
   Github,
-  Globe
+  Globe,
+  Image
 } from 'lucide-react';
 import { FONT_CONFIGS, getFontFamily } from '../utils/fontUtils';
 
@@ -28,6 +29,8 @@ interface SettingsPanelProps {
   setShowTranslation: (value: boolean) => void;
   streamingMode: boolean;
   setStreamingMode: (value: boolean) => void;
+  backgroundRotate: boolean;
+  setBackgroundRotate: (value: boolean) => void;
 }
 
 // 设置分组标题
@@ -155,7 +158,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   showTranslation,
   setShowTranslation,
   streamingMode,
-  setStreamingMode
+  setStreamingMode,
+  backgroundRotate,
+  setBackgroundRotate
 }) => {
   const handleReset = () => {
     localStorage.clear();
@@ -166,6 +171,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setSelectedFont('default');
     setShowTranslation(true);
     setStreamingMode(false);
+    setBackgroundRotate(false);
   };
 
   const handleDebug = () => {
@@ -180,37 +186,24 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   return (
     <div className="space-y-5 max-w-3xl">
-      {/* 播放设置 */}
+      {/* 背景设置 */}
       <section className="p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] backdrop-blur-sm">
         <SectionTitle
-          icon={HardDrive}
-          title="播放设置"
-          subtitle="音频加载和播放相关配置"
+          icon={Image}
+          title="背景设置"
+          subtitle="封面背景效果配置"
         />
         <div className="space-y-4 pl-12">
-          <div>
-            <label className="text-xs text-white/40 mb-2 block">分块拉取片数</label>
-            <OptionButtonGroup
-              options={[1, 4, 8, 16]}
-              value={chunkCount}
-              onChange={(value) => {
-                setChunkCount(value);
-                localStorage.setItem('chunkCount', value.toString());
-              }}
-            />
-            <p className="text-[13px] text-white/30 mt-2">数值越大<u>不一定</u>加载越快，但可能增加服务器压力</p>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between">
             <div>
-              <span className="text-sm text-white/60">开发者：流媒体播放模式 （不支持封面背景）</span>
-              <p className="text-[13px] text-white/30 mt-0.5">开启后直接流式播放，关闭则先下载完整文件</p>
+              <span className="text-sm text-white/60">背景封面旋转</span>
+              <p className="text-[13px] text-white/30 mt-0.5">开启后背景封面会缓慢旋转</p>
             </div>
             <ToggleSwitch
-              checked={streamingMode}
+              checked={backgroundRotate}
               onChange={(value) => {
-                setStreamingMode(value);
-                localStorage.setItem('streamingMode', value.toString());
+                setBackgroundRotate(value);
+                localStorage.setItem('backgroundRotate', value.toString());
               }}
             />
           </div>
@@ -323,6 +316,43 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               onChange={(value) => {
                 setShowTranslation(value);
                 localStorage.setItem('showTranslation', value.toString());
+              }}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 播放设置 */}
+      <section className="p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] backdrop-blur-sm">
+        <SectionTitle
+          icon={HardDrive}
+          title="播放设置"
+          subtitle="音频加载和播放相关配置"
+        />
+        <div className="space-y-4 pl-12">
+          <div>
+            <label className="text-xs text-white/40 mb-2 block">分块拉取片数</label>
+            <OptionButtonGroup
+              options={[1, 4, 8, 16]}
+              value={chunkCount}
+              onChange={(value) => {
+                setChunkCount(value);
+                localStorage.setItem('chunkCount', value.toString());
+              }}
+            />
+            <p className="text-[13px] text-white/30 mt-2">数值越大<u>不一定</u>加载越快，但可能增加服务器压力</p>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <span className="text-sm text-white/60">开发者：流媒体播放模式 （不支持封面背景）</span>
+              <p className="text-[13px] text-white/30 mt-0.5">开启后直接流式播放，关闭则先下载完整文件</p>
+            </div>
+            <ToggleSwitch
+              checked={streamingMode}
+              onChange={(value) => {
+                setStreamingMode(value);
+                localStorage.setItem('streamingMode', value.toString());
               }}
             />
           </div>

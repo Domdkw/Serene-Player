@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, Languages, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive, Download } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive } from 'lucide-react';
 import { Track } from '../types';
 
 interface MiniPlayerBarProps {
@@ -8,13 +8,11 @@ interface MiniPlayerBarProps {
   currentTime: number;
   duration: number;
   playbackMode: 'single' | 'list' | 'shuffle';
-  showTranslation: boolean;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   onTogglePlay: () => void;
   onPrev: () => void;
   onNext: () => void;
   onCyclePlaybackMode: () => void;
-  onToggleTranslation: () => void;
   onSeek: (time: number) => void;
   onOpenPlayer: () => void;
   isFullPlayerOpen: boolean;
@@ -33,13 +31,11 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   currentTime,
   duration,
   playbackMode,
-  showTranslation,
   audioRef,
   onTogglePlay,
   onPrev,
   onNext,
   onCyclePlaybackMode,
-  onToggleTranslation,
   onSeek,
   onOpenPlayer,
   isFullPlayerOpen,
@@ -50,6 +46,28 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   const isStreaming = hasTrack && track.sourceType === 'streaming';
   const [isDiscHovered, setIsDiscHovered] = useState(false);
   const discRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<number>(0);
+
+  /**
+   * 处理进度条鼠标移动事件
+   * @param e - 鼠标事件
+   */
+  const handleProgressMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!hasTrack || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setHoverTime(percent * duration);
+    setHoverPosition(e.clientX - rect.left);
+  }, [hasTrack, duration]);
+
+  /**
+   * 处理进度条鼠标离开事件
+   */
+  const handleProgressMouseLeave = useCallback(() => {
+    setHoverTime(null);
+  }, []);
 
   // 处理圆盘滚动事件
   const handleDiscWheel = useCallback((e: WheelEvent) => {
@@ -79,21 +97,34 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   }, [handleDiscWheel]);
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl border-t border-white/10 z-[70] overflow-hidden">
+    <footer className="fixed bottom-0 left-0 right-0 bg-black/10 backdrop-blur-xl border-t border-white/10 z-[70] overflow-visible">
       {/* 播放进度条 - 移到顶部，宽度占满整个播放栏 */}
       <div
-        className={`w-full h-1.5 bg-white/10 ${hasTrack ? 'cursor-pointer' : ''}`}
+        ref={progressRef}
+        className={`relative w-full h-1.5 bg-white/10 ${hasTrack ? 'cursor-pointer' : ''}`}
         onClick={(e) => {
           if (!hasTrack) return;
           const rect = e.currentTarget.getBoundingClientRect();
           const percent = (e.clientX - rect.left) / rect.width;
           onSeek(percent * duration);
         }}
+        onMouseMove={handleProgressMouseMove}
+        onMouseLeave={handleProgressMouseLeave}
       >
         <div
           className="h-full bg-white rounded-full transition-all"
           style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
         />
+        {/* 悬停时间提示框 */}
+        {hoverTime !== null && hasTrack && (
+          <div
+            className="absolute -top-10 px-4 py-2 bg-black/60 backdrop-blur-sm text-ml text-white rounded-lg pointer-events-none transform -translate-x-1/2 z-[80]"
+            style={{ left: hoverPosition }}
+          >
+            {formatTime(hoverTime)}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black/80" />
+          </div>
+        )}
       </div>
       <div className="relative px-6 py-3">
         <div className="relative z-10 flex items-center justify-between max-w-screen-2xl mx-auto">
@@ -129,16 +160,6 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
 
           <div className="flex flex-col items-center gap-2 flex-1 max-w-xl">
             <div className="flex items-center gap-6">
-              {hasTrack && (
-                <a
-                  href={track.objectUrl}
-                  download={`${track.metadata.title} - ${track.metadata.artist}.mp3`}
-                  className="transition-colors text-white/60 hover:text-white"
-                  title="下载当前歌曲"
-                >
-                  <Download size={18} />
-                </a>
-              )}
               <button
                 onClick={onCyclePlaybackMode}
                 disabled={!hasTrack}
@@ -175,18 +196,6 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
                 className={`transition-colors ${hasTrack ? 'text-white hover:text-white/80' : 'text-white/30 cursor-not-allowed'}`}
               >
                 <SkipForward size={22} fill="currentColor" />
-              </button>
-              <button
-                onClick={onToggleTranslation}
-                disabled={!hasTrack}
-                className={`transition-all ${
-                  hasTrack
-                    ? showTranslation ? 'text-white' : 'text-white/40 hover:text-white/60'
-                    : 'text-white/20 cursor-not-allowed'
-                }`}
-                title={showTranslation ? '隐藏翻译' : '显示翻译'}
-              >
-                <Languages size={18} />
               </button>
               {hasTrack && !hasLyrics && (
                 <div className="relative group">

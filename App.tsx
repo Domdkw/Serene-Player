@@ -7,7 +7,7 @@ import { extractMetadata, parseLyrics } from './utils/metadata';
 import { MusicLibrary } from './components/MusicLibrary';
 import { ArtistsView } from './components/ArtistsView';
 import { SearchPanel } from './components/SearchPanel';
-import { NeteasePanel } from './components/NeteasePanel';
+import { NeteasePanel, NeteasePanelRef } from './components/NeteasePanel';
 import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
@@ -164,6 +164,10 @@ const App: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('single');
   
+  //region 网易云播放列表状态
+  const [neteasePlaylist, setNeteasePlaylist] = useState<PlaylistItem[]>([]);
+  const [neteaseCurrentIndex, setNeteaseCurrentIndex] = useState<number>(-1);
+  
   //region Navigation state
   const [activeTab, setActiveTab] = useState<NavTab>('netease');
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
@@ -226,6 +230,10 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('spectrumFps');
     return saved ? parseInt(saved, 10) : 60;
   });
+  const [backgroundRotate, setBackgroundRotate] = useState<boolean>(() => {
+    const saved = localStorage.getItem('backgroundRotate');
+    return saved ? saved === 'true' : false;
+  });
 
   //region Refs
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -233,6 +241,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const uploadMenuRef = useRef<HTMLDivElement | null>(null);
+  const neteasePanelRef = useRef<NeteasePanelRef>(null);
 
   //region 加载字体
   useEffect(() => {
@@ -527,6 +536,25 @@ const App: React.FC = () => {
     }
   }, [loadedLinks]);
 
+  /**
+   * 处理歌手点击事件：收起播放页并触发自动搜索
+   */
+  const handleArtistClick = useCallback(async (artistName: string) => {
+    // 1. 收起播放页
+    setShowFullPlayer(false);
+    
+    // 2. 切换到网易云标签页
+    setActiveTab('netease');
+    
+    // 3. 延迟一小段时间等待界面切换完成，然后触发搜索
+    setTimeout(() => {
+      if (neteasePanelRef.current) {
+        neteasePanelRef.current.openSearch();
+        neteasePanelRef.current.triggerSearch(artistName, false);
+      }
+    }, 300);
+  }, []);
+
   const loadMusicFromUrl = useCallback(async (item: PlaylistItem, index: number) => {
     setErrorMessage(null);
     setLyricsLoading(true);
@@ -622,6 +650,7 @@ const App: React.FC = () => {
         objectUrl, 
         metadata,
         neteaseId: item.neteaseId,
+        artistIds: item.artistIds,
         sourceType: shouldUseStreaming ? 'streaming' : 'local'
       });
       setLoadingProgress(null);
@@ -657,6 +686,11 @@ const App: React.FC = () => {
     }
   }, [chunkCount, track?.objectUrl, streamingMode]);
 
+  const loadNeteaseMusic = useCallback(async (item: PlaylistItem, index: number) => {
+    setNeteaseCurrentIndex(index);
+    loadMusicFromUrl(item, index);
+  }, [loadMusicFromUrl]);
+
   //region URL 参数处理 Hook
   const { processPendingParams, hasPendingParams } = useQueryParams({
     onPlayNeteaseMusic: (item, index) => {
@@ -675,9 +709,21 @@ const App: React.FC = () => {
     onOpenPlayer: () => {
       setShowFullPlayer(true);
     },
-    onLoadPlaylist: loadPlaylistFromUrl,
+    onLoadPlaylist: async (url: string) => {
+      const success = await loadPlaylistFromUrl(url);
+      if (success) {
+        setLocalSongsLoaded(true);
+      }
+      return success;
+    },
     getPlaylist: () => playlist,
     setShouldAutoPlay,
+    onSeekTo: (timeInSeconds: number) => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = timeInSeconds;
+        setCurrentTime(timeInSeconds);
+      }
+    },
   });
 
   //region 当播放列表准备好后处理待处理的本地音乐参数
@@ -822,12 +868,24 @@ const App: React.FC = () => {
 
   const handleNext = useCallback(() => {
     if (playbackMode === 'shuffle') {
-      if (playlist.length === 0) return;
-      let randomIndex;
-      do {
-        randomIndex = Math.floor(Math.random() * playlist.length);
-      } while (playlist.length > 1 && randomIndex === currentIndex);
-      loadMusicFromUrl(playlist[randomIndex], randomIndex);
+      if (neteasePlaylist.length > 0 && activeTab === 'netease') {
+        let randomIndex;
+        do {
+          randomIndex = Math.floor(Math.random() * neteasePlaylist.length);
+        } while (neteasePlaylist.length > 1 && randomIndex === neteaseCurrentIndex);
+        loadNeteaseMusic(neteasePlaylist[randomIndex], randomIndex);
+      } else if (playlist.length === 0) return;
+      else {
+        let randomIndex;
+        do {
+          randomIndex = Math.floor(Math.random() * playlist.length);
+        } while (playlist.length > 1 && randomIndex === currentIndex);
+        loadMusicFromUrl(playlist[randomIndex], randomIndex);
+      }
+    } else if (neteasePlaylist.length > 0 && activeTab === 'netease') {
+      if (neteaseCurrentIndex === -1) return;
+      const nextIndex = (neteaseCurrentIndex + 1) % neteasePlaylist.length;
+      loadNeteaseMusic(neteasePlaylist[nextIndex], nextIndex);
     } else if (currentFolder && playlistFolders[currentFolder]) {
       const folderTracks = playlistFolders[currentFolder];
       const currentTrack = playlist[currentIndex];
@@ -844,11 +902,15 @@ const App: React.FC = () => {
       const nextIndex = (currentIndex + 1) % playlist.length;
       loadMusicFromUrl(playlist[nextIndex], nextIndex);
     }
-  }, [playbackMode, playlist, currentIndex, currentFolder, playlistFolders, loadMusicFromUrl]);
+  }, [playbackMode, playlist, currentIndex, currentFolder, playlistFolders, loadMusicFromUrl, neteasePlaylist, neteaseCurrentIndex, activeTab]);
 
   const handlePrev = useCallback(() => {
     if (playbackMode === 'shuffle') {
       handleNext();
+    } else if (neteasePlaylist.length > 0 && activeTab === 'netease') {
+      if (neteaseCurrentIndex === -1) return;
+      const prevIndex = (neteaseCurrentIndex - 1 + neteasePlaylist.length) % neteasePlaylist.length;
+      loadNeteaseMusic(neteasePlaylist[prevIndex], prevIndex);
     } else if (currentFolder && playlistFolders[currentFolder]) {
       const folderTracks = playlistFolders[currentFolder];
       const currentTrack = playlist[currentIndex];
@@ -865,7 +927,7 @@ const App: React.FC = () => {
       const prevIndex = (currentIndex - 1 + playlist.length) % playlist.length;
       loadMusicFromUrl(playlist[prevIndex], prevIndex);
     }
-  }, [playbackMode, playlist, currentIndex, currentFolder, playlistFolders, loadMusicFromUrl, handleNext]);
+  }, [playbackMode, playlist, currentIndex, currentFolder, playlistFolders, loadMusicFromUrl, handleNext, neteasePlaylist, neteaseCurrentIndex, activeTab]);
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current || !track) return;
@@ -1210,22 +1272,27 @@ const App: React.FC = () => {
   const renderNeteaseView = useCallback(() => (
     <div className="h-full flex flex-col">
       <NeteasePanel
+        ref={neteasePanelRef}
         onTrackSelect={(item, index) => {
-          loadMusicFromUrl(item, index);
+          loadNeteaseMusic(item, index);
         }}
         currentTrackUrl={track?.objectUrl || null}
         isPlaying={isPlaying}
         onAddToPlaylist={(item) => {
-          setPlaylist(prev => {
+          setNeteasePlaylist(prev => {
             if (prev.some(p => p.url === item.url)) {
               return prev;
             }
             return [...prev, item];
           });
         }}
+        neteasePlaylist={neteasePlaylist}
+        neteaseCurrentIndex={neteaseCurrentIndex}
+        setNeteasePlaylist={setNeteasePlaylist}
+        setNeteaseCurrentIndex={setNeteaseCurrentIndex}
       />
     </div>
-  ), [track?.objectUrl, isPlaying, loadMusicFromUrl, setPlaylist]);
+  ), [track?.objectUrl, isPlaying, loadNeteaseMusic, setNeteasePlaylist, neteasePlaylist, neteaseCurrentIndex]);
 
   //region 渲染设置视图
   const renderSettingsView = useCallback(() => (
@@ -1251,10 +1318,12 @@ const App: React.FC = () => {
           setShowTranslation={setShowTranslation}
           streamingMode={streamingMode}
           setStreamingMode={setStreamingMode}
+          backgroundRotate={backgroundRotate}
+          setBackgroundRotate={setBackgroundRotate}
         />
       </div>
     </div>
-  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, streamingMode, setStreamingMode]);
+  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, streamingMode, setStreamingMode, backgroundRotate, setBackgroundRotate]);
 
   //region 渲染主内容
   const renderMainContent = useCallback(() => {
@@ -1289,7 +1358,7 @@ const App: React.FC = () => {
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(selectedFont) }}>
       {/* Global Background - always visible */}
-      <GlobalBackground coverUrl={track?.metadata.coverUrl} />
+      <GlobalBackground coverUrl={track?.metadata.coverUrl} rotate={backgroundRotate} />
 
       {/* Audio element - always present */}
       <audio 
@@ -1350,13 +1419,11 @@ const App: React.FC = () => {
         currentTime={currentTime}
         duration={duration}
         playbackMode={playbackMode}
-        showTranslation={showTranslation}
         audioRef={audioRef}
         onTogglePlay={togglePlay}
         onPrev={handlePrev}
         onNext={handleNext}
         onCyclePlaybackMode={cyclePlaybackMode}
-        onToggleTranslation={() => setShowTranslation(!showTranslation)}
         onSeek={handleSeek}
         onOpenPlayer={() => setShowFullPlayer(!showFullPlayer)}
         isFullPlayerOpen={showFullPlayer}
@@ -1387,6 +1454,7 @@ const App: React.FC = () => {
             selectedFont={selectedFont}
             onSeek={handleSeek}
             formatTime={formatTime}
+            onArtistClick={handleArtistClick}
           />
         </div>
       )}

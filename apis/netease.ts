@@ -101,6 +101,21 @@ export interface NeteaseLyric {
   tlyric: string;
 }
 
+export interface NeteaseHotSearch {
+  searchWord: string;
+  score: number;
+  content: string;
+  source: number;
+  iconType: number;
+  iconUrl: string | null;
+  url: string;
+  alg: string;
+}
+
+export interface NeteaseSearchSuggestion {
+  allMatch: { keyword: string; type: number; alg: string; lastKeyword: string; feature: string }[];
+}
+
 /**
  * 获取歌曲歌词
  * @param id 歌曲ID
@@ -123,5 +138,114 @@ export async function getSongLyric(id: number): Promise<NeteaseLyric | null> {
   return {
     lyric: data.lrc?.lyric || '',
     tlyric: data.tlyric?.lyric || '',
+  };
+}
+
+/**
+ * 获取热搜列表(简略)
+ * @returns 热搜列表
+ */
+export async function getHotSearchList(): Promise<NeteaseHotSearch[]> {
+  const url = `${BASE_URL}/search/hot`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`获取热搜列表失败: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data.code !== 200) {
+    throw new Error(`API错误: ${data.message || '未知错误'}`);
+  }
+
+  return data.result || [];
+}
+
+/**
+ * 获取热搜列表(详细)
+ * @returns 详细热搜列表
+ */
+export async function getHotSearchDetail(): Promise<NeteaseHotSearch[]> {
+  const url = `${BASE_URL}/search/hot/detail`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`获取热搜详情失败: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data.code !== 200) {
+    throw new Error(`API错误: ${data.message || '未知错误'}`);
+  }
+
+  return data.data || [];
+}
+
+/**
+ * 获取搜索建议
+ * @param keywords 关键词
+ * @returns 搜索建议
+ */
+export async function getSearchSuggestion(keywords: string): Promise<NeteaseSearchSuggestion> {
+  const url = `${BASE_URL}/search/suggest?keywords=${encodeURIComponent(keywords)}&type=mobile`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`获取搜索建议失败: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data.code !== 200) {
+    throw new Error(`API错误: ${data.message || '未知错误'}`);
+  }
+
+  return {
+    allMatch: data.result.allMatch || [],
+  };
+}
+
+export interface NeteaseArtistDetail {
+  id: number;
+  name: string;
+  picUrl: string;
+  albumSize: number;
+  musicSize: number;
+  briefDesc: string;
+  alias: string[];
+  followeds: number;
+}
+
+/**
+ * 获取歌手详情
+ * @param id 歌手ID
+ * @returns 歌手详情信息，包含头像等
+ */
+export async function getArtistDetail(id: number): Promise<NeteaseArtistDetail | null> {
+  const url = `${BASE_URL}/artist/detail?id=${id}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`获取歌手详情失败: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data.code !== 200 || !data.data?.artist) {
+    return null;
+  }
+
+  const artist = data.data.artist;
+  return {
+    id: artist.id,
+    name: artist.name,
+    picUrl: artist.avatar || artist.cover || '',
+    albumSize: artist.albumSize || 0,
+    musicSize: artist.musicSize || 0,
+    briefDesc: artist.briefDesc || '',
+    alias: artist.alias || [],
+    followeds: artist.followeds || 0,
   };
 }
