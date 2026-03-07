@@ -136,7 +136,7 @@ export const LyricLine: React.FC<LyricLineProps> = ({
               style={{ width: `${wordProgress}%` }}
             />
           )}
-          {line.text}
+          {line.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
         </p>
         {/* 翻译文本 */}
         {showTranslation && line.translation && (
@@ -150,7 +150,7 @@ export const LyricLine: React.FC<LyricLineProps> = ({
             }`}
             style={translationStyle}
           >
-            {line.translation}
+            {line.translation.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
           </p>
         )}
       </div>
