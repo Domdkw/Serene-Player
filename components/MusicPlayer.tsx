@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, memo, useState } from 'react';
+import React, { useRef, useEffect, useCallback, memo, useState, useMemo } from 'react';
 import {
   ChevronLeft,
   Languages,
@@ -7,12 +7,24 @@ import {
   Cloud,
   ChevronDown,
   Download,
-  FileText
+  FileText,
+  MoreHorizontal
 } from 'lucide-react';
 import { Track, LyricLine as ParsedLyric } from '../types';
 import { getFontFamily } from '../utils/fontUtils';
 import { getArtistDetail, NeteaseArtistDetail } from '../apis/netease';
 import LyricLine from './LyricLine';
+
+function throttle<T extends (...args: any[]) => any>(func: T, limit: number): T {
+  let inThrottle: boolean;
+  return function(this: any, ...args: Parameters<T>) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  } as T;
+}
 
 interface MusicPlayerProps {
   track: Track;
@@ -73,6 +85,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isLoadingArtists, setIsLoadingArtists] = React.useState(false);
   // 歌词显示/隐藏状态，默认显示歌词（如果存在）
   const [showLyrics, setShowLyrics] = React.useState(true);
+  // 操作按钮显示/隐藏状态
+  const [showActions, setShowActions] = React.useState(false);
 
   // 解析歌手ID - 使用 artistIds 字段
   const artistIds = React.useMemo(() => {
@@ -105,14 +119,17 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     fetchArtistPictures();
   }, [artistIds]);
 
-  // 3D封面效果
-  const handleCoverMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!coverRef.current) return;
-    const rect = coverRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    setCoverMousePos({ x, y });
-  }, []);
+  // 3D封面效果 - 使用节流减少状态更新频率 (16ms = ~60fps)
+  const handleCoverMouseMove = useCallback(
+    throttle((e: React.MouseEvent<HTMLDivElement>) => {
+      if (!coverRef.current) return;
+      const rect = coverRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      setCoverMousePos({ x, y });
+    }, 16),
+    []
+  );
 
   const handleCoverMouseLeave = useCallback(() => {
     setIsCoverHovered(false);
@@ -208,7 +225,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           >
             <div className={`absolute -inset-4 md:-inset-8 opacity-20 blur-3xl rounded-full transition-all duration-1000 ${isPlaying ? 'scale-110' : 'scale-90'}`} style={{ backgroundColor: 'white' }} />
             <div
-              className="relative w-full h-full rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xl border border-white/20 bg-black/40 transition-transform duration-125 ease-out"
+              className="relative w-full h-full rounded-sm md:rounded-[1rem] overflow-hidden shadow-2xl transition-transform duration-125 ease-out"
               style={{
                 transform: isCoverHovered
                   ? `perspective(1000px) rotateX(${-coverMousePos.y * 25}deg) rotateY(${coverMousePos.x * 25}deg) scale3d(1.05, 1.05, 1.05)`
@@ -303,8 +320,16 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
               ) : (
                 <span className="text-sm text-white/60 font-medium">{track.metadata.artist}</span>
               )}
+              <button
+                onClick={() => setShowActions(!showActions)}
+                className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/20 text-white/70 hover:text-white transition-all"
+                title="更多操作"
+              >
+                <MoreHorizontal size={16} />
+              </button>
             </div>
             {/* 下载、歌词和翻译按钮 */}
+            {showActions && (
             <div className="flex items-center justify-center gap-3 mt-4">
               {/* 下载按钮 */}
               <div className="relative group">
@@ -346,6 +371,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                 </button>
               </div>
             </div>
+            )}
             {/* Lyric Tags - AR & AL */}
             {(track.metadata.lyricArtist || track.metadata.lyricAlbum || track.sourceType === 'streaming') && (
               <div className="flex items-center justify-center gap-2 mt-3">

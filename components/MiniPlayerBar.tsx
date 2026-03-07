@@ -136,14 +136,30 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
             title={isFullPlayerOpen ? '关闭播放页' : '打开播放页'}
           >
             {hasTrack && track.metadata.coverUrl ? (
-              <img
-                src={track.metadata.coverUrl}
-                alt="Cover"
-                className="w-12 h-12 rounded-lg object-cover"
-              />
+              <div 
+                className="shrink-0 transition-all duration-500 ease-out overflow-hidden"
+                style={{
+                  width: isFullPlayerOpen ? '0px' : '48px',
+                  opacity: isFullPlayerOpen ? 0 : 1,
+                }}
+              >
+                <img
+                  src={track.metadata.coverUrl}
+                  alt="Cover"
+                  className="w-12 h-12 rounded-lg object-cover"
+                />
+              </div>
             ) : (
-              <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center">
-                <Music size={20} className="text-white/40" />
+              <div 
+                className="shrink-0 transition-all duration-500 ease-out overflow-hidden"
+                style={{
+                  width: isFullPlayerOpen ? '0px' : '48px',
+                  opacity: isFullPlayerOpen ? 0 : 1,
+                }}
+              >
+                <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center">
+                  <Music size={20} className="text-white/40" />
+                </div>
               </div>
             )}
             <div className="min-w-0">
