@@ -32,6 +32,12 @@ interface NeteasePanelProps {
   onSearchComplete?: (results: NeteaseSong[]) => void;
 }
 
+interface LoadingStatus {
+  loading: boolean;
+  error: boolean;
+  songId: number | null;
+}
+
 const FAVORITES_STORAGE_KEY = 'netease_favorites';
 const SEARCH_HISTORY_KEY = 'netease_search_history';
 const SEARCH_HISTORY_LIMIT = 5;
@@ -99,6 +105,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   const [suggestions, setSuggestions] = useState<{ keyword: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState<LoadingStatus>({ loading: false, error: false, songId: null });
   const skipSuggestionRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchQueryRef = useRef(searchQuery);
@@ -120,9 +127,13 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
 
 
   /**
-   * 加载热搜列表
+   * 加载热搜列表（仅在打开搜索界面时）
    */
   useEffect(() => {
+    if (!showSearch) {
+      return;
+    }
+
     const loadHotSearch = async () => {
       try {
         const result = await getHotSearchDetail();
@@ -132,7 +143,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       }
     };
     loadHotSearch();
-  }, []);
+  }, [showSearch]);
 
   /**
    * 搜索建议防抖
@@ -310,12 +321,15 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
 
   const handlePlaySong = useCallback(async (song: NeteaseSong) => {
     setLoadingSongId(song.id);
+    setLoadingStatus({ loading: true, error: false, songId: song.id });
 
     try {
       const songUrl = await getSongUrl(song.id);
 
       if (!songUrl) {
-        console.error('无法获取歌曲URL');
+        console.error('无法获取歌曲 URL');
+        setLoadingStatus({ loading: false, error: true, songId: song.id });
+        setLoadingSongId(null);
         return;
       }
 
@@ -356,8 +370,10 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       }
 
       onTrackSelect(playlistItem, index);
+      setLoadingStatus({ loading: false, error: false, songId: null });
     } catch (error) {
       console.error('播放歌曲失败:', error);
+      setLoadingStatus({ loading: false, error: true, songId: song.id });
     } finally {
       setLoadingSongId(null);
     }
@@ -365,12 +381,15 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
 
   const handlePlayFavorite = useCallback(async (favorite: FavoriteSong) => {
     setLoadingSongId(favorite.id);
+    setLoadingStatus({ loading: true, error: false, songId: favorite.id });
 
     try {
       const songUrl = await getSongUrl(favorite.id);
 
       if (!songUrl) {
         console.error('无法获取歌曲 URL');
+        setLoadingStatus({ loading: false, error: true, songId: favorite.id });
+        setLoadingSongId(null);
         return;
       }
 
@@ -408,8 +427,10 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       }
 
       onTrackSelect(playlistItem, index);
+      setLoadingStatus({ loading: false, error: false, songId: null });
     } catch (error) {
       console.error('播放歌曲失败:', error);
+      setLoadingStatus({ loading: false, error: true, songId: favorite.id });
     } finally {
       setLoadingSongId(null);
     }
@@ -463,6 +484,29 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     }
   }, [showSearch]);
 
+  const renderLoadingBadge = () => {
+    if (!loadingStatus.songId) return null;
+
+    if (loadingStatus.loading) {
+      return (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-xl z-50 animate-pulse">
+          <Loader2 size={16} className="animate-spin" />
+          <span className="text-sm font-medium">正在加载音乐...</span>
+        </div>
+      );
+    }
+
+    if (loadingStatus.error) {
+      return (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-xl z-50">
+          <span className="text-sm font-medium">无法加载音乐</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   const renderSearchResults = () => (
     <div className="space-y-1.5 md:space-y-2">
       {searchResults.map((song) => {
@@ -478,7 +522,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
           <div
             key={song.id}
             onClick={() => handlePlaySong(song)}
-            className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer ${
+            className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer relative ${
               isCurrentTrack
                 ? 'bg-white/10 border border-white/20'
                 : 'bg-white/5 border border-white/[0.05] hover:bg-white/[0.08]'
@@ -609,7 +653,8 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   };
 
   return (
-    <div className="h-full flex flex-col p-1 md:p-3">
+    <div className="h-full flex flex-col p-1 md:p-3 relative">
+      {renderLoadingBadge()}
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
@@ -777,9 +822,18 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                         <p className="text-white/40 text-xs truncate mt-0.5">{item.content}</p>
                       )}
                     </div>
-                    {item.iconUrl && (
-                      <Flame size={14} className="text-white/30 flex-shrink-0" />
-                    )}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {item.iconUrl && (
+                        <Flame size={14} className="text-orange-400 flex-shrink-0" />
+                      )}
+                      <span className="text-xs text-white/50 font-medium">
+                        {item.score >= 1000000 
+                          ? `${(item.score / 10000).toFixed(1)}万` 
+                          : item.score >= 10000 
+                            ? `${(item.score / 10000).toFixed(1)}万`
+                            : item.score}
+                      </span>
+                    </div>
                   </div>
                 ))}
                 {hotSearchList.length === 0 && (
@@ -800,7 +854,20 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
               <p>未找到匹配的歌曲</p>
             </div>
           ) : (
-            renderSearchResults()
+            <>
+              <button
+                onClick={() => {
+                  setHasSearched(false);
+                  setSearchQuery('');
+                  setSearchResults([]);
+                }}
+                className="mb-3 px-3 py-2 bg-white/10 hover:bg-white/20 text-white/80 text-sm rounded-lg transition-colors flex items-center gap-2"
+              >
+                <ArrowLeft size={14} />
+                <span>返回搜索</span>
+              </button>
+              {renderSearchResults()}
+            </>
           )
         ) : (
           renderFavorites()

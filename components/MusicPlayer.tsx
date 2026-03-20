@@ -85,8 +85,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isLoadingArtists, setIsLoadingArtists] = React.useState(false);
   // 歌词显示/隐藏状态，默认显示歌词（如果存在）
   const [showLyrics, setShowLyrics] = React.useState(true);
-  // 操作按钮显示/隐藏状态
-  const [showActions, setShowActions] = React.useState(false);
+  // 是否显示更多歌手
+  const [showAllArtists, setShowAllArtists] = React.useState(false);
 
   // 解析歌手ID - 使用 artistIds 字段
   const artistIds = React.useMemo(() => {
@@ -254,82 +254,87 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             {/* 歌手列表 - 头像与名称对应 */}
             <div className="flex items-center justify-center gap-3 mt-2 flex-wrap">
               {artistPictures.length > 0 ? (
-                artistPictures.map((artist, index) => (
-                  <button
-                    key={`${artist.id}-${index}`}
-                    onClick={() => onArtistClick?.(artist.name)}
-                    className="group relative flex items-center gap-2 rounded-md bg-white/5 px-3 py-1.5 backdrop-blur-sm hover:bg-white/10 transition-all cursor-pointer"
-                    title={`搜索歌手：${artist.name}`}
-                  >
-                    <img
-                      src={artist.picUrl}
-                      alt={artist.name}
-                      className="w-6 h-6 rounded-full object-cover border border-white/20"
-                    />
-                    <span className="text-sm text-white/70 font-medium">{artist.name}</span>
-                    {/* 悬停显示的歌手信息卡片 */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                      <div className="bg-black/90 backdrop-blur-md rounded p-3 border border-white/10 shadow-xl">
-                        {/* 歌手头像 */}
-                        <div className="flex justify-center mb-2">
-                          <img
-                            src={artist.picUrl}
-                            alt={artist.name}
-                            className="w-16 h-16 rounded-full object-cover border-2 border-white/20"
-                          />
-                        </div>
-                        {/* 歌手名称 */}
-                        <h3 className="text-center text-white font-bold text-sm mb-1 truncate">{artist.name}</h3>
-                        {/* 别名 */}
-                        {artist.alias && artist.alias.length > 0 && (
-                          <p className="text-center text-white/50 text-xs mb-2 truncate">
-                            {artist.alias.join(' / ')}
-                          </p>
-                        )}
-                        {/* 统计信息 */}
-                        <div className="flex justify-center gap-4 text-xs text-white/60">
-                          <div className="text-center">
-                            <div className="font-semibold text-white">{artist.musicSize}</div>
-                            <div>单曲</div>
+                <>
+                  {artistPictures.slice(0, showAllArtists ? undefined : 3).map((artist, index) => (
+                    <button
+                      key={`${artist.id}-${index}`}
+                      onClick={() => onArtistClick?.(artist.name)}
+                      className="group relative flex items-center gap-2 rounded-md bg-white/5 px-3 py-1.5 backdrop-blur-sm hover:bg-white/10 transition-all cursor-pointer"
+                      title={`搜索歌手：${artist.name}`}
+                    >
+                      <img
+                        src={artist.picUrl}
+                        alt={artist.name}
+                        className="w-6 h-6 rounded-full object-cover border border-white/20"
+                      />
+                      <span className="text-sm text-white/70 font-medium">{artist.name}</span>
+                      {/* 悬停显示的歌手信息卡片 */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        <div className="bg-black/90 backdrop-blur-md rounded p-3 border border-white/10 shadow-xl">
+                          {/* 歌手头像 */}
+                          <div className="flex justify-center mb-2">
+                            <img
+                              src={artist.picUrl}
+                              alt={artist.name}
+                              className="w-16 h-16 rounded-full object-cover border-2 border-white/20"
+                            />
                           </div>
-                          <div className="text-center">
-                            <div className="font-semibold text-white">{artist.albumSize}</div>
-                            <div>专辑</div>
-                          </div>
-                          {artist.followeds > 0 && (
+                          {/* 歌手名称 */}
+                          <h3 className="text-center text-white font-bold text-sm mb-1 truncate">{artist.name}</h3>
+                          {/* 别名 */}
+                          {artist.alias && artist.alias.length > 0 && (
+                            <p className="text-center text-white/50 text-xs mb-2 truncate">
+                              {artist.alias.join(' / ')}
+                            </p>
+                          )}
+                          {/* 统计信息 */}
+                          <div className="flex justify-center gap-4 text-xs text-white/60">
                             <div className="text-center">
-                              <div className="font-semibold text-white">
-                                {artist.followeds >= 10000 
-                                  ? `${(artist.followeds / 10000).toFixed(1)}万` 
-                                  : artist.followeds}
-                              </div>
-                              <div>粉丝</div>
+                              <div className="font-semibold text-white">{artist.musicSize}</div>
+                              <div>单曲</div>
                             </div>
+                            <div className="text-center">
+                              <div className="font-semibold text-white">{artist.albumSize}</div>
+                              <div>专辑</div>
+                            </div>
+                            {artist.followeds > 0 && (
+                              <div className="text-center">
+                                <div className="font-semibold text-white">
+                                  {artist.followeds >= 10000 
+                                    ? `${(artist.followeds / 10000).toFixed(1)}万` 
+                                    : artist.followeds}
+                                </div>
+                                <div>粉丝</div>
+                              </div>
+                            )}
+                          </div>
+                          {/* 简介 */}
+                          {artist.briefDesc && (
+                            <p className="mt-2 text-xs text-white/50 text-center">
+                              {artist.briefDesc}
+                            </p>
                           )}
                         </div>
-                        {/* 简介 */}
-                        {artist.briefDesc && (
-                          <p className="mt-2 text-xs text-white/50 text-center">
-                            {artist.briefDesc}
-                          </p>
-                        )}
                       </div>
-                    </div>
-                  </button>
-                ))
+                    </button>
+                  ))}
+                  {/* 更多歌手按钮 - 仅在歌手数量超过 3 个时显示 */}
+                  {artistPictures.length > 3 && !showAllArtists && (
+                    <button
+                      onClick={() => setShowAllArtists(true)}
+                      className="flex items-center gap-2 rounded-md bg-white/10 px-3 py-1.5 backdrop-blur-sm hover:bg-white/20 transition-all cursor-pointer"
+                      title="显示更多歌手"
+                    >
+                      <ChevronDown size={16} className="text-white/70" />
+                      <span className="text-sm text-white/70 font-medium">+{artistPictures.length - 3}</span>
+                    </button>
+                  )}
+                </>
               ) : (
                 <span className="text-sm text-white/60 font-medium">{track.metadata.artist}</span>
               )}
-              <button
-                onClick={() => setShowActions(!showActions)}
-                className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/20 text-white/70 hover:text-white transition-all"
-                title="更多操作"
-              >
-                <MoreHorizontal size={16} />
-              </button>
             </div>
-            {/* 下载、歌词和翻译按钮 */}
-            {showActions && (
+            {/* 下载、歌词和翻译按钮 - 始终显示 */}
             <div className="flex items-center justify-center gap-3 mt-4">
               {/* 下载按钮 */}
               <div className="relative group">
@@ -371,7 +376,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                 </button>
               </div>
             </div>
-            )}
             {/* Lyric Tags - AR & AL */}
             {(track.metadata.lyricArtist || track.metadata.lyricAlbum || track.sourceType === 'streaming') && (
               <div className="flex items-center justify-center gap-2 mt-3">
