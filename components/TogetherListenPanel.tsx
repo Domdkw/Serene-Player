@@ -67,9 +67,11 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [reconnectHint, setReconnectHint] = useState<{ wasHost: boolean; lastSignalData: string } | null>(null);
 
   const peerConnectionRef = useRef<PeerConnection | null>(null);
   const isRemoteControlRef = useRef<boolean>(false);
+  const remoteControlCounterRef = useRef<number>(0);
   const isHostRef = useRef<boolean>(false);
   const prevTrackIdRef = useRef<number | null>(null);
   const prevIsPlayingRef = useRef<boolean>(isPlaying);
@@ -113,7 +115,7 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
     getConnectionMode: () => isHostRef.current ? 'host' : 'client',
   }), []);
 
-  const cleanup = useCallback(() => {
+  const cleanup = useCallback((preserveReconnectHint = false) => {
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
@@ -126,6 +128,9 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
     setInputSignalData('');
     setError(null);
     setLogs([]);
+    if (!preserveReconnectHint) {
+      setReconnectHint(null);
+    }
   }, []);
 
   const sendMessage = useCallback((type: SyncMessage['type'], payload: SyncMessage['payload']) => {
@@ -143,6 +148,7 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
     if (state.status === 'connected') {
       setMode('connected');
       setError(null);
+      setReconnectHint(null);
       addLog('连接成功', 'connection');
       if (isHostRef.current && propsRef.current.currentTrack?.neteaseId) {
         setTimeout(() => {
@@ -153,12 +159,21 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
           });
         }, 200);
       }
+    } else if (state.status === 'disconnected') {
+      if (mode === 'connected') {
+        addLog('连接已断开', 'error');
+        setReconnectHint({
+          wasHost: isHostRef.current,
+          lastSignalData: signalData,
+        });
+        setError('连接已断开，请重新建立连接');
+      }
     } else if (state.status === 'failed') {
       addLog('连接失败: ' + (state.errorMessage || '未知错误'), 'error');
       setError(state.errorMessage || '连接失败');
       cleanup();
     }
-  }, [cleanup, sendMessage, addLog]);
+  }, [cleanup, sendMessage, addLog, mode, signalData]);
 
   const handleMessage = useCallback((message: SyncMessage) => {
     isRemoteControlRef.current = true;
@@ -213,8 +228,11 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         break;
     }
 
+    const currentCounter = ++remoteControlCounterRef.current;
     setTimeout(() => {
-      isRemoteControlRef.current = false;
+      if (currentCounter === remoteControlCounterRef.current) {
+        isRemoteControlRef.current = false;
+      }
     }, 200);
   }, [sendMessage, addLog, formatTime]);
 
@@ -564,8 +582,29 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
       {error && (
         <div className="mx-3 mt-3 px-3 py-2 bg-red-500/20 border border-red-500/30 rounded-lg flex items-center gap-2 text-red-300 text-xs">
           <AlertCircle size={14} />
-          {error}
-          <button onClick={() => setError(null)} className="ml-auto hover:text-white transition-colors">
+          <span className="flex-1">{error}</span>
+          {reconnectHint && (
+            <button
+              onClick={() => {
+                const hint = reconnectHint;
+                cleanup(true);
+                if (hint.wasHost) {
+                  setSignalData(hint.lastSignalData);
+                  setMode('hosting');
+                  isHostRef.current = true;
+                } else {
+                  setMode('joining');
+                  isHostRef.current = false;
+                }
+                setError(null);
+                addLog('准备重新连接...', 'connection');
+              }}
+              className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded text-white transition-colors whitespace-nowrap"
+            >
+              重新连接
+            </button>
+          )}
+          <button onClick={() => { setError(null); setReconnectHint(null); }} className="hover:text-white transition-colors">
             <X size={14} />
           </button>
         </div>
