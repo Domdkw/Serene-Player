@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive, Users } from 'lucide-react';
 import { Track } from '../types';
 
 interface MiniPlayerBarProps {
@@ -17,6 +17,7 @@ interface MiniPlayerBarProps {
   onOpenPlayer: () => void;
   isFullPlayerOpen: boolean;
   formatTime: (time: number) => string;
+  isTogetherListenConnected?: boolean;
 }
 
 const PlaybackModeIcon = memo(({ mode }: { mode: 'single' | 'list' | 'shuffle' }) => {
@@ -39,7 +40,8 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   onSeek,
   onOpenPlayer,
   isFullPlayerOpen,
-  formatTime
+  formatTime,
+  isTogetherListenConnected = false,
 }) => {
   const hasTrack = track !== null;
   const hasLyrics = hasTrack && track.metadata.parsedLyrics && track.metadata.parsedLyrics.length > 0;
@@ -239,6 +241,17 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
           </div>
 
           <div className="w-1/4 flex justify-end items-center gap-4">
+            {/* 一起听连接状态指示器 */}
+            {isTogetherListenConnected && (
+              <div className="relative group">
+                <Users size={16} className="text-green-400" />
+                <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-black/80 backdrop-blur-sm text-xs text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10">
+                  一起听已连接
+                  <div className="absolute top-full right-3 border-4 border-transparent border-t-black/80"></div>
+                </div>
+              </div>
+            )}
+            
             {/* 圆盘图标 - 滚动控制播放进度 */}
             <div
               ref={discRef}

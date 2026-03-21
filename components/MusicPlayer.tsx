@@ -8,7 +8,8 @@ import {
   ChevronDown,
   Download,
   FileText,
-  MoreHorizontal
+  MoreHorizontal,
+  Users
 } from 'lucide-react';
 import { Track, LyricLine as ParsedLyric } from '../types';
 import { getFontFamily } from '../utils/fontUtils';
@@ -42,6 +43,7 @@ interface MusicPlayerProps {
   onSeek: (time: number) => void;
   formatTime: (time: number) => string;
   onArtistClick?: (artistName: string) => void;
+  isTogetherListenConnected?: boolean;
 }
 
 // 流光加载条组件
@@ -71,7 +73,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   selectedFont,
   onSeek,
   formatTime,
-  onArtistClick
+  onArtistClick,
+  isTogetherListenConnected = false,
 }) => {
   const coverRef = useRef<HTMLDivElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
@@ -210,6 +213,13 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </button>
           <span className="text-sm text-white/60">关闭播放页</span>
         </div>
+        {/* 一起听连接状态 */}
+        {isTogetherListenConnected && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30">
+            <Users size={14} className="text-green-400" />
+            <span className="text-xs text-green-400 font-medium">一起听</span>
+          </div>
+        )}
       </header>
 
       {/* Main Content */}

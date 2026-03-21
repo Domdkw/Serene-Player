@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import {
-  Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search, Plus, X, Link2, RotateCcw, Cloud
+  Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search, Plus, X, Link2, RotateCcw, Cloud, Users
 } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { extractMetadata, parseLyrics } from './utils/metadata';
@@ -12,13 +12,15 @@ import SettingsPanel from './components/SettingsPanel';
 import MusicPlayer from './components/MusicPlayer';
 import MiniPlayerBar from './components/MiniPlayerBar';
 import GlobalBackground from './components/GlobalBackground';
+import TogetherListenPanel, { TogetherListenPanelRef } from './components/TogetherListenPanel';
 import fetchInChunks from 'fetch-in-chunks';
 import { getFontUrl, getFontFamily } from './utils/fontUtils';
 import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
 import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
 import { useQueryParams } from './hooks/useQueryParams';
+import { getSongUrl, getSongDetail, getSongLyric, getAlbumCoverUrl } from './apis/netease';
 
-type NavTab = 'songs' | 'artists' | 'netease' | 'settings';
+type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings';
 
 /**
  * 网易云音乐图标组件
@@ -242,6 +244,8 @@ const App: React.FC = () => {
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const uploadMenuRef = useRef<HTMLDivElement | null>(null);
   const neteasePanelRef = useRef<NeteasePanelRef>(null);
+  const togetherListenRef = useRef<TogetherListenPanelRef>(null);
+  const [isTogetherListenConnected, setIsTogetherListenConnected] = useState(false);
 
   //region 加载字体
   useEffect(() => {
@@ -262,6 +266,15 @@ const App: React.FC = () => {
       }
     }
   }, [selectedFont]);
+
+  //region 监听一起听连接状态
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      const connected = togetherListenRef.current?.isConnected() ?? false;
+      setIsTogetherListenConnected(connected);
+    }, 1000);
+    return () => clearInterval(checkInterval);
+  }, []);
 
   //region 逐字歌词时间更新 - 100ms 高精度刷新
   useEffect(() => {
@@ -691,6 +704,87 @@ const App: React.FC = () => {
     loadMusicFromUrl(item, index);
   }, [loadMusicFromUrl]);
 
+  /**
+   * 根据 neteaseId 获取歌曲并播放
+   * 用于"一起听"功能中接收端根据主机同步的 neteaseId 自动获取歌曲
+   * @param neteaseId - 网易云音乐歌曲ID
+   */
+  const playNeteaseById = useCallback(async (neteaseId: number) => {
+    setErrorMessage(null);
+    setLyricsLoading(true);
+    setLoadingProgress(0);
+
+    try {
+      const songDetails = await getSongDetail(neteaseId);
+      if (!songDetails || songDetails.length === 0) {
+        setErrorMessage('无法获取歌曲详情');
+        setLyricsLoading(false);
+        return;
+      }
+
+      const songDetail = songDetails[0];
+      setLoadingProgress(30);
+
+      const songUrl = await getSongUrl(neteaseId);
+      if (!songUrl) {
+        setErrorMessage('无法获取歌曲播放链接');
+        setLyricsLoading(false);
+        return;
+      }
+
+      setLoadingProgress(60);
+
+      let lyrics: string | undefined;
+      try {
+        const lyricData = await getSongLyric(neteaseId);
+        if (lyricData && lyricData.lyric) {
+          lyrics = lyricData.lyric;
+        }
+      } catch (e) {
+        console.warn('获取歌词失败:', e);
+      }
+
+      setLoadingProgress(80);
+
+      const coverUrl = songDetail.album.picUrl 
+        ? getAlbumCoverUrl(songDetail.album.picUrl, 800, true) 
+        : undefined;
+
+      const playlistItem: PlaylistItem = {
+        name: songDetail.name,
+        artist: songDetail.artists.map(a => a.name).join(', '),
+        url: songUrl,
+        themeColor: '#C20C0C',
+        neteaseId: neteaseId,
+        artistIds: songDetail.artists.map(a => a.id),
+        coverUrl: coverUrl,
+        lyrics: lyrics,
+        album: songDetail.album.name,
+      };
+
+      const existingIndex = neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
+      let index: number;
+
+      if (existingIndex === -1) {
+        const newPlaylist = [...neteasePlaylist, playlistItem];
+        setNeteasePlaylist(newPlaylist);
+        index = newPlaylist.length - 1;
+      } else {
+        index = existingIndex;
+      }
+
+      setNeteaseCurrentIndex(index);
+      setLoadingProgress(100);
+
+      loadMusicFromUrl(playlistItem, index);
+    } catch (error: any) {
+      console.error('根据ID播放歌曲失败:', error);
+      setErrorMessage(error.message || '播放歌曲失败');
+      setLyricsLoading(false);
+      setLoadingProgress(null);
+    }
+  }, [loadMusicFromUrl, neteasePlaylist, setNeteasePlaylist]);
+
   //region URL 参数处理 Hook
   const { processPendingParams, hasPendingParams } = useQueryParams({
     onPlayNeteaseMusic: (item, index) => {
@@ -1036,6 +1130,14 @@ const App: React.FC = () => {
           onClick={() => handleTabChange('netease')}
         />
         <SidebarItem
+          icon={Users}
+          label={<>
+            一起听<span className="bg-white/10 text-white px-2 rounded-full text-xs">Beta</span></>
+          }
+          isActive={activeTab === 'together'}
+          onClick={() => handleTabChange('together')}
+        />
+        <SidebarItem
           icon={ListMusic}
           label="本地歌曲"
           isActive={activeTab === 'songs'}
@@ -1355,6 +1457,53 @@ const App: React.FC = () => {
     );
   }, [activeTab, isTransitioning, renderArtistsView, renderNeteaseView, renderSettingsView, renderSongsView]);
 
+  //region 一起听面板 - 始终保持挂载，通过 CSS 控制显示/隐藏
+  const currentTrackItem: PlaylistItem | null = track ? {
+    name: track.metadata.title,
+    artist: track.metadata.artist,
+    neteaseId: track.neteaseId,
+    coverUrl: track.metadata.coverUrl || undefined,
+    url: track.objectUrl,
+    artistIds: track.artistIds,
+  } : null;
+
+  const togetherListenPanel = (
+    <div 
+      className={`absolute inset-0 z-10 transition-opacity duration-300 ${
+        activeTab === 'together' && !showFullPlayer 
+          ? 'opacity-100 pointer-events-auto' 
+          : 'opacity-0 pointer-events-none'
+      }`}
+    >
+      <div className="h-full flex flex-col">
+        <div className="p-6 border-b border-white/[0.05]">
+          <h2 className="text-2xl font-bold text-white drop-shadow-md">一起听</h2>
+          <p className="text-sm text-white/40 mt-1 drop-shadow-sm">邀请好友一起听歌</p>
+        </div>
+        
+        <div className="flex-1 overflow-hidden">
+          <TogetherListenPanel
+            ref={togetherListenRef}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            currentTrack={currentTrackItem}
+            onPlayPause={togglePlay}
+            onSeek={handleSeek}
+            onTrackChange={(neteaseId) => {
+              const index = neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
+              if (index !== -1) {
+                loadNeteaseMusic(neteasePlaylist[index], index);
+              } else {
+                playNeteaseById(neteaseId);
+              }
+            }}
+            formatTime={formatTime}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(selectedFont) }}>
       {/* Global Background - always visible */}
@@ -1401,7 +1550,10 @@ const App: React.FC = () => {
         {renderSidebar()}
 
         {/* Main Content */}
-        {renderMainContent()}
+        <div className="flex-1 relative overflow-hidden">
+          {activeTab !== 'together' && renderMainContent()}
+          {togetherListenPanel}
+        </div>
 
         {/* Error Toast */}
         {errorMessage && (
@@ -1428,6 +1580,7 @@ const App: React.FC = () => {
         onOpenPlayer={() => setShowFullPlayer(!showFullPlayer)}
         isFullPlayerOpen={showFullPlayer}
         formatTime={formatTime}
+        isTogetherListenConnected={isTogetherListenConnected}
       />
 
       {/* Full Player - overlay when showFullPlayer is true */}
@@ -1455,6 +1608,7 @@ const App: React.FC = () => {
             onSeek={handleSeek}
             formatTime={formatTime}
             onArtistClick={handleArtistClick}
+            isTogetherListenConnected={isTogetherListenConnected}
           />
         </div>
       )}
