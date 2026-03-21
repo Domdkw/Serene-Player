@@ -14,6 +14,9 @@ import {
   Wifi,
   WifiOff,
   AlertCircle,
+  Joystick,
+  DoorOpen,
+  UserPlus,
 } from 'lucide-react';
 import {
   PeerConnection,
@@ -430,7 +433,6 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
 
   const renderIdleState = () => (
     <div className="flex flex-col items-center justify-center h-full text-white/60">
-      <Users size={48} className="mb-4 opacity-30" />
       <h3 className="text-lg font-semibold mb-2 text-white/80">一起听</h3>
       <p className="text-xs text-center mb-6 max-w-xs text-white/40">
         邀请好友一起听歌
@@ -440,14 +442,14 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
           onClick={handleCreateRoom}
           className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm font-medium transition-all flex items-center gap-2"
         >
-          <Link2 size={16} />
+          <UserPlus size={16} />
           创建房间
         </button>
         <button
           onClick={() => setMode('joining')}
           className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/70 text-sm font-medium transition-all flex items-center gap-2 border border-white/10"
         >
-          <Users size={16} />
+          <DoorOpen size={16} />
           加入房间
         </button>
       </div>

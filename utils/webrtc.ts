@@ -32,11 +32,13 @@ export interface PeerConnectionCallbacks {
 }
 
 const STUN_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
   { urls: 'stun:stun.miwifi.com:3478' },
   { urls: 'stun:stun.chat.bilibili.com:3478' },
-  { urls: 'stun:stun.qq.com:3478' },
-  { urls: 'stun:stun.nextcloud.com:3478' },
-  { urls: 'stun:stun.google.com:19302' },
 ];
 
 /**
@@ -301,11 +303,12 @@ export class PeerConnection {
         this.log('ice', 'ICE 候选收集完成');
       }
     };
-
+    /*
     this.peerConnection.onicecandidateerror = (event) => {
       const errorEvent = event as RTCPeerConnectionIceErrorEvent;
       this.log('error', `ICE 候选错误`, `URL: ${errorEvent.url}, Code: ${errorEvent.errorCode}, Text: ${errorEvent.errorText}`);
     };
+    */
   }
 
   /**

@@ -276,16 +276,28 @@ const App: React.FC = () => {
     return () => clearInterval(checkInterval);
   }, []);
 
-  //region 逐字歌词时间更新 - 100ms 高精度刷新
+  /**
+   * 检测当前歌词类型
+   * @returns 'word' - 逐字歌词, 'line' - 逐行歌词, 'none' - 无歌词
+   */
+  const lyricsType = useMemo(() => {
+    const parsedLyrics = track?.metadata?.parsedLyrics;
+    if (!parsedLyrics || parsedLyrics.length === 0) return 'none';
+    const firstLine = parsedLyrics[0];
+    if (firstLine.chars && firstLine.chars.length > 0) return 'word';
+    return 'line';
+  }, [track?.metadata?.parsedLyrics]);
+
+  //region 歌词时间更新 - 根据歌词类型动态调整刷新间隔
   useEffect(() => {
     const interval = setInterval(() => {
       if (audioRef.current && !audioRef.current.paused) {
         setCurrentTime(audioRef.current.currentTime);
       }
-    }, 100);
+    }, lyricsType === 'word' ? 100 : 250);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [lyricsType]);
 
   //region 保存翻译显示设置到 LocalStorage
   useEffect(() => {
