@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { Search, Loader2, Play, Pause, Music, Heart, Trash2, ArrowLeft, Flame, TrendingUp } from 'lucide-react';
+import { Search, Loader2, Play, Pause, Music, Heart, Trash2, Flame, TrendingUp, ChevronLeft } from 'lucide-react';
 import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, getHotSearchDetail, getSearchSuggestion, NeteaseSong, NeteaseSongDetail, NeteaseHotSearch, formatDuration } from '../apis/netease';
 import { PlaylistItem } from '../types';
 import LazyImage from './LazyImage';
@@ -32,8 +32,16 @@ interface NeteasePanelProps {
   onSearchComplete?: (results: NeteaseSong[]) => void;
 }
 
+interface LoadingStatus {
+  loading: boolean;
+  error: boolean;
+  songId: number | null;
+}
+
 const FAVORITES_STORAGE_KEY = 'netease_favorites';
 const SEARCH_HISTORY_KEY = 'netease_search_history';
+const HOT_SEARCH_KEY = 'netease_hot_search';
+const HOT_SEARCH_CACHE_DURATION = 5 * 60 * 1000; // 5 分钟
 const SEARCH_HISTORY_LIMIT = 5;
 
 const loadFavorites = (): FavoriteSong[] => {
@@ -74,6 +82,38 @@ const addSearchHistory = (keyword: string) => {
   return newHistory;
 };
 
+interface HotSearchCache {
+  data: NeteaseHotSearch[];
+  timestamp: number;
+}
+
+const loadHotSearchCache = (): HotSearchCache | null => {
+  try {
+    const stored = localStorage.getItem(HOT_SEARCH_KEY);
+    if (!stored) return null;
+    
+    const cache: HotSearchCache = JSON.parse(stored);
+    const isExpired = Date.now() - cache.timestamp > HOT_SEARCH_CACHE_DURATION;
+    
+    if (isExpired) {
+      localStorage.removeItem(HOT_SEARCH_KEY);
+      return null;
+    }
+    
+    return cache;
+  } catch {
+    return null;
+  }
+};
+
+const saveHotSearchCache = (data: NeteaseHotSearch[]) => {
+  const cache: HotSearchCache = {
+    data,
+    timestamp: Date.now(),
+  };
+  localStorage.setItem(HOT_SEARCH_KEY, JSON.stringify(cache));
+};
+
 const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<NeteasePanelRef> }> = ({
   onTrackSelect,
   currentTrackUrl,
@@ -93,24 +133,20 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   const [hasSearched, setHasSearched] = useState(false);
   const [loadingSongId, setLoadingSongId] = useState<number | null>(null);
   const [favorites, setFavorites] = useState<FavoriteSong[]>(() => loadFavorites());
-  const [showSearch, setShowSearch] = useState(() => loadFavorites().length === 0);
+  const [activeTab, setActiveTab] = useState<'search' | 'favorites'>('favorites');
   const [searchHistory, setSearchHistory] = useState<string[]>(() => loadSearchHistory());
   const [hotSearchList, setHotSearchList] = useState<NeteaseHotSearch[]>([]);
   const [suggestions, setSuggestions] = useState<{ keyword: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState<LoadingStatus>({ loading: false, error: false, songId: null });
   const skipSuggestionRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchQueryRef = useRef(searchQuery);
 
   /**
-   * 当喜欢列表为空时，自动显示搜索界面
+   * 喜欢列表为空时，保持显示"我喜欢"界面
    */
-  useEffect(() => {
-    if (favorites.length === 0 && !showSearch) {
-      setShowSearch(true);
-    }
-  }, [favorites.length, showSearch]);
 
   // 更新 searchQueryRef
   useEffect(() => {
@@ -120,19 +156,32 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
 
 
   /**
-   * 加载热搜列表
+   * 加载热搜列表（仅在打开搜索界面时）
    */
   useEffect(() => {
+    if (activeTab !== 'search') {
+      return;
+    }
+
     const loadHotSearch = async () => {
+      // 优先从缓存加载
+      const cache = loadHotSearchCache();
+      if (cache) {
+        setHotSearchList(cache.data);
+        return;
+      }
+
+      // 缓存不存在或已过期，从网络加载
       try {
         const result = await getHotSearchDetail();
         setHotSearchList(result);
+        saveHotSearchCache(result);
       } catch (error) {
         console.error('加载热搜失败:', error);
       }
     };
     loadHotSearch();
-  }, []);
+  }, [activeTab]);
 
   /**
    * 搜索建议防抖
@@ -273,7 +322,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
    * 打开搜索界面
    */
   const openSearch = useCallback(() => {
-    setShowSearch(true);
+    setActiveTab('search');
   }, []);
 
   // 暴露方法给父组件
@@ -310,12 +359,15 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
 
   const handlePlaySong = useCallback(async (song: NeteaseSong) => {
     setLoadingSongId(song.id);
+    setLoadingStatus({ loading: true, error: false, songId: song.id });
 
     try {
       const songUrl = await getSongUrl(song.id);
 
       if (!songUrl) {
-        console.error('无法获取歌曲URL');
+        console.error('无法获取歌曲 URL');
+        setLoadingStatus({ loading: false, error: true, songId: song.id });
+        setLoadingSongId(null);
         return;
       }
 
@@ -356,8 +408,10 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       }
 
       onTrackSelect(playlistItem, index);
+      setLoadingStatus({ loading: false, error: false, songId: null });
     } catch (error) {
       console.error('播放歌曲失败:', error);
+      setLoadingStatus({ loading: false, error: true, songId: song.id });
     } finally {
       setLoadingSongId(null);
     }
@@ -365,12 +419,15 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
 
   const handlePlayFavorite = useCallback(async (favorite: FavoriteSong) => {
     setLoadingSongId(favorite.id);
+    setLoadingStatus({ loading: true, error: false, songId: favorite.id });
 
     try {
       const songUrl = await getSongUrl(favorite.id);
 
       if (!songUrl) {
         console.error('无法获取歌曲 URL');
+        setLoadingStatus({ loading: false, error: true, songId: favorite.id });
+        setLoadingSongId(null);
         return;
       }
 
@@ -408,8 +465,10 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       }
 
       onTrackSelect(playlistItem, index);
+      setLoadingStatus({ loading: false, error: false, songId: null });
     } catch (error) {
       console.error('播放歌曲失败:', error);
+      setLoadingStatus({ loading: false, error: true, songId: favorite.id });
     } finally {
       setLoadingSongId(null);
     }
@@ -458,10 +517,33 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   }, [onAddToPlaylist, songDetails]);
 
   useEffect(() => {
-    if (showSearch && searchInputRef.current) {
+    if (activeTab === 'search' && searchInputRef.current) {
       searchInputRef.current.focus();
     }
-  }, [showSearch]);
+  }, [activeTab]);
+
+  const renderLoadingBadge = () => {
+    if (!loadingStatus.songId) return null;
+
+    if (loadingStatus.loading) {
+      return (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-xl z-50 animate-pulse">
+          <Loader2 size={16} className="animate-spin" />
+          <span className="text-sm font-medium">正在加载音乐...</span>
+        </div>
+      );
+    }
+
+    if (loadingStatus.error) {
+      return (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-xl z-50">
+          <span className="text-sm font-medium">无法加载音乐</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   const renderSearchResults = () => (
     <div className="space-y-1.5 md:space-y-2">
@@ -478,7 +560,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
           <div
             key={song.id}
             onClick={() => handlePlaySong(song)}
-            className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer ${
+            className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer relative ${
               isCurrentTrack
                 ? 'bg-white/10 border border-white/20'
                 : 'bg-white/5 border border-white/[0.05] hover:bg-white/[0.08]'
@@ -609,54 +691,75 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   };
 
   return (
-    <div className="h-full flex flex-col p-1 md:p-3">
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white mb-2">
-              {showSearch ? '搜索歌曲' : '我喜欢'}
-            </h2>
-            <p className="text-white/40 text-sm">
-              {showSearch ? '搜索并添加喜欢的歌曲' : `${favorites.length} 首歌曲`}
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {!showSearch && favorites.length > 0 && (
-              <button
-                onClick={clearFavorites}
-                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-medium transition-all flex items-center gap-2"
-                title="清空喜欢列表"
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
-            
-            {!(showSearch && favorites.length === 0) && (
-              <button
-                onClick={() => setShowSearch(!showSearch)}
-                className="w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-all flex items-center justify-center md:justify-start gap-2"
-              >
-                {showSearch ? (
-                  <>
-                    <ArrowLeft size={16} />
-                    <span className="hidden md:inline">返回</span>
-                  </>
-                ) : (
-                  <>
-                    <Search size={16} />
-                    <span className="hidden md:inline">搜索</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+    <div className="h-full flex flex-col p-1 md:p-3 relative">
+      {renderLoadingBadge()}
+      
+      {/* 顶部标签切换栏 */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex gap-1 bg-white/5 p-1 rounded-lg">
+          <button
+            onClick={() => setActiveTab('search')}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+              activeTab === 'search'
+                ? 'bg-white/20 text-white'
+                : 'text-white/60 hover:text-white/80 hover:bg-white/10'
+            }`}
+          >
+            <Search size={14} />
+            搜索
+          </button>
+          <button
+            onClick={() => setActiveTab('favorites')}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+              activeTab === 'favorites'
+                ? 'bg-white/20 text-white'
+                : 'text-white/60 hover:text-white/80 hover:bg-white/10'
+            }`}
+          >
+            <Heart size={14} fill={activeTab === 'favorites' ? 'currentColor' : 'none'} />
+            我喜欢
+          </button>
         </div>
+
+        {/* 清空按钮 */}
+        {activeTab === 'favorites' && favorites.length > 0 && (
+          <button
+            onClick={clearFavorites}
+            className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-all"
+            title="清空喜欢列表"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
 
-      {showSearch && (
+      {/* 标题区域 */}
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-white">
+          {activeTab === 'search' ? '搜索歌曲' : '我喜欢'}
+        </h2>
+        <p className="text-white/40 text-xs mt-0.5">
+          {activeTab === 'search' ? '搜索并添加喜欢的歌曲' : `${favorites.length} 首歌曲`}
+        </p>
+      </div>
+
+      {/* 搜索栏 - 仅在搜索标签页显示 */}
+      {activeTab === 'search' && (
         <div className="mb-1">
           <div className="flex items-center gap-2 md:gap-3">
+            {hasSearched && (
+              <button
+                onClick={() => {
+                  setHasSearched(false);
+                  setSearchQuery('');
+                  setSearchResults([]);
+                }}
+                className="p-2 md:p-2.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-xl transition-colors flex items-center justify-center"
+                title="返回搜索"
+              >
+                <ChevronLeft size={14} md:size={18} />
+              </button>
+            )}
             <div className="flex-1 relative">
               <Search size={14} md:size={18} className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-white/40" />
               <input
@@ -718,7 +821,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       )}
 
       <div className="flex-1 overflow-y-auto playlist-scrollbar">
-        {showSearch ? (
+        {activeTab === 'search' ? (
           !hasSearched ? (
             <div className="py-4">
               {searchHistory.length > 0 ? (
@@ -777,9 +880,18 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                         <p className="text-white/40 text-xs truncate mt-0.5">{item.content}</p>
                       )}
                     </div>
-                    {item.iconUrl && (
-                      <Flame size={14} className="text-white/30 flex-shrink-0" />
-                    )}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {item.iconUrl && (
+                        <Flame size={14} className="text-orange-400 flex-shrink-0" />
+                      )}
+                      <span className="text-xs text-white/50 font-medium">
+                        {item.score >= 1000000 
+                          ? `${(item.score / 10000).toFixed(1)}万` 
+                          : item.score >= 10000 
+                            ? `${(item.score / 10000).toFixed(1)}万`
+                            : item.score}
+                      </span>
+                    </div>
                   </div>
                 ))}
                 {hotSearchList.length === 0 && (

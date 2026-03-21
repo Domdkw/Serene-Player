@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive, Users } from 'lucide-react';
 import { Track } from '../types';
 
 interface MiniPlayerBarProps {
@@ -17,6 +17,7 @@ interface MiniPlayerBarProps {
   onOpenPlayer: () => void;
   isFullPlayerOpen: boolean;
   formatTime: (time: number) => string;
+  isTogetherListenConnected?: boolean;
 }
 
 const PlaybackModeIcon = memo(({ mode }: { mode: 'single' | 'list' | 'shuffle' }) => {
@@ -39,7 +40,8 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   onSeek,
   onOpenPlayer,
   isFullPlayerOpen,
-  formatTime
+  formatTime,
+  isTogetherListenConnected = false,
 }) => {
   const hasTrack = track !== null;
   const hasLyrics = hasTrack && track.metadata.parsedLyrics && track.metadata.parsedLyrics.length > 0;
@@ -136,14 +138,30 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
             title={isFullPlayerOpen ? '关闭播放页' : '打开播放页'}
           >
             {hasTrack && track.metadata.coverUrl ? (
-              <img
-                src={track.metadata.coverUrl}
-                alt="Cover"
-                className="w-12 h-12 rounded-lg object-cover"
-              />
+              <div 
+                className="shrink-0 transition-all duration-500 ease-out overflow-hidden"
+                style={{
+                  width: isFullPlayerOpen ? '0px' : '48px',
+                  opacity: isFullPlayerOpen ? 0 : 1,
+                }}
+              >
+                <img
+                  src={track.metadata.coverUrl}
+                  alt="Cover"
+                  className="w-12 h-12 rounded-lg object-cover"
+                />
+              </div>
             ) : (
-              <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center">
-                <Music size={20} className="text-white/40" />
+              <div 
+                className="shrink-0 transition-all duration-500 ease-out overflow-hidden"
+                style={{
+                  width: isFullPlayerOpen ? '0px' : '48px',
+                  opacity: isFullPlayerOpen ? 0 : 1,
+                }}
+              >
+                <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center">
+                  <Music size={20} className="text-white/40" />
+                </div>
               </div>
             )}
             <div className="min-w-0">
@@ -223,6 +241,17 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
           </div>
 
           <div className="w-1/4 flex justify-end items-center gap-4">
+            {/* 一起听连接状态指示器 */}
+            {isTogetherListenConnected && (
+              <div className="relative group">
+                <Users size={16} className="text-green-400" />
+                <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-black/80 backdrop-blur-sm text-xs text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10">
+                  一起听已连接
+                  <div className="absolute top-full right-3 border-4 border-transparent border-t-black/80"></div>
+                </div>
+              </div>
+            )}
+            
             {/* 圆盘图标 - 滚动控制播放进度 */}
             <div
               ref={discRef}
