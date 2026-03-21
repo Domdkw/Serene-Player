@@ -133,7 +133,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   const [hasSearched, setHasSearched] = useState(false);
   const [loadingSongId, setLoadingSongId] = useState<number | null>(null);
   const [favorites, setFavorites] = useState<FavoriteSong[]>(() => loadFavorites());
-  const [activeTab, setActiveTab] = useState<'search' | 'favorites'>('search');
+  const [activeTab, setActiveTab] = useState<'search' | 'favorites'>('favorites');
   const [searchHistory, setSearchHistory] = useState<string[]>(() => loadSearchHistory());
   const [hotSearchList, setHotSearchList] = useState<NeteaseHotSearch[]>([]);
   const [suggestions, setSuggestions] = useState<{ keyword: string }[]>([]);
@@ -145,13 +145,8 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   const searchQueryRef = useRef(searchQuery);
 
   /**
-   * 当喜欢列表为空时，自动切换到搜索标签页
+   * 喜欢列表为空时，保持显示"我喜欢"界面
    */
-  useEffect(() => {
-    if (favorites.length === 0 && activeTab === 'favorites') {
-      setActiveTab('search');
-    }
-  }, [favorites.length, activeTab]);
 
   // 更新 searchQueryRef
   useEffect(() => {
