@@ -14,14 +14,12 @@ import {
   Wifi,
   WifiOff,
   AlertCircle,
-  Music,
-  Play,
-  Pause,
 } from 'lucide-react';
 import {
   PeerConnection,
   SyncMessage,
   ConnectionState,
+  ConnectionLog,
   serializeSignalData,
   deserializeSignalData,
   compressSignalData,
@@ -46,6 +44,13 @@ export interface TogetherListenPanelRef {
 
 type ConnectionMode = 'idle' | 'hosting' | 'joining' | 'connected';
 
+interface LogEntry {
+  time: string;
+  message: string;
+  details?: string;
+  type: 'info' | 'sync' | 'error' | 'stun' | 'ice' | 'connection' | 'datachannel';
+}
+
 const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPanelProps>(({
   isPlaying,
   currentTime,
@@ -61,12 +66,14 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
   const [inputSignalData, setInputSignalData] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
 
   const peerConnectionRef = useRef<PeerConnection | null>(null);
   const isRemoteControlRef = useRef<boolean>(false);
   const isHostRef = useRef<boolean>(false);
   const prevTrackIdRef = useRef<number | null>(null);
   const prevIsPlayingRef = useRef<boolean>(isPlaying);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   const propsRef = useRef({
     isPlaying,
@@ -76,6 +83,15 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
     onSeek,
     onTrackChange,
   });
+
+  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info', details?: string) => {
+    const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setLogs(prev => [...prev.slice(-100), { time, message, type, details }]);
+  }, []);
+
+  const handleConnectionLog = useCallback((log: ConnectionLog) => {
+    addLog(log.message, log.type, log.details);
+  }, [addLog]);
 
   useEffect(() => {
     propsRef.current = {
@@ -87,6 +103,10 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
       onTrackChange,
     };
   }, [isPlaying, currentTime, currentTrack, onPlayPause, onSeek, onTrackChange]);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
 
   useImperativeHandle(ref, () => ({
     isConnected: () => peerConnectionRef.current?.isConnected() ?? false,
@@ -105,6 +125,7 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
     setSignalData('');
     setInputSignalData('');
     setError(null);
+    setLogs([]);
   }, []);
 
   const sendMessage = useCallback((type: SyncMessage['type'], payload: SyncMessage['payload']) => {
@@ -113,14 +134,16 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         type,
         payload: { ...payload, timestamp: Date.now() },
       });
+      addLog(`发送: ${type}`, 'sync');
     }
-  }, []);
+  }, [addLog]);
 
   const handleConnectionStateChange = useCallback((state: ConnectionState) => {
     setConnectionState(state);
     if (state.status === 'connected') {
       setMode('connected');
       setError(null);
+      addLog('连接成功', 'connection');
       if (isHostRef.current && propsRef.current.currentTrack?.neteaseId) {
         setTimeout(() => {
           sendMessage('sync_all', {
@@ -131,10 +154,11 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         }, 200);
       }
     } else if (state.status === 'failed') {
+      addLog('连接失败: ' + (state.errorMessage || '未知错误'), 'error');
       setError(state.errorMessage || '连接失败');
       cleanup();
     }
-  }, [cleanup, sendMessage]);
+  }, [cleanup, sendMessage, addLog]);
 
   const handleMessage = useCallback((message: SyncMessage) => {
     isRemoteControlRef.current = true;
@@ -147,10 +171,12 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         if (message.payload.neteaseId) {
           props.onTrackChange(message.payload.neteaseId);
           prevTrackIdRef.current = message.payload.neteaseId;
+          addLog(`切换歌曲 ID: ${message.payload.neteaseId}`, 'sync');
         }
         if (message.payload.isPlaying !== undefined) {
           if (props.isPlaying !== message.payload.isPlaying) {
             props.onPlayPause();
+            addLog(`同步播放状态: ${message.payload.isPlaying ? '播放' : '暂停'}`, 'sync');
           }
         }
         break;
@@ -158,18 +184,21 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
       case 'play':
         if (!props.isPlaying) {
           props.onPlayPause();
+          addLog('同步: 开始播放', 'sync');
         }
         break;
 
       case 'pause':
         if (props.isPlaying) {
           props.onPlayPause();
+          addLog('同步: 暂停播放', 'sync');
         }
         break;
 
       case 'seek':
         if (message.payload.currentTime !== undefined) {
           props.onSeek(message.payload.currentTime);
+          addLog(`同步: 跳转到 ${formatTime(message.payload.currentTime)}`, 'sync');
         }
         break;
 
@@ -187,18 +216,23 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
     setTimeout(() => {
       isRemoteControlRef.current = false;
     }, 200);
-  }, [sendMessage]);
+  }, [sendMessage, addLog, formatTime]);
 
   const handleCreateRoom = async () => {
     try {
       setError(null);
       setMode('hosting');
       isHostRef.current = true;
+      addLog('创建房间中...', 'connection');
 
       const peerConnection = new PeerConnection({
         onConnectionStateChange: handleConnectionStateChange,
         onMessage: handleMessage,
-        onError: (err) => setError(err),
+        onError: (err) => {
+          addLog('错误: ' + err, 'error');
+          setError(err);
+        },
+        onLog: handleConnectionLog,
       });
       peerConnectionRef.current = peerConnection;
 
@@ -206,8 +240,10 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
       const candidates = peerConnection.getLocalIceCandidates();
       const data = serializeSignalData(offer, candidates);
       setSignalData(compressSignalData(data));
+      addLog('房间已创建，等待对方加入', 'connection');
     } catch (err) {
       console.error('Failed to create room:', err);
+      addLog('创建房间失败', 'error');
       setError('创建房间失败');
       cleanup();
     }
@@ -223,11 +259,16 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
       setError(null);
       setMode('joining');
       isHostRef.current = false;
+      addLog('加入房间中...', 'connection');
 
       const peerConnection = new PeerConnection({
         onConnectionStateChange: handleConnectionStateChange,
         onMessage: handleMessage,
-        onError: (err) => setError(err),
+        onError: (err) => {
+          addLog('错误: ' + err, 'error');
+          setError(err);
+        },
+        onLog: handleConnectionLog,
       });
       peerConnectionRef.current = peerConnection;
 
@@ -242,12 +283,14 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
       const answerCandidates = peerConnection.getLocalIceCandidates();
       const data = serializeSignalData(answer, answerCandidates);
       setSignalData(compressSignalData(data));
+      addLog('已生成回复码，请发送给对方', 'connection');
 
       setTimeout(() => {
         sendMessage('request_sync', {});
       }, 500);
     } catch (err) {
       console.error('Failed to join room:', err);
+      addLog('加入房间失败', 'error');
       setError('加入房间失败，请检查连接码是否正确');
       cleanup();
     }
@@ -269,9 +312,11 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
           await peerConnectionRef.current.addIceCandidate(candidate);
         }
         setInputSignalData('');
+        addLog('已接收对方回复，正在建立连接...', 'connection');
       }
     } catch (err) {
       console.error('Failed to handle answer:', err);
+      addLog('连接失败', 'error');
       setError('连接失败，请重试');
     }
   };
@@ -331,36 +376,60 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
   const renderConnectionStatus = () => {
     switch (connectionState.status) {
       case 'connected':
-        return <Wifi size={16} className="text-green-400" />;
+        return <Wifi size={14} className="text-green-400" />;
       case 'connecting':
-        return <Loader2 size={16} className="text-yellow-400 animate-spin" />;
+        return <Loader2 size={14} className="text-yellow-400 animate-spin" />;
       case 'failed':
-        return <AlertCircle size={16} className="text-red-400" />;
+        return <AlertCircle size={14} className="text-red-400" />;
       default:
-        return <WifiOff size={16} className="text-white/40" />;
+        return <WifiOff size={14} className="text-white/40" />;
+    }
+  };
+
+  const getLogColor = (type: LogEntry['type']): string => {
+    switch (type) {
+      case 'error': return 'text-red-400';
+      case 'sync': return 'text-green-400';
+      case 'stun': return 'text-purple-400';
+      case 'ice': return 'text-cyan-400';
+      case 'connection': return 'text-yellow-400';
+      case 'datachannel': return 'text-blue-400';
+      default: return 'text-white/50';
+    }
+  };
+
+  const getLogPrefix = (type: LogEntry['type']): string => {
+    switch (type) {
+      case 'stun': return '[STUN]';
+      case 'ice': return '[ICE]';
+      case 'connection': return '[CONN]';
+      case 'datachannel': return '[DATA]';
+      case 'sync': return '[SYNC]';
+      case 'error': return '[ERR]';
+      default: return '[INFO]';
     }
   };
 
   const renderIdleState = () => (
     <div className="flex flex-col items-center justify-center h-full text-white/60">
-      <Users size={64} className="mb-6 opacity-30" />
-      <h3 className="text-xl font-semibold mb-2 text-white/80">一起听</h3>
-      <p className="text-sm text-center mb-8 max-w-xs">
-        邀请好友一起听歌，实时同步播放状态
+      <Users size={48} className="mb-4 opacity-30" />
+      <h3 className="text-lg font-semibold mb-2 text-white/80">一起听</h3>
+      <p className="text-xs text-center mb-6 max-w-xs text-white/40">
+        邀请好友一起听歌
       </p>
-      <div className="flex gap-4">
+      <div className="flex gap-3">
         <button
           onClick={handleCreateRoom}
-          className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium transition-all flex items-center gap-2"
+          className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm font-medium transition-all flex items-center gap-2"
         >
-          <Link2 size={18} />
+          <Link2 size={16} />
           创建房间
         </button>
         <button
           onClick={() => setMode('joining')}
-          className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-white/80 font-medium transition-all flex items-center gap-2 border border-white/10"
+          className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/70 text-sm font-medium transition-all flex items-center gap-2 border border-white/10"
         >
-          <Users size={18} />
+          <Users size={16} />
           加入房间
         </button>
       </div>
@@ -368,103 +437,87 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
   );
 
   const renderHostingState = () => (
-    <div className="flex flex-col items-center justify-center h-full text-white">
-      <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-6">
-        <Loader2 size={32} className="animate-spin text-white/60" />
+    <div className="flex flex-col h-full p-4">
+      <div className="flex items-center gap-2 mb-4">
+        <Loader2 size={16} className="animate-spin text-white/60" />
+        <span className="text-sm text-white/80">等待对方加入...</span>
       </div>
-      <h3 className="text-xl font-semibold mb-6">房间已创建</h3>
-      <div className="w-full max-w-md mb-6">
-        <label className="block text-sm text-white/60 mb-2">连接码（发送给好友）</label>
+      <div className="mb-3">
+        <label className="block text-xs text-white/40 mb-1">连接码</label>
         <div className="flex gap-2">
           <input
             type="text"
             value={signalData}
             readOnly
-            className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm truncate"
+            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-xs truncate"
           />
-          <button
-            onClick={handleCopy}
-            className="px-4 py-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all"
-          >
-            {copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
+          <button onClick={handleCopy} className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all">
+            {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
           </button>
         </div>
       </div>
-      <div className="w-full max-w-md mb-6">
-        <label className="block text-sm text-white/60 mb-2">好友的连接码</label>
+      <div className="mb-4">
+        <label className="block text-xs text-white/40 mb-1">对方回复码</label>
         <div className="flex gap-2">
           <input
             type="text"
             value={inputSignalData}
             onChange={(e) => setInputSignalData(e.target.value)}
-            placeholder="粘贴好友的连接码..."
-            className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 text-sm"
+            placeholder="粘贴对方回复码..."
+            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 text-xs"
           />
           <button
             onClick={handleReceiveAnswer}
             disabled={!inputSignalData.trim()}
-            className="px-4 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all"
+            className="px-3 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all text-xs"
           >
             连接
           </button>
         </div>
       </div>
-      <button
-        onClick={cleanup}
-        className="px-4 py-2 text-white/60 hover:text-white transition-colors text-sm"
-      >
+      <button onClick={cleanup} className="text-xs text-white/40 hover:text-white transition-colors">
         取消
       </button>
     </div>
   );
 
   const renderJoiningState = () => (
-    <div className="flex flex-col items-center justify-center h-full text-white">
-      <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-6">
-        <Users size={32} className="text-white/60" />
-      </div>
-      <h3 className="text-xl font-semibold mb-2">加入房间</h3>
-      <p className="text-sm text-white/60 mb-6">请粘贴好友发送的连接码</p>
-      <div className="w-full max-w-md mb-6">
+    <div className="flex flex-col h-full p-4">
+      <div className="mb-3">
+        <label className="block text-xs text-white/40 mb-1">对方连接码</label>
         <textarea
           value={inputSignalData}
           onChange={(e) => setInputSignalData(e.target.value)}
           placeholder="粘贴连接码..."
-          rows={4}
-          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 text-sm resize-none"
+          rows={3}
+          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 text-xs resize-none"
         />
       </div>
-      <div className="flex gap-4">
+      <div className="flex gap-2 mb-4">
         <button
           onClick={handleJoinRoom}
           disabled={!inputSignalData.trim()}
-          className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-medium transition-all flex items-center gap-2"
+          className="px-4 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition-all flex items-center gap-2"
         >
-          <Link2 size={18} />
+          <Link2 size={14} />
           加入
         </button>
-        <button
-          onClick={cleanup}
-          className="px-6 py-3 text-white/60 hover:text-white transition-colors"
-        >
+        <button onClick={cleanup} className="px-4 py-2 text-white/40 hover:text-white text-xs transition-colors">
           取消
         </button>
       </div>
       {signalData && (
-        <div className="w-full max-w-md mt-6">
-          <label className="block text-sm text-white/60 mb-2">你的连接码（发送给好友）</label>
+        <div>
+          <label className="block text-xs text-white/40 mb-1">你的回复码</label>
           <div className="flex gap-2">
             <input
               type="text"
               value={signalData}
               readOnly
-              className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm truncate"
+              className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-xs truncate"
             />
-            <button
-              onClick={handleCopy}
-              className="px-4 py-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all"
-            >
-              {copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
+            <button onClick={handleCopy} className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all">
+              {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
             </button>
           </div>
         </div>
@@ -474,71 +527,34 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
 
   const renderConnectedState = () => (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b border-white/[0.05]">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.05]">
+        <div className="flex items-center gap-2">
           {renderConnectionStatus()}
-          <div>
-            <p className="text-sm font-medium text-white">
-              {connectionState.status === 'connected' ? '已连接' : '连接中...'}
-            </p>
-          </div>
+          <span className="text-xs text-white/60">
+            {isHostRef.current ? '主机' : '客户端'}
+          </span>
         </div>
         <button
           onClick={cleanup}
-          className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-all text-sm flex items-center gap-2"
+          className="px-2 py-1 text-xs text-red-400 hover:text-red-300 transition-colors"
         >
-          <X size={16} />
-          断开连接
+          断开
         </button>
       </div>
-
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
-        <div className="w-32 h-32 rounded-2xl bg-white/10 flex items-center justify-center mb-6 overflow-hidden">
-          {currentTrack?.coverUrl ? (
-            <img src={currentTrack.coverUrl} alt="封面" className="w-full h-full object-cover" />
-          ) : (
-            <Music size={48} className="text-white/40" />
-          )}
-        </div>
-
-        <h3 className="text-xl font-semibold text-white mb-1 truncate max-w-xs">
-          {currentTrack?.name || '未在播放'}
-        </h3>
-        <p className="text-sm text-white/60 mb-6 truncate max-w-xs">
-          {currentTrack?.artist || ''}
-        </p>
-
-        <div className="flex items-center justify-center mb-6">
-          <button
-            onClick={() => {
-              onPlayPause();
-              sendMessage(isPlaying ? 'pause' : 'play', { isPlaying: !isPlaying, currentTime });
-            }}
-            className="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center transition-all hover:scale-105"
-          >
-            {isPlaying ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
-          </button>
-        </div>
-
-        <div className="w-full max-w-xs">
-          <div className="flex justify-between text-xs text-white/40 mb-1">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(currentTrack?.duration || 0)}</span>
+      <div className="flex-1 overflow-y-auto p-3 font-mono text-xs">
+        {logs.map((log, i) => (
+          <div key={i} className={`mb-1 ${getLogColor(log.type)}`}>
+            <span className="text-white/30">[{log.time}]</span>
+            <span className="text-white/50">{getLogPrefix(log.type)}</span>{' '}
+            <span className={getLogColor(log.type)}>{log.message}</span>
+            {log.details && (
+              <div className="ml-4 text-white/30 text-[10px] whitespace-pre-wrap break-all">
+                {log.details}
+              </div>
+            )}
           </div>
-          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-white rounded-full transition-all duration-100"
-              style={{ width: `${((currentTime / (currentTrack?.duration || 1)) * 100) || 0}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 border-t border-white/[0.05]">
-        <div className="flex items-center justify-center gap-2 text-sm text-white/40">
-          <Users size={14} />
-          <span>正在一起听歌</span>
-        </div>
+        ))}
+        <div ref={logsEndRef} />
       </div>
     </div>
   );
@@ -546,15 +562,14 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
   return (
     <div className="h-full flex flex-col bg-transparent">
       {error && (
-        <div className="mx-4 mt-4 px-4 py-3 bg-red-500/20 border border-red-500/30 rounded-xl flex items-center gap-2 text-red-300 text-sm">
-          <AlertCircle size={16} />
+        <div className="mx-3 mt-3 px-3 py-2 bg-red-500/20 border border-red-500/30 rounded-lg flex items-center gap-2 text-red-300 text-xs">
+          <AlertCircle size={14} />
           {error}
           <button onClick={() => setError(null)} className="ml-auto hover:text-white transition-colors">
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
       )}
-
       <div className="flex-1 overflow-hidden">
         {mode === 'idle' && renderIdleState()}
         {mode === 'hosting' && renderHostingState()}
