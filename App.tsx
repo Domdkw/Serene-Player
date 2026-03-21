@@ -1479,8 +1479,8 @@ const App: React.FC = () => {
     <div 
       className={`absolute inset-0 z-10 transition-all duration-300 ease-out ${
         activeTab === 'together' && !showFullPlayer && !isTransitioning
-          ? 'opacity-100 translate-y-0' 
-          : 'opacity-0 translate-y-4'
+          ? 'opacity-100 translate-y-0 pointer-events-auto' 
+          : 'opacity-0 translate-y-4 pointer-events-none'
       }`}
     >
       <div className="h-full flex flex-col">
@@ -1561,7 +1561,7 @@ const App: React.FC = () => {
         <div className="flex-1 relative overflow-hidden">
           <div className={`absolute inset-0 transition-all duration-300 ease-out ${
             isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
-          }`}>
+          } ${activeTab === 'together' ? 'pointer-events-none' : 'pointer-events-auto'}`}>
             {activeTab !== 'together' && renderMainContent()}
           </div>
           {togetherListenPanel}
