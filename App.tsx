@@ -1477,10 +1477,10 @@ const App: React.FC = () => {
 
   const togetherListenPanel = (
     <div 
-      className={`absolute inset-0 z-10 transition-all duration-300 ${
-        activeTab === 'together' && !showFullPlayer 
-          ? 'opacity-100 visible' 
-          : 'opacity-0 invisible'
+      className={`absolute inset-0 z-10 transition-all duration-300 ease-out ${
+        activeTab === 'together' && !showFullPlayer && !isTransitioning
+          ? 'opacity-100 translate-y-0' 
+          : 'opacity-0 translate-y-4'
       }`}
     >
       <div className="h-full flex flex-col">

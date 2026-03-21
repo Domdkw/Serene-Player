@@ -433,10 +433,6 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
 
   const renderIdleState = () => (
     <div className="flex flex-col items-center justify-center h-full text-white/60">
-      <h3 className="text-lg font-semibold mb-2 text-white/80">一起听</h3>
-      <p className="text-xs text-center mb-6 max-w-xs text-white/40">
-        邀请好友一起听歌
-      </p>
       <div className="flex gap-3">
         <button
           onClick={handleCreateRoom}
