@@ -7,10 +7,10 @@ import {
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { extractMetadata, parseLyrics } from '../utils/metadata';
 import { MusicLibrary } from '../components/MusicLibrary';
-import { ArtistsView } from './ArtistsView';
+import { ArtistsView } from '../components/ArtistsView';
 import { SearchPanel } from '../components/SearchPanel';
 import { NeteasePanel } from '../components/NeteasePanel';
-import SettingsPanel from './SettingsPanel';
+import SettingsPanel from '../components/SettingsPanel';
 import LyricLine from '../components/LyricLine';
 import fetchInChunks from 'fetch-in-chunks';
 import { getFontFamily, getFontUrl } from '../utils/fontUtils';
@@ -1091,6 +1091,7 @@ const App: React.FC = () => {
         loadingTrackUrl={loadingTrackUrl}
         artistsByLetter={artistsByLetter}
         pinyinLoadError={pinyinLoadError}
+        isMobile={true}
       />
     );
   };
@@ -1624,13 +1625,18 @@ const App: React.FC = () => {
           lineHeight={lineHeight}
           selectedFont={selectedFont}
           backgroundRotate={backgroundRotate}
-          onChunkCountChange={setChunkCount}
-          onFontWeightChange={setFontWeight}
-          onLetterSpacingChange={setLetterSpacing}
-          onLineHeightChange={setLineHeight}
-          onFontChange={setSelectedFont}
+          setChunkCount={setChunkCount}
+          setFontWeight={setFontWeight}
+          setLetterSpacing={setLetterSpacing}
+          setLineHeight={setLineHeight}
+          setSelectedFont={setSelectedFont}
           onBackgroundRotateChange={setBackgroundRotate}
           onClose={() => setIsSettingsOpen(false)}
+          isMobile={true}
+          showTranslation={showTranslation}
+          setShowTranslation={setShowTranslation}
+          streamingMode={streamingMode}
+          setStreamingMode={setStreamingMode}
         />
 
         {/* Navigation Hints */}
