@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X } from 'lucide-react';
 import { PlaylistItem } from '../types';
 
@@ -60,10 +61,16 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     setSearchResults(results);
   }, [searchQuery, playlist, isOpen]);
 
-  if (!isOpen) return null;
-
   return (
-    <div className={`absolute inset-0 ${isMobile ? 'top-0 bg-[#0f0f13]/90' : 'top-[120px] bg-[#0f0f13]/25'} bottom-0 left-0 right-0 backdrop-blur-xl z-40 animate-in fade-in slide-in-from-top-4 duration-300`}>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+          className={`absolute inset-0 ${isMobile ? 'top-0 bg-[#0f0f13]/90' : 'top-[120px] bg-[#0f0f13]/25'} bottom-0 left-0 right-0 backdrop-blur-xl z-40`}
+        >
       <div className="h-full flex flex-col px-2 py-4 md:p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="flex-1 relative">
@@ -135,6 +142,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

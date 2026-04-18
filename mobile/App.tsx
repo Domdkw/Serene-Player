@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, lazy, Suspense, useEffect, useRe
 import {
   Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider, usePlayer } from '../contexts/PlayerContext';
 import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
 import { SettingsProvider, useSettings } from '../contexts/SettingsContext';
@@ -362,15 +363,20 @@ const MobileAppContent: React.FC = () => {
 
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-neutral-800">
         {player.track?.metadata.coverUrl && (
-          <div
-            className={`absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh] transition-all duration-1000 ${
-              settings.backgroundRotate ? 'animate-rotate-cover' : ''
-            }`}
+          <motion.div
+            className="absolute top-1/2 -translate-y-1/2 left-[-200vw] w-[400vw] h-[400vh]"
             style={{
               backgroundImage: `url(${player.track.metadata.coverUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               filter: 'blur(50px) brightness(0.7)',
+            }}
+            animate={settings.backgroundRotate ? { rotate: 360 } : { rotate: 0 }}
+            transition={{
+              duration: 120,
+              ease: 'linear',
+              repeat: Infinity,
+              repeatType: 'loop',
             }}
           />
         )}
@@ -610,7 +616,7 @@ const MobileAppContent: React.FC = () => {
                   size="sm"
                 />
 
-                <div className="flex items-center justify-center gap-4 px-2">
+                <div className="flex items-center gap-4 px-2">
                   {player.track && (
                     <a
                       href={player.track.objectUrl}
@@ -734,9 +740,22 @@ const MobileAppContent: React.FC = () => {
           </>
         )}
 
-        {isCustomSourceOpen && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-sm mx-4 bg-[#1a1a1f] rounded-2xl border border-white/[0.08] shadow-2xl">
+        <AnimatePresence>
+          {isCustomSourceOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ duration: 0.2 }}
+                className="w-full max-w-sm mx-4 bg-[#1a1a1f] rounded-2xl border border-white/[0.08] shadow-2xl"
+              >
               <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
@@ -807,9 +826,10 @@ const MobileAppContent: React.FC = () => {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          </motion.div>
+          )}
+        </AnimatePresence>
 
         {isSettingsOpen && (
           <SettingsPanel

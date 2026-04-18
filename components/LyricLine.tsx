@@ -78,7 +78,7 @@ export const LyricLine: React.FC<LyricLineProps> = ({
         marginTop: isActive ? '2rem' : '1rem',
       }}
     >
-      {/* 时间标签 - 当前歌词激活或悬停时显示，位于歌词右侧水平居中 */}
+      {/* 时间标签 - 当前歌词激活或悬停时显示,位于歌词右侧水平居中 */}
       <div className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-[calc(100%+18px)] flex items-center gap-1.5 text-[14px] text-white/80 font-mono px-2 py-1 rounded-lg z-20 transition-all duration-300 opacity-0 ${
         isActive ? 'group-hover:opacity-100' : 'group-hover:opacity-100'
       } ${isActive ? '!opacity-100' : ''}`}>

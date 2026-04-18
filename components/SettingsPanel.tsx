@@ -14,6 +14,7 @@ import {
   X,
   SlidersHorizontal
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FONT_CONFIGS, getFontFamily } from '../utils/fontUtils';
 import { createStopPropagationProps } from '../utils/swipeUtils';
 
@@ -553,30 +554,32 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   // 移动端模式
   if (isMobile) {
-    if (!isVisible) return null;
-
     return (
-      <>
-        {/* Backdrop */}
-        <div
-          className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] transition-opacity duration-300 ${
-            isAnimating ? 'opacity-100' : 'opacity-0'
-          }`}
-          onClick={onClose}
-        />
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+              onClick={onClose}
+            />
 
-        {/* Settings Panel - Bottom Sheet Style */}
-        <div
-          data-settings-panel
-          className={`fixed left-0 right-0 bottom-0 z-[101] bg-[#1a1a1a] rounded-t-3xl shadow-2xl transition-transform duration-300 ease-out ${
-            isAnimating ? 'translate-y-0' : 'translate-y-full'
-          }`}
-          style={{
-            boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
-            maxHeight: '85vh'
-          }}
-          {...createStopPropagationProps()}
-        >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              data-settings-panel
+              className="fixed left-0 right-0 bottom-0 z-[101] bg-[#1a1a1a] rounded-t-3xl shadow-2xl"
+              style={{
+                boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
+                maxHeight: '85vh'
+              }}
+              {...createStopPropagationProps()}
+            >
           {/* Handle Bar */}
           <div className="flex justify-center pt-3 pb-1">
             <div className="w-10 h-1 bg-white/20 rounded-full" />
@@ -618,8 +621,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               isMobile={true}
             />
           </div>
-        </div>
-      </>
+        </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     );
   }
 
