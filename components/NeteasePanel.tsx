@@ -606,7 +606,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                 }`}
                 title={isLiked ? '从喜欢中移除' : '添加到喜欢'}
               >
-                <Heart size={14} md:size={18} fill={isLiked ? 'currentColor' : 'none'} />
+                <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
               </button>
             </div>
           </div>
@@ -680,7 +680,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                   className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all bg-red-500/20 text-red-400 hover:bg-red-500/30"
                   title="从喜欢中移除"
                 >
-                  <Heart size={14} md:size={18} fill="currentColor" />
+                  <Heart size={18} fill="currentColor" />
                 </button>
               </div>
             </div>
@@ -757,11 +757,11 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                 className="p-2 md:p-2.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-xl transition-colors flex items-center justify-center"
                 title="返回搜索"
               >
-                <ChevronLeft size={14} md:size={18} />
+                <ChevronLeft size={18} />
               </button>
             )}
             <div className="flex-1 relative">
-              <Search size={14} md:size={18} className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-white/40" />
+              <Search size={18} className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-white/40" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -781,12 +781,12 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={14} md:size={18} className="animate-spin" />
+                  <Loader2 size={18} className="animate-spin" />
                   <span className="hidden md:inline">搜索中</span>
                 </>
               ) : (
                 <>
-                  <Search size={14} md:size={18} />
+                  <Search size={18} />
                 </>
               )}
             </button>

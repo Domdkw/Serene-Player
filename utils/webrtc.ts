@@ -9,7 +9,7 @@ export interface SyncMessage {
     currentTime?: number;
     isPlaying?: boolean;
     neteaseId?: number;
-    timestamp: number;
+    timestamp?: number;
   };
 }
 

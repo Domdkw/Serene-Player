@@ -198,7 +198,7 @@ const App: React.FC = () => {
         }
       }
       
-      setPlaylistFolders(processedFolders);
+      setPlaylistFolders(processedFolders as Record<string, PlaylistItem[]>);
       setPlaylist(allTracks);
       setPlaylistReady(true);
       
@@ -1296,6 +1296,7 @@ const App: React.FC = () => {
                   type="file"
                   accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.wma,.ape,.opus,audio/*"
                   className="hidden"
+                  // @ts-ignore
                   webkitdirectory=""
                   directory=""
                   multiple
@@ -1445,21 +1446,21 @@ const App: React.FC = () => {
                   onClick={handlePrev}
                   disabled={!playlist.length}
                   className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-                ><SkipBack size={24} md:size={28} /></button>
+                ><SkipBack size={28} /></button>
                 
                 <button 
                   onClick={togglePlay}
                   disabled={!track}
                   className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 active:scale-90 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] disabled:opacity-30"
                 >
-                  {isPlaying ? <Pause size={24} md:size={28} fill="currentColor" /> : <Play size={24} md:size={28} fill="currentColor" className="ml-1" />}
+                  {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1" />}
                 </button>
                 
                 <button 
                   onClick={handleNext}
                   disabled={!playlist.length}
                   className="text-white/30 hover:text-white transition-all disabled:opacity-5 active:scale-75"
-                ><SkipForward size={24} md:size={28} /></button>
+                ><SkipForward size={28} /></button>
               </div>
 
               <div className="flex items-center justify-start gap-4 p-2 md:p-3">
@@ -1630,7 +1631,7 @@ const App: React.FC = () => {
           setLetterSpacing={setLetterSpacing}
           setLineHeight={setLineHeight}
           setSelectedFont={setSelectedFont}
-          onBackgroundRotateChange={setBackgroundRotate}
+          setBackgroundRotate={setBackgroundRotate}
           onClose={() => setIsSettingsOpen(false)}
           isMobile={true}
           showTranslation={showTranslation}

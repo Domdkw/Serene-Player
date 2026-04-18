@@ -391,7 +391,7 @@ const SettingsContent: React.FC<{
             <OptionButtonGroup
               options={[1, 4, 8, 16]}
               value={chunkCount}
-              onChange={(value) => {
+              onChange={(value: number) => {
                 setChunkCount(value);
                 localStorage.setItem('chunkCount', value.toString());
               }}
