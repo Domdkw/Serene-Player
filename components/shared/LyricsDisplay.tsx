@@ -1,7 +1,9 @@
-import React, { memo, useRef, useEffect, useCallback } from 'react';
+import React, { memo } from 'react';
 import { LyricLine as LyricLineType } from '../../types';
 import LyricLine from '../LyricLine';
 import { getFontFamily } from '../../utils/fontUtils';
+import { getLyricsType } from '../../utils/lyricsUtils';
+import { useLyricsScrolling } from '../../hooks';
 
 interface LyricsDisplayProps {
   lyrics: LyricLineType[];
@@ -35,80 +37,20 @@ const LyricsDisplay: React.FC<LyricsDisplayProps> = memo(({
   formatTime,
   className = '',
 }) => {
-  const lyricsContainerRef = useRef<HTMLDivElement>(null);
-  const activeLyricRef = useRef<HTMLDivElement>(null);
-  const manualScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [isManualScrolling, setIsManualScrolling] = React.useState(false);
+  const {
+    activeIndex,
+    lyricsContainerRef,
+    activeLyricRef,
+    handleUserInteraction,
+  } = useLyricsScrolling({
+    lyrics,
+    currentTime,
+    isPlaying,
+  });
 
-  /**
-   * 计算当前激活的歌词索引
-   */
-  const activeIndex = React.useMemo(() => {
-    if (!lyrics.length) return -1;
-    for (let i = lyrics.length - 1; i >= 0; i--) {
-      if (currentTime >= lyrics[i].time) return i;
-    }
-    return -1;
-  }, [currentTime, lyrics]);
-
-  /**
-   * 判断歌词类型
-   */
   const lyricsType = React.useMemo(() => {
-    if (!lyrics.length) return 'none';
-    return 'line';
+    return getLyricsType(lyrics);
   }, [lyrics]);
-
-  /**
-   * 处理用户交互
-   * 进入手动滚动模式，5秒后恢复自动滚动
-   */
-  const handleUserInteraction = useCallback(() => {
-    setIsManualScrolling(true);
-
-    if (manualScrollTimerRef.current) {
-      clearTimeout(manualScrollTimerRef.current);
-    }
-
-    manualScrollTimerRef.current = setTimeout(() => {
-      if (isPlaying) {
-        setIsManualScrolling(false);
-      }
-    }, 5000);
-  }, [isPlaying]);
-
-  /**
-   * 自动滚动到当前激活的歌词
-   */
-  useEffect(() => {
-    if (isManualScrolling) return;
-
-    if (activeLyricRef.current && lyricsContainerRef.current) {
-      const container = lyricsContainerRef.current;
-      const activeElement = activeLyricRef.current;
-      const containerHeight = container.clientHeight;
-      const elementTop = activeElement.offsetTop;
-      const elementHeight = activeElement.clientHeight;
-
-      const targetScroll = elementTop - containerHeight / 2 + elementHeight / 2;
-
-      container.scrollTo({
-        top: targetScroll,
-        behavior: 'smooth',
-      });
-    }
-  }, [activeIndex, isManualScrolling]);
-
-  /**
-   * 清理定时器
-   */
-  useEffect(() => {
-    return () => {
-      if (manualScrollTimerRef.current) {
-        clearTimeout(manualScrollTimerRef.current);
-      }
-    };
-  }, []);
 
   return (
     <div

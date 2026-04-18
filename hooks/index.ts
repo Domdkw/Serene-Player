@@ -6,3 +6,4 @@ export { useSwipeGesture } from './useSwipeGesture';
 export { useCover3DEffect } from './useCover3DEffect';
 export { usePageNavigation } from './usePageNavigation';
 export { useMobileMenu } from './useMobileMenu';
+export { useLyricsScrolling } from './useLyricsScrolling';

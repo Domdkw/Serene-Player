@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import { Track, LyricLine as ParsedLyric } from '../types';
 import { getFontFamily } from '../utils/fontUtils';
+import { getLyricsType } from '../utils/lyricsUtils';
 import { getArtistDetail, NeteaseArtistDetail } from '../apis/netease';
+import { useLyricsScrolling } from '../hooks';
 import LyricLine from './LyricLine';
 
 function throttle<T extends (...args: any[]) => any>(func: T, limit: number): T {
@@ -77,28 +79,20 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   isTogetherListenConnected = false,
 }) => {
   const coverRef = useRef<HTMLDivElement>(null);
-  const lyricsContainerRef = useRef<HTMLDivElement>(null);
-  const activeLyricRef = useRef<HTMLDivElement>(null);
-  const manualScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const [coverMousePos, setCoverMousePos] = React.useState({ x: 0, y: 0 });
   const [isCoverHovered, setIsCoverHovered] = React.useState(false);
-  const [isManualScrolling, setIsManualScrolling] = React.useState(false);
   const [artistPictures, setArtistPictures] = React.useState<NeteaseArtistDetail[]>([]);
   const [isLoadingArtists, setIsLoadingArtists] = React.useState(false);
-  // 歌词显示/隐藏状态，默认显示歌词（如果存在）
   const [showLyrics, setShowLyrics] = React.useState(true);
-  // 是否显示更多歌手
   const [showAllArtists, setShowAllArtists] = React.useState(false);
 
-  // 解析歌手ID - 使用 artistIds 字段
   const artistIds = React.useMemo(() => {
     const ids = track.artistIds;
     if (!ids || !Array.isArray(ids)) return [];
     return ids.filter(id => !isNaN(id));
   }, [track.artistIds]);
 
-  // 加载歌手图片
   useEffect(() => {
     if (artistIds.length === 0) {
       setArtistPictures([]);
@@ -122,7 +116,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     fetchArtistPictures();
   }, [artistIds]);
 
-  // 3D封面效果 - 使用节流减少状态更新频率 (16ms = ~60fps)
   const handleCoverMouseMove = useCallback(
     throttle((e: React.MouseEvent<HTMLDivElement>) => {
       if (!coverRef.current) return;
@@ -139,61 +132,23 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     setCoverMousePos({ x: 0, y: 0 });
   }, []);
 
-  // 歌词数据
   const lyricsList = track.metadata.parsedLyrics || [];
   const hasLyrics = lyricsList.length > 0;
 
   const lyricsType = React.useMemo(() => {
-    if (!lyricsList.length) return 'none';
-    return 'line';
+    return getLyricsType(lyricsList);
   }, [lyricsList]);
 
-  const activeIndex = React.useMemo(() => {
-    if (!lyricsList.length) return -1;
-    for (let i = lyricsList.length - 1; i >= 0; i--) {
-      if (currentTime >= lyricsList[i].time) return i;
-    }
-    return -1;
-  }, [currentTime, lyricsList]);
-
-  // 处理用户交互的函数
-  const handleUserInteraction = useCallback(() => {
-    // 1. 设为手动模式，停止自动滚动
-    setIsManualScrolling(true);
-
-    // 2. 清除之前的计时器
-    if (manualScrollTimerRef.current) {
-      clearTimeout(manualScrollTimerRef.current);
-    }
-
-    // 3. 设置 5 秒后恢复自动滚动（仅在音乐播放时）
-    manualScrollTimerRef.current = setTimeout(() => {
-      if (isPlaying) {
-        setIsManualScrolling(false);
-      }
-    }, 5000);
-  }, [isPlaying]);
-
-  // 自动滚动歌词
-  useEffect(() => {
-    // 如果处于手动操作期间，直接跳过自动滚动逻辑
-    if (isManualScrolling) return;
-
-    if (activeLyricRef.current && lyricsContainerRef.current) {
-      const container = lyricsContainerRef.current;
-      const activeElement = activeLyricRef.current;
-      const containerHeight = container.clientHeight;
-      const elementTop = activeElement.offsetTop;
-      const elementHeight = activeElement.clientHeight;
-      
-      const targetScroll = elementTop - containerHeight / 2 + elementHeight / 2;
-      
-      container.scrollTo({
-        top: targetScroll,
-        behavior: 'smooth'
-      });
-    }
-  }, [activeIndex, isManualScrolling]);
+  const {
+    activeIndex,
+    lyricsContainerRef,
+    activeLyricRef,
+    handleUserInteraction,
+  } = useLyricsScrolling({
+    lyrics: lyricsList,
+    currentTime,
+    isPlaying,
+  });
 
   return (
     <div className="w-full h-full bg-transparent text-white flex flex-col pb-[80px]">
