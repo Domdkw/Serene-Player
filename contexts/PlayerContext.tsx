@@ -72,8 +72,6 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
   const lyricsType = useMemo(() => {
     const parsedLyrics = track?.metadata?.parsedLyrics;
     if (!parsedLyrics || parsedLyrics.length === 0) return 'none';
-    const firstLine = parsedLyrics[0];
-    if (firstLine.chars && firstLine.chars.length > 0) return 'word';
     return 'line';
   }, [track?.metadata?.parsedLyrics]);
 
@@ -82,9 +80,9 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
       if (audioRef.current && !audioRef.current.paused) {
         setCurrentTime(audioRef.current.currentTime);
       }
-    }, lyricsType === 'word' ? 100 : 250);
+    }, 250);
     return () => clearInterval(interval);
-  }, [lyricsType]);
+  }, []);
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current || !track) return;

@@ -145,8 +145,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   const lyricsType = React.useMemo(() => {
     if (!lyricsList.length) return 'none';
-    const firstLine = lyricsList[0];
-    if (firstLine.chars && firstLine.chars.length > 0) return 'word';
     return 'line';
   }, [lyricsList]);
 

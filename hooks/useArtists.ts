@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { PlaylistItem } from '../types';
 import { parseComposers } from '../utils/composerUtils';
 import { getFirstLetterSync, containsChinese, getArtistsFirstLetters } from '../utils/pinyinLoader';
+import { ErrorService } from '../utils/errorService';
 
 interface UseArtistsOptions {
   playlist: PlaylistItem[];
@@ -102,5 +103,3 @@ export const useArtists = (options: UseArtistsOptions): UseArtistsReturn => {
     pinyinLoadError,
   };
 };
-
-import { ErrorService } from '../utils/errorService';

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Clock } from 'lucide-react';
 import { LyricLine as LyricLineType } from '../types';
 
-export type LyricsType = 'word' | 'line' | 'none';
+export type LyricsType = 'line' | 'none';
 
 interface LyricLineProps {
   line: LyricLineType;
@@ -44,37 +44,6 @@ export const LyricLine: React.FC<LyricLineProps> = ({
   getFontFamily,
 }) => {
   const isAdjacent = activeIndex !== -1 && (idx === activeIndex - 1 || idx === activeIndex + 1);
-
-  // 计算逐字歌词的进度 - 使用 useMemo 缓存计算结果
-  const wordProgress = useMemo((): number => {
-    if (!isActive || lyricsType !== 'word' || !line.chars || line.chars.length === 0) return 0;
-
-    let progress = 0;
-    for (let i = 0; i < line.chars.length; i++) {
-      const char = line.chars[i];
-      const nextChar = line.chars[i + 1];
-
-      let nextCharTime: number;
-      if (nextChar) {
-        nextCharTime = nextChar.time;
-      } else if (nextLineTime && nextLineTime > char.time) {
-        nextCharTime = nextLineTime;
-      } else {
-        nextCharTime = char.time + 1;
-      }
-
-      if (currentTime >= char.time) {
-        if (currentTime < nextCharTime) {
-          const charProgress = (currentTime - char.time) / (nextCharTime - char.time);
-          progress = ((i + charProgress) / line.chars.length) * 100;
-          break;
-        } else {
-          progress = ((i + 1) / line.chars.length) * 100;
-        }
-      }
-    }
-    return Math.min(100, Math.max(0, progress));
-  }, [isActive, lyricsType, line.chars, currentTime, nextLineTime]);
 
   // 计算逐行歌词的进度 - 使用 useMemo 缓存计算结果
   const lineProgress = useMemo((): number => {
@@ -129,13 +98,6 @@ export const LyricLine: React.FC<LyricLineProps> = ({
           }`}
           style={textStyle}
         >
-          {/* 逐字歌词进度背景 */}
-          {isActive && lyricsType === 'word' && line.chars && line.chars.length > 0 && (
-            <span
-              className="absolute left-0 top-0 bottom-0 bg-white/20 rounded-lg -z-10 transition-all duration-50 ease-linear"
-              style={{ width: `${wordProgress}%` }}
-            />
-          )}
           {line.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
         </p>
         {/* 翻译文本 */}
@@ -156,7 +118,7 @@ export const LyricLine: React.FC<LyricLineProps> = ({
       </div>
 
       {/* 逐行歌词进度条 */}
-      {isActive && lyricsType === 'line' && nextLineTime && (
+      {isActive && nextLineTime && (
         <div className="mt-2 w-full h-[2px] bg-white/20 relative overflow-hidden">
           <div
             className="absolute top-0 left-0 h-full bg-white transition-all duration-100"
@@ -188,7 +150,6 @@ export default React.memo(LyricLine, (prevProps, nextProps) => {
   // 检查其他关键 props
   if (prevProps.isActive !== nextProps.isActive) return false;
   if (prevProps.activeIndex !== nextProps.activeIndex) return false;
-  if (prevProps.lyricsType !== nextProps.lyricsType) return false;
   if (prevProps.fontWeight !== nextProps.fontWeight) return false;
   if (prevProps.letterSpacing !== nextProps.letterSpacing) return false;
   if (prevProps.lineHeight !== nextProps.lineHeight) return false;
