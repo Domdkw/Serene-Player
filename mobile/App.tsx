@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, lazy, Suspense, useEffect, useRef } from 'react';
 import {
-  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle
+  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider, usePlayer } from '../contexts/PlayerContext';
@@ -14,6 +14,7 @@ import { SearchPanel } from '../components/SearchPanel';
 import { PlaybackControls, ProgressBar, CoverArt, LyricsDisplay } from '../components/shared';
 import SettingsPanel from '../components/SettingsPanel';
 import LyricLine from '../components/LyricLine';
+import TogetherListenPanel from '../components/TogetherListenPanel';
 
 const NeteasePanel = lazy(() => import('../components/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
 
@@ -32,7 +33,7 @@ const NeteaseIcon = () => (
   <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-3.5 h-3.5" />
 );
 
-type LibraryView = 'songs' | 'artists' | 'netease';
+type LibraryView = 'songs' | 'artists' | 'netease' | 'together';
 
 /**
  * 移动端应用内容组件
@@ -65,6 +66,7 @@ const MobileAppContent: React.FC = () => {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  const togetherListenRef = useRef<any>(null);
   const page0VisitedRef = useRef(page0Visited);
   const handlePageChange = useCallback((page: number) => {
     if (page === 0 && !page0VisitedRef.current) {
@@ -238,17 +240,27 @@ const MobileAppContent: React.FC = () => {
     }
   }, []);
 
+  const currentTrackItem: any | null = player.track ? {
+    name: player.track.metadata.title,
+    artist: player.track.metadata.artist,
+    neteaseId: player.track.neteaseId,
+    coverUrl: player.track.metadata.coverUrl || undefined,
+    url: player.track.objectUrl,
+    artistIds: player.track.artistIds,
+    album: player.track.metadata.album,
+    lyrics: player.track.metadata.lyrics,
+  } : null;
+
   const handleNext = useCallback(() => {
     if (player.playbackMode === 'shuffle') {
+      let randomIndex: number;
       if (playlist.neteasePlaylist.length > 0 && libraryView === 'netease') {
-        let randomIndex;
         do {
           randomIndex = Math.floor(Math.random() * playlist.neteasePlaylist.length);
         } while (playlist.neteasePlaylist.length > 1 && randomIndex === playlist.neteaseCurrentIndex);
         loadNeteaseMusic(playlist.neteasePlaylist[randomIndex], randomIndex);
       } else if (playlist.playlist.length === 0) return;
       else {
-        let randomIndex;
         do {
           randomIndex = Math.floor(Math.random() * playlist.playlist.length);
         } while (playlist.playlist.length > 1 && randomIndex === playlist.currentIndex);
@@ -428,6 +440,15 @@ const MobileAppContent: React.FC = () => {
                 >
                   <User size={14} />
                 </button>
+                <button
+                  onClick={() => setLibraryView('together')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    libraryView === 'together' ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white/80'
+                  }`}
+                  title="一起听"
+                >
+                  <Cable size={14} />
+                </button>
               </div>
 
               {libraryView === 'songs' && (
@@ -498,38 +519,70 @@ const MobileAppContent: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto hide-scrollbar pb-0">
-              {libraryView === 'netease' ? (
-                renderNeteaseView()
-              ) : libraryView === 'songs' ? (
-                <MusicLibrary
-                  playlistFolders={playlist.playlistFolders}
-                  currentFolder={playlist.currentFolder}
-                  setCurrentFolder={playlist.setCurrentFolder}
-                  playlist={playlist.playlist}
-                  currentIndex={playlist.currentIndex}
-                  isPlaying={player.isPlaying}
-                  onTrackSelect={loadMusicFromUrl}
-                  isSidebar={false}
-                  isLoading={player.lyricsLoading}
-                  onLoadLinkedFolder={playlist.loadLinkedFolder}
-                  loadingTrackUrl={player.loadingTrackUrl}
-                  loadingFolders={playlist.loadingFolders}
-                />
-              ) : (
-                <ArtistsView
-                  selectedArtist={selectedArtist}
-                  setSelectedArtist={setSelectedArtist}
-                  playlist={playlist.playlist}
-                  currentIndex={playlist.currentIndex}
-                  isPlaying={player.isPlaying}
-                  loadMusicFromUrl={loadMusicFromUrl}
-                  loadingTrackUrl={player.loadingTrackUrl}
-                  artistsByLetter={artistsByLetter}
-                  pinyinLoadError={pinyinLoadError}
-                  isMobile={true}
-                />
-              )}
-
+              {(() => {
+                switch (libraryView) {
+                  case 'netease':
+                    return renderNeteaseView();
+                  case 'songs':
+                    return (
+                      <Suspense fallback={<LoadingFallback />}>
+                        <MusicLibrary
+                        playlistFolders={playlist.playlistFolders}
+                        currentFolder={playlist.currentFolder}
+                        setCurrentFolder={playlist.setCurrentFolder}
+                        playlist={playlist.playlist}
+                        currentIndex={playlist.currentIndex}
+                        isPlaying={player.isPlaying}
+                        onTrackSelect={loadMusicFromUrl}
+                        isSidebar={false}
+                        isLoading={player.lyricsLoading}
+                        onLoadLinkedFolder={playlist.loadLinkedFolder}
+                        loadingTrackUrl={player.loadingTrackUrl}
+                        loadingFolders={playlist.loadingFolders}
+                        />
+                      </Suspense>
+                    );
+                  case 'artists':
+                    return (
+                      <Suspense fallback={<LoadingFallback />}>
+                        <ArtistsView
+                          selectedArtist={selectedArtist}
+                          setSelectedArtist={setSelectedArtist}
+                          playlist={playlist.playlist}
+                          currentIndex={playlist.currentIndex}
+                          isPlaying={player.isPlaying}
+                          loadMusicFromUrl={loadMusicFromUrl}
+                          loadingTrackUrl={player.loadingTrackUrl}
+                          artistsByLetter={artistsByLetter}
+                          pinyinLoadError={pinyinLoadError}
+                          isMobile={true}
+                        />
+                      </Suspense>
+                    );
+                  case 'together':
+                    return (
+                      <Suspense fallback={<LoadingFallback />}>
+                        <TogetherListenPanel
+                          ref={togetherListenRef}
+                          isPlaying={player.isPlaying}
+                          currentTime={player.currentTime}
+                          currentTrack={currentTrackItem}
+                          onPlayPause={player.togglePlay}
+                          onSeek={(time) => player.handleSeek(time)}
+                          onTrackChange={(neteaseId) => {
+                            const index = playlist.neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
+                            if (index !== -1) {
+                              loadNeteaseMusic(playlist.neteasePlaylist[index], index);
+                            }
+                          }}
+                          formatTime={player.formatTime}
+                        />
+                      </Suspense>
+                    );
+                  default:
+                    return null;
+                }
+              })()}
               <SearchPanel
                 isOpen={isSearchOpen}
                 onClose={() => setIsSearchOpen(false)}

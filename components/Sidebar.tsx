@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import {
-  Music, Settings, User, ListMusic, Users
+  Music, Settings, User, ListMusic, Cable
 } from 'lucide-react';
 
 type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings';
@@ -89,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(({
           onClick={() => onTabChange('netease')}
         />
         <SidebarItem
-          icon={Users}
+          icon={Cable}
           label={<>一起听<span className="bg-white/10 text-white px-2 rounded-full text-xs">Beta</span></>}
           isActive={activeTab === 'together'}
           onClick={() => onTabChange('together')}
