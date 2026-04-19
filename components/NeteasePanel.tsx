@@ -677,7 +677,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                     toggleFavorite({ id: favorite.id } as NeteaseSong);
                   }}
                   disabled={isLoading}
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  className="w-4 h-4 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all bg-red-500/20 text-red-400 hover:bg-red-500/30"
                   title="从喜欢中移除"
                 >
                   <Heart size={18} fill="currentColor" />
