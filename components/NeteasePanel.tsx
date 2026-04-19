@@ -599,7 +599,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                   toggleFavorite(song);
                 }}
                 disabled={isLoading}
-                className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all ${
+                className={`w-4 h-4 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
                   isLiked 
                     ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' 
                     : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'

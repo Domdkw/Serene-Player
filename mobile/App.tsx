@@ -180,6 +180,8 @@ const MobileAppContent: React.FC = () => {
   const {
     handleFileUpload,
     handleFolderUpload,
+    triggerFileUpload,
+    triggerFolderUpload,
   } = useFileUpload({
     onTrackLoad: loadMusicFromUrl,
     addToPlaylist: playlist.addMultipleToPlaylist,
@@ -476,7 +478,7 @@ const MobileAppContent: React.FC = () => {
                   <div className="absolute top-full right-0 mt-2 w-40 bg-black/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
                       onClick={() => {
-                        fileInputRef.current?.click();
+                        triggerFileUpload();
                         uploadMenu.close();
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors text-left"
@@ -487,7 +489,7 @@ const MobileAppContent: React.FC = () => {
                     <div className="h-px bg-white/10 mx-2" />
                     <button
                       onClick={() => {
-                        folderInputRef.current?.click();
+                        triggerFolderUpload();
                         uploadMenu.close();
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors text-left"

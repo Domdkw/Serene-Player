@@ -105,7 +105,9 @@ const AppContent: React.FC = () => {
     fileInputRef,
     folderInputRef,
     handleFileUpload,
-    handleFolderUpload
+    handleFolderUpload,
+    triggerFileUpload,
+    triggerFolderUpload
   } = useFileUpload({
     onTrackLoad: loadMusicFromUrl,
     addToPlaylist: playlist.addMultipleToPlaylist,
@@ -368,13 +370,13 @@ const AppContent: React.FC = () => {
             onLoadLinkedFolder={playlist.loadLinkedFolder}
             onTrackSelect={loadMusicFromUrl}
             onCyclePlaybackMode={cyclePlaybackMode}
-            onFileUpload={() => fileInputRef.current?.click()}
-            onFolderUpload={() => folderInputRef.current?.click()}
+            onFileUpload={triggerFileUpload}
+            onFolderUpload={triggerFolderUpload}
             onSetCustomSourceUrl={settings.setCustomSourceUrl}
           />
         );
     }
-  }, [activeTab, selectedArtist, playlist, player, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, addToNeteasePlaylist, cyclePlaybackMode, fileInputRef, folderInputRef]);
+  }, [activeTab, selectedArtist, playlist, player, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, addToNeteasePlaylist, cyclePlaybackMode, triggerFileUpload, triggerFolderUpload]);
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(settings.selectedFont) }}>

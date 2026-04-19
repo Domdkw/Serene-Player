@@ -15,6 +15,8 @@ interface UseFileUploadReturn {
   folderInputRef: React.RefObject<HTMLInputElement | null>;
   handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleFolderUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+  triggerFileUpload: () => void;
+  triggerFolderUpload: () => void;
 }
 
 const supportedAudioFormats = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma', '.ape', '.opus'];
@@ -34,10 +36,36 @@ export const useFileUpload = (options: UseFileUploadOptions): UseFileUploadRetur
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadLockRef = useRef<{ file: boolean; folder: boolean }>({ file: false, folder: false });
+
+  const resetInput = useCallback((type: 'file' | 'folder') => {
+    const inputRef = type === 'file' ? fileInputRef : folderInputRef;
+    if (inputRef.current) {
+      inputRef.current.value = '';
+      uploadLockRef.current[type] = false;
+    }
+  }, []);
+
+  const triggerFileUpload = useCallback(() => {
+    if (!uploadLockRef.current.file && fileInputRef.current) {
+      uploadLockRef.current.file = true;
+      fileInputRef.current.click();
+    }
+  }, []);
+
+  const triggerFolderUpload = useCallback(() => {
+    if (!uploadLockRef.current.folder && folderInputRef.current) {
+      uploadLockRef.current.folder = true;
+      folderInputRef.current.click();
+    }
+  }, []);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      resetInput('file');
+      return;
+    }
 
     try {
       const metadata = await extractMetadata(file);
@@ -56,16 +84,17 @@ export const useFileUpload = (options: UseFileUploadOptions): UseFileUploadRetur
       onTrackLoad(playlistItem, currentIndex + 1);
     } catch (err) {
       ErrorService.handleError(err as Error, 'File Upload');
+    } finally {
+      resetInput('file');
     }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [onTrackLoad, addToPlaylist, currentIndex]);
+  }, [onTrackLoad, addToPlaylist, currentIndex, resetInput]);
 
   const handleFolderUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0) {
+      resetInput('folder');
+      return;
+    }
 
     const audioFiles: File[] = [];
 
@@ -78,9 +107,7 @@ export const useFileUpload = (options: UseFileUploadOptions): UseFileUploadRetur
 
     if (audioFiles.length === 0) {
       ErrorService.handleError(new Error('No supported audio files found'), 'Folder Upload');
-      if (folderInputRef.current) {
-        folderInputRef.current.value = '';
-      }
+      resetInput('folder');
       return;
     }
 
@@ -119,15 +146,15 @@ export const useFileUpload = (options: UseFileUploadOptions): UseFileUploadRetur
       onTrackLoad(newTracks[0], currentIndex + 1);
     }
 
-    if (folderInputRef.current) {
-      folderInputRef.current.value = '';
-    }
-  }, [onTrackLoad, addToPlaylist, addToPlaylistFolders, currentIndex]);
+    resetInput('folder');
+  }, [onTrackLoad, addToPlaylist, addToPlaylistFolders, currentIndex, resetInput]);
 
   return {
     fileInputRef,
     folderInputRef,
     handleFileUpload,
     handleFolderUpload,
+    triggerFileUpload,
+    triggerFolderUpload,
   };
 };
