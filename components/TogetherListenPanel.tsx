@@ -1,7 +1,7 @@
 /**
- * "一起听"功能面板组件
+ * "一起听"功能面板组件（基于 PeerJS）
  * 实现 P2P 连接和播放状态同步
- * 简化同步策略：切换音乐直接发送ID，对方直接切换
+ * 简化同步策略：切换音乐直接发送 ID，对方直接切换
  */
 import React, { useState, useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
@@ -23,10 +23,7 @@ import {
   SyncMessage,
   ConnectionState,
   ConnectionLog,
-  serializeSignalData,
-  deserializeSignalData,
-  compressSignalData,
-  decompressSignalData,
+  validateRoomId,
 } from '../utils/webrtc';
 import { PlaylistItem } from '../types';
 
@@ -65,12 +62,12 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
 }, ref) => {
   const [mode, setMode] = useState<ConnectionMode>('idle');
   const [connectionState, setConnectionState] = useState<ConnectionState>({ status: 'disconnected' });
-  const [signalData, setSignalData] = useState<string>('');
-  const [inputSignalData, setInputSignalData] = useState<string>('');
+  const [roomId, setRoomId] = useState<string>('');
+  const [inputRoomId, setInputRoomId] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [reconnectHint, setReconnectHint] = useState<{ wasHost: boolean; lastSignalData: string } | null>(null);
+  const [reconnectHint, setReconnectHint] = useState<{ wasHost: boolean; lastRoomId: string } | null>(null);
 
   const peerConnectionRef = useRef<PeerConnection | null>(null);
   const isRemoteControlRef = useRef<boolean>(false);
@@ -127,8 +124,8 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
     isRemoteControlRef.current = false;
     prevTrackIdRef.current = null;
     setMode('idle');
-    setSignalData('');
-    setInputSignalData('');
+    setRoomId('');
+    setInputRoomId('');
     setError(null);
     setLogs([]);
     if (!preserveReconnectHint) {
@@ -142,7 +139,7 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         type,
         payload: { ...payload, timestamp: Date.now() },
       });
-      addLog(`发送: ${type}`, 'sync');
+      addLog(`发送：${type}`, 'sync');
     }
   }, [addLog]);
 
@@ -167,16 +164,16 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         addLog('连接已断开', 'error');
         setReconnectHint({
           wasHost: isHostRef.current,
-          lastSignalData: signalData,
+          lastRoomId: roomId,
         });
         setError('连接已断开，请重新建立连接');
       }
     } else if (state.status === 'failed') {
-      addLog('连接失败: ' + (state.errorMessage || '未知错误'), 'error');
+      addLog('连接失败：' + (state.errorMessage || '未知错误'), 'error');
       setError(state.errorMessage || '连接失败');
       cleanup();
     }
-  }, [cleanup, sendMessage, addLog, mode, signalData]);
+  }, [cleanup, sendMessage, addLog, mode, roomId]);
 
   const handleMessage = useCallback((message: SyncMessage) => {
     isRemoteControlRef.current = true;
@@ -194,7 +191,7 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         if (message.payload.isPlaying !== undefined) {
           if (props.isPlaying !== message.payload.isPlaying) {
             props.onPlayPause();
-            addLog(`同步播放状态: ${message.payload.isPlaying ? '播放' : '暂停'}`, 'sync');
+            addLog(`同步播放状态：${message.payload.isPlaying ? '播放' : '暂停'}`, 'sync');
           }
         }
         break;
@@ -202,21 +199,21 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
       case 'play':
         if (!props.isPlaying) {
           props.onPlayPause();
-          addLog('同步: 开始播放', 'sync');
+          addLog('同步：开始播放', 'sync');
         }
         break;
 
       case 'pause':
         if (props.isPlaying) {
           props.onPlayPause();
-          addLog('同步: 暂停播放', 'sync');
+          addLog('同步：暂停播放', 'sync');
         }
         break;
 
       case 'seek':
         if (message.payload.currentTime !== undefined) {
           props.onSeek(message.payload.currentTime);
-          addLog(`同步: 跳转到 ${formatTime(message.payload.currentTime)}`, 'sync');
+          addLog(`同步：跳转到 ${formatTime(message.payload.currentTime)}`, 'sync');
         }
         break;
 
@@ -241,6 +238,13 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
 
   const handleCreateRoom = async () => {
     try {
+      // 验证房间号
+      const validation = validateRoomId(inputRoomId.trim());
+      if (!validation.valid) {
+        setError(validation.error || '房间号无效');
+        return;
+      }
+
       setError(null);
       setMode('hosting');
       isHostRef.current = true;
@@ -250,17 +254,19 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         onConnectionStateChange: handleConnectionStateChange,
         onMessage: handleMessage,
         onError: (err) => {
-          addLog('错误: ' + err, 'error');
+          addLog('错误：' + err, 'error');
           setError(err);
         },
         onLog: handleConnectionLog,
       });
       peerConnectionRef.current = peerConnection;
 
-      const offer = await peerConnection.createOffer();
-      const candidates = peerConnection.getLocalIceCandidates();
-      const data = serializeSignalData(offer, candidates);
-      setSignalData(compressSignalData(data));
+      const createdRoomId = await peerConnection.createRoom(inputRoomId.trim());
+      setRoomId(createdRoomId);
+      
+      // 主机开始监听连接
+      peerConnection.listenForConnections();
+      
       addLog('房间已创建，等待对方加入', 'connection');
     } catch (err) {
       console.error('Failed to create room:', err);
@@ -272,8 +278,10 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
 
   const handleJoinRoom = async () => {
     try {
-      if (!inputSignalData.trim()) {
-        setError('请输入连接码');
+      // 验证房间号
+      const validation = validateRoomId(inputRoomId.trim());
+      if (!validation.valid) {
+        setError(validation.error || '房间号无效');
         return;
       }
 
@@ -286,65 +294,26 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         onConnectionStateChange: handleConnectionStateChange,
         onMessage: handleMessage,
         onError: (err) => {
-          addLog('错误: ' + err, 'error');
+          addLog('错误：' + err, 'error');
           setError(err);
         },
         onLog: handleConnectionLog,
       });
       peerConnectionRef.current = peerConnection;
 
-      const decompressed = decompressSignalData(inputSignalData.trim());
-      const { sdp, candidates } = deserializeSignalData(decompressed);
-
-      const answer = await peerConnection.handleOffer(sdp);
-      for (const candidate of candidates) {
-        await peerConnection.addIceCandidate(candidate);
-      }
-
-      const answerCandidates = peerConnection.getLocalIceCandidates();
-      const data = serializeSignalData(answer, answerCandidates);
-      setSignalData(compressSignalData(data));
-      addLog('已生成回复码，请发送给对方', 'connection');
-
-      setTimeout(() => {
-        sendMessage('request_sync', {});
-      }, 500);
+      await peerConnection.joinRoom(inputRoomId.trim());
+      // 不在这里添加日志，等待连接状态变化时添加
     } catch (err) {
       console.error('Failed to join room:', err);
       addLog('加入房间失败', 'error');
-      setError('加入房间失败，请检查连接码是否正确');
+      setError('加入房间失败，请检查房间号是否正确');
       cleanup();
-    }
-  };
-
-  const handleReceiveAnswer = async () => {
-    try {
-      if (!inputSignalData.trim()) {
-        setError('请输入对方的连接码');
-        return;
-      }
-
-      const decompressed = decompressSignalData(inputSignalData.trim());
-      const { sdp, candidates } = deserializeSignalData(decompressed);
-
-      if (peerConnectionRef.current) {
-        await peerConnectionRef.current.handleAnswer(sdp);
-        for (const candidate of candidates) {
-          await peerConnectionRef.current.addIceCandidate(candidate);
-        }
-        setInputSignalData('');
-        addLog('已接收对方回复，正在建立连接...', 'connection');
-      }
-    } catch (err) {
-      console.error('Failed to handle answer:', err);
-      addLog('连接失败', 'error');
-      setError('连接失败，请重试');
     }
   };
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(signalData);
+      await navigator.clipboard.writeText(roomId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -433,6 +402,16 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
 
   const renderIdleState = () => (
     <div className="flex flex-col items-center justify-center h-full text-white/60">
+      <div className="mb-4 w-full px-4">
+        <label className="block text-xs text-white/40 mb-1">房间号</label>
+        <textarea
+          value={inputRoomId}
+          onChange={(e) => setInputRoomId(e.target.value)}
+          placeholder="请输入房间号（长度大于 8 位，字母多于 4 个）"
+          rows={3}
+          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 text-xs resize-none"
+        />
+      </div>
       <div className="flex gap-3">
         <button
           onClick={handleCreateRoom}
@@ -442,7 +421,7 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
           创建房间
         </button>
         <button
-          onClick={() => setMode('joining')}
+          onClick={handleJoinRoom}
           className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/70 text-sm font-medium transition-all flex items-center gap-2 border border-white/10"
         >
           <DoorOpen size={16} />
@@ -459,11 +438,11 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
         <span className="text-sm text-white/80">等待对方加入...</span>
       </div>
       <div className="mb-3">
-        <label className="block text-xs text-white/40 mb-1">连接码</label>
+        <label className="block text-xs text-white/40 mb-1">房间号</label>
         <div className="flex gap-2">
           <input
             type="text"
-            value={signalData}
+            value={roomId}
             readOnly
             className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-xs truncate"
           />
@@ -471,25 +450,7 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
             {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
           </button>
         </div>
-      </div>
-      <div className="mb-4">
-        <label className="block text-xs text-white/40 mb-1">对方回复码</label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={inputSignalData}
-            onChange={(e) => setInputSignalData(e.target.value)}
-            placeholder="粘贴对方回复码..."
-            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 text-xs"
-          />
-          <button
-            onClick={handleReceiveAnswer}
-            disabled={!inputSignalData.trim()}
-            className="px-3 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all text-xs"
-          >
-            连接
-          </button>
-        </div>
+        <p className="text-xs text-white/30 mt-1">请将此房间号分享给对方</p>
       </div>
       <button onClick={() => cleanup()} className="text-xs text-white/40 hover:text-white transition-colors">
         取消
@@ -499,45 +460,22 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
 
   const renderJoiningState = () => (
     <div className="flex flex-col h-full p-4">
+      <div className="flex items-center gap-2 mb-4">
+        <Loader2 size={16} className="animate-spin text-white/60" />
+        <span className="text-sm text-white/80">正在连接...</span>
+      </div>
       <div className="mb-3">
-        <label className="block text-xs text-white/40 mb-1">对方连接码</label>
-        <textarea
-          value={inputSignalData}
-          onChange={(e) => setInputSignalData(e.target.value)}
-          placeholder="粘贴连接码..."
-          rows={3}
-          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 text-xs resize-none"
+        <label className="block text-xs text-white/40 mb-1">房间号</label>
+        <input
+          type="text"
+          value={inputRoomId}
+          readOnly
+          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-xs truncate"
         />
       </div>
-      <div className="flex gap-2 mb-4">
-        <button
-          onClick={handleJoinRoom}
-          disabled={!inputSignalData.trim()}
-          className="px-4 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-medium transition-all flex items-center gap-2"
-        >
-          <Link2 size={14} />
-          加入
-        </button>
-        <button onClick={() => cleanup()} className="px-4 py-2 text-white/40 hover:text-white text-xs transition-colors">
-          取消
-        </button>
-      </div>
-      {signalData && (
-        <div>
-          <label className="block text-xs text-white/40 mb-1">你的回复码</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={signalData}
-              readOnly
-              className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-xs truncate"
-            />
-            <button onClick={handleCopy} className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all">
-              {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-            </button>
-          </div>
-        </div>
-      )}
+      <button onClick={() => cleanup()} className="text-xs text-white/40 hover:text-white transition-colors">
+        取消
+      </button>
     </div>
   );
 
@@ -587,7 +525,7 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
                 const hint = reconnectHint;
                 cleanup(true);
                 if (hint.wasHost) {
-                  setSignalData(hint.lastSignalData);
+                  setRoomId(hint.lastRoomId);
                   setMode('hosting');
                   isHostRef.current = true;
                 } else {
