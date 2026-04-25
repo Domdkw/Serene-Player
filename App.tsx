@@ -8,6 +8,7 @@ import { useQueryParams } from './hooks/useQueryParams';
 import { useArtists } from './hooks/useArtists';
 import { useFileUpload } from './hooks/useFileUpload';
 import { useNetease } from './hooks/useNetease';
+import { usePageTitle } from './hooks/usePageTitle';
 import { getFontFamily } from './utils/fontUtils';
 import { ErrorService } from './utils/errorService';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -271,6 +272,8 @@ const AppContent: React.FC = () => {
       (window as any).hideAppLoader();
     }
   }, []);
+
+  usePageTitle(player.track);
 
   useEffect(() => {
     const audio = player.audioRef.current;

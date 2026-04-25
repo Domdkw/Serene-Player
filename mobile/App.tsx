@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider, usePlayer } from '../contexts/PlayerContext';
 import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
 import { SettingsProvider, useSettings } from '../contexts/SettingsContext';
-import { useQueryParams, useArtists, useFileUpload, useNetease, useSwipeGesture, useMobileMenu } from '../hooks';
+import { useQueryParams, useArtists, useFileUpload, useNetease, useSwipeGesture, useMobileMenu, usePageTitle } from '../hooks';
 import { getFontFamily } from '../utils/fontUtils';
 import { MusicLibrary } from '../components/MusicLibrary';
 import { ArtistsView } from '../components/ArtistsView';
@@ -241,6 +241,8 @@ const MobileAppContent: React.FC = () => {
     }
   }, []);
 
+  usePageTitle(player.track);
+
   const currentTrackItem: any | null = player.track ? {
     name: player.track.metadata.title,
     artist: player.track.metadata.artist,
@@ -258,7 +260,7 @@ const MobileAppContent: React.FC = () => {
       if (playlist.neteasePlaylist.length > 0 && libraryView === 'netease') {
         do {
           randomIndex = Math.floor(Math.random() * playlist.neteasePlaylist.length);
-        } while (playlist.neteasePlaylist.length > 1 && randomIndex === playlist.neteaseCurrentIndex);
+        } while (playlist.neteasePlaylist.length > 1 && randomIndex === playlist.neteaseLikedCurrentIndex);
         loadNeteaseMusic(playlist.neteasePlaylist[randomIndex], randomIndex);
       } else if (playlist.playlist.length === 0) return;
       else {
@@ -268,14 +270,14 @@ const MobileAppContent: React.FC = () => {
         loadMusicFromUrl(playlist.playlist[randomIndex], randomIndex);
       }
     } else if (playlist.neteasePlaylist.length > 0 && libraryView === 'netease') {
-      // 网易云音乐模式
+      // 网易云音乐模式 - 只使用内存中的"我喜欢"列表索引
       let nextIndex;
-      if (playlist.neteaseCurrentIndex === -1) {
+      if (playlist.neteaseLikedCurrentIndex === -1) {
         // 如果当前索引为 -1，从第一个开始
         nextIndex = 0;
       } else {
         // 列表循环：到达末尾时回到开头
-        nextIndex = (playlist.neteaseCurrentIndex + 1) % playlist.neteasePlaylist.length;
+        nextIndex = (playlist.neteaseLikedCurrentIndex + 1) % playlist.neteasePlaylist.length;
       }
       loadNeteaseMusic(playlist.neteasePlaylist[nextIndex], nextIndex);
     } else if (playlist.currentFolder && playlist.playlistFolders[playlist.currentFolder]) {
@@ -301,12 +303,12 @@ const MobileAppContent: React.FC = () => {
     if (player.playbackMode === 'shuffle') {
       handleNext();
     } else if (playlist.neteasePlaylist.length > 0 && libraryView === 'netease') {
-      // 网易云音乐模式
-      if (playlist.neteaseCurrentIndex === -1) {
+      // 网易云音乐模式 - 只使用内存中的"我喜欢"列表索引
+      if (playlist.neteaseLikedCurrentIndex === -1) {
         // 如果当前索引为 -1，从第一个开始
         loadNeteaseMusic(playlist.neteasePlaylist[0], 0);
       } else {
-        const prevIndex = (playlist.neteaseCurrentIndex - 1 + playlist.neteasePlaylist.length) % playlist.neteasePlaylist.length;
+        const prevIndex = (playlist.neteaseLikedCurrentIndex - 1 + playlist.neteasePlaylist.length) % playlist.neteasePlaylist.length;
         loadNeteaseMusic(playlist.neteasePlaylist[prevIndex], prevIndex);
       }
     } else if (playlist.currentFolder && playlist.playlistFolders[playlist.currentFolder]) {
@@ -329,11 +331,8 @@ const MobileAppContent: React.FC = () => {
   }, [player.playbackMode, playlist, libraryView, handleNext, loadNeteaseMusic, loadMusicFromUrl]);
 
   const cyclePlaybackMode = useCallback(() => {
-    const modes: ('single' | 'list' | 'shuffle')[] = ['single', 'list', 'shuffle'];
-    const currentIndex = modes.indexOf(player.playbackMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    localStorage.setItem('playbackMode', modes[nextIndex]);
-  }, [player.playbackMode]);
+    player.cyclePlaybackMode();
+  }, [player.cyclePlaybackMode]);
 
   const handleSeek = useCallback((time: number) => {
     player.handleSeek(time);
@@ -424,7 +423,7 @@ const MobileAppContent: React.FC = () => {
           }}
         >
           <section className="w-full h-full flex-shrink-0 flex flex-col p-4 md:p-8 bg-black/20 backdrop-blur-xl overflow-hidden !pb-0">
-            <div className="flex items-center justify-center gap-4 mb-6 md:mb-10 shrink-0">
+            <div className="flex items-center justify-center gap-4 mb-4 md:mb-6 shrink-0">
               <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
                 <button
                   onClick={() => setLibraryView('netease')}
@@ -464,15 +463,29 @@ const MobileAppContent: React.FC = () => {
                 </button>
               </div>
 
-              {libraryView === 'songs' && (
-                <button
-                  onClick={() => setIsSearchOpen(!isSearchOpen)}
-                  className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
-                    isSearchOpen ? 'bg-white/20 text-white' : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white'
-                  }`}
-                >
-                  <Search size={14} />
-                </button>
+              {libraryView === 'songs' && (// 本地歌曲模式下的操作按钮
+                <>
+                  <button
+                    onClick={() => {
+                      setSourceInputValue(settings.customSourceUrl);
+                      setIsCustomSourceOpen(true);
+                    }}
+                    className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                      settings.customSourceUrl ? 'bg-white/20 text-white' : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white'
+                    }`}
+                    title="设置自定义音乐源"
+                  >
+                    <Plus size={14} />
+                  </button>
+                  <button
+                    onClick={() => setIsSearchOpen(!isSearchOpen)}
+                    className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                      isSearchOpen ? 'bg-white/20 text-white' : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white'
+                    }`}
+                  >
+                    <Search size={14} />
+                  </button>
+                </>
               )}
 
               <div className="relative" ref={uploadMenu.menuRef}>
@@ -710,18 +723,15 @@ const MobileAppContent: React.FC = () => {
                       <Shuffle size={18} />
                     )}
                   </button>
-                  <button
-                    onClick={() => {
-                      setSourceInputValue(settings.customSourceUrl);
-                      setIsCustomSourceOpen(true);
-                    }}
-                    className={`p-2 rounded-xl transition-all ${settings.customSourceUrl ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40 hover:text-white'}`}
-                    title="设置自定义音乐源"
-                  >
-                    <Plus size={16} />
-                  </button>
                 </div>
               </div>
+
+              {player.loadingTrackUrl && (
+                <div className="flex items-center justify-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl">
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <span className="text-xs text-white/80 font-medium">加载中...</span>
+                </div>
+              )}
             </div>
           </section>
 
