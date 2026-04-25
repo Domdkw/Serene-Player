@@ -40,6 +40,7 @@ interface TogetherListenPanelProps {
 export interface TogetherListenPanelRef {
   isConnected: () => boolean;
   getConnectionMode: () => 'host' | 'client' | null;
+  disconnect: () => void;
 }
 
 type ConnectionMode = 'idle' | 'hosting' | 'joining' | 'connected';
@@ -113,6 +114,22 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
   useImperativeHandle(ref, () => ({
     isConnected: () => peerConnectionRef.current?.isConnected() ?? false,
     getConnectionMode: () => isHostRef.current ? 'host' : 'client',
+    disconnect: () => {
+      // 显式断开连接
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      isHostRef.current = false;
+      isRemoteControlRef.current = false;
+      prevTrackIdRef.current = null;
+      setMode('idle');
+      setRoomId('');
+      setInputRoomId('');
+      setError(null);
+      setLogs([]);
+      setReconnectHint(null);
+    },
   }), []);
 
   const cleanup = useCallback((preserveReconnectHint = false) => {
@@ -360,8 +377,11 @@ const TogetherListenPanel = forwardRef<TogetherListenPanelRef, TogetherListenPan
   }, [currentTrack]);
 
   useEffect(() => {
-    return () => cleanup();
-  }, [cleanup]);
+    // 组件卸载时不关闭连接，让连接在后台继续保持
+    return () => {
+      console.log('TogetherListenPanel: 组件卸载，保持连接');
+    };
+  }, []);
 
   const renderConnectionStatus = () => {
     switch (connectionState.status) {

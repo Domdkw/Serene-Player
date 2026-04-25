@@ -36,6 +36,7 @@ interface PlayerContextType extends PlayerState {
   }, index: number, options?: {
     streamingMode?: boolean;
     chunkCount?: number;
+    isRemoteControl?: boolean;
   }) => Promise<void>;
   abortLoad: () => void;
   formatTime: (time: number) => string;
@@ -158,6 +159,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
     options?: {
       streamingMode?: boolean;
       chunkCount?: number;
+      isRemoteControl?: boolean;
     }
   ) => {
     setLyricsLoading(true);
@@ -265,11 +267,14 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
         if (audioRef.current) {
           audioRef.current.src = objectUrl;
           audioRef.current.load();
+          
           // 等待音频加载完成后再播放
           audioRef.current.oncanplay = async () => {
             try {
               await audioRef.current!.play();
               setIsPlaying(true);
+              pendingPlayRef.current = false;
+              setPendingPlayback(false);
             } catch (e) {
               console.error('自动播放失败:', e);
               ErrorService.handleError(e, 'Autoplay');
@@ -304,8 +309,6 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
     const secs = Math.floor(time % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }, []);
-
-
 
   const value = useMemo(() => ({
     track,

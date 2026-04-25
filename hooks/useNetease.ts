@@ -7,7 +7,7 @@ interface UseNeteaseOptions {
   onLoadTrack: (item: PlaylistItem, index: number) => void;
   neteasePlaylist: PlaylistItem[];
   setNeteaseCurrentIndex: (index: number) => void;
-  updateNeteaseLikedIndexById: (neteaseId: number) => void; // 新增：根据ID更新"我喜欢"列表索引
+  updateNeteaseLikedIndexById: (neteaseId: number) => void; // 新增：根据 ID 更新"我喜欢"列表索引
 }
 
 interface UseNeteaseReturn {
@@ -88,7 +88,7 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
 
   /**
    * 加载并播放网易云音乐
-   * 如果item信息不完整（没有URL），通过ID获取完整信息
+   * 如果 item 信息不完整（没有 URL），通过 ID 获取完整信息
    */
   const loadNeteaseMusic = useCallback(async (item: PlaylistItem, index: number) => {
     // 防止重复加载
@@ -97,7 +97,7 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
 
     setNeteaseCurrentIndex(index);
     
-    // 根据歌曲ID更新"我喜欢"列表的当前播放索引
+    // 根据歌曲 ID 更新"我喜欢"列表的当前播放索引
     if (item.neteaseId) {
       updateNeteaseLikedIndexById(item.neteaseId);
     }
@@ -107,12 +107,12 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
     try {
       let trackToPlay: PlaylistItem;
 
-      // 如果歌曲已经有完整的URL，直接播放
+      // 如果歌曲已经有完整的 URL，直接播放
       if (item.url) {
         trackToPlay = item;
         setLoadingProgress(100);
       } else if (item.neteaseId) {
-        // 通过ID获取完整信息
+        // 通过 ID 获取完整信息
         const fullDetails = await fetchSongDetailsById(item.neteaseId);
         if (fullDetails) {
           trackToPlay = fullDetails;

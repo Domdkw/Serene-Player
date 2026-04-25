@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, lazy, Suspense, useEffect, useRef } from 'react';
 import {
-  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable
+  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider, usePlayer } from '../contexts/PlayerContext';
@@ -84,6 +84,20 @@ const MobileAppContent: React.FC = () => {
     minPage: 0,
     onPageChange: handlePageChange,
   });
+
+  // 后台一起听连接管理器（保持连接不随页面切换而断开）
+  const [togetherListenConnected, setTogetherListenConnected] = useState(false);
+  const togetherListenManagerRef = useRef<any>(null);
+
+  useEffect(() => {
+    // 当用户切换到其他页面时，检查是否有一起听连接
+    if (currentPage !== 0 && togetherListenRef.current) {
+      const isConnected = togetherListenRef.current.isConnected();
+      setTogetherListenConnected(isConnected);
+    } else {
+      setTogetherListenConnected(false);
+    }
+  }, [currentPage]);
 
   const uploadMenu = useMobileMenu();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -603,6 +617,25 @@ const MobileAppContent: React.FC = () => {
                           }}
                           formatTime={player.formatTime}
                         />
+                        {togetherListenConnected && currentPage !== 0 && (
+                          <div className="absolute top-4 right-4 z-10">
+                            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xl px-3 py-2 rounded-lg border border-white/20">
+                              <Wifi size={14} className="text-green-400" />
+                              <span className="text-xs text-white/80">一起听连接中</span>
+                              <button
+                                onClick={() => {
+                                  if (togetherListenRef.current?.disconnect) {
+                                    togetherListenRef.current.disconnect();
+                                    setTogetherListenConnected(false);
+                                  }
+                                }}
+                                className="ml-1 text-white/60 hover:text-white transition-colors"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </Suspense>
                     );
                   default:
