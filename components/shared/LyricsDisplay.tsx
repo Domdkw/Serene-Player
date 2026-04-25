@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { ChevronsLeftRightEllipsis } from 'lucide-react';
 import { LyricLine as LyricLineType } from '../../types';
 import LyricLine from '../LyricLine';
 import { getFontFamily } from '../../utils/fontUtils';
@@ -86,9 +87,10 @@ const LyricsDisplay: React.FC<LyricsDisplayProps> = memo(({
           ))}
         </div>
       ) : (
-        <div className="h-full flex flex-col items-center justify-center text-white/20 gap-4">
-          <p className="text-sm md:text-xl italic font-medium tracking-tight opacity-40">
-            No synchronized lyrics available
+        <div className="h-full flex flex-col items-center justify-center text-center text-white/80 gap-4">
+          <p className="text-sm md:text-xl italic font-medium tracking-tight flex flex-col items-center gap-2">
+            <ChevronsLeftRightEllipsis size={24} />
+            <span>No synchronized lyrics available</span>
           </p>
         </div>
       )}

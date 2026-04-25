@@ -99,9 +99,22 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play().then(() => setIsPlaying(true)).catch((e) => {
-        ErrorService.handleError(e, 'Playback');
-      });
+      // 移动端浏览器需要用户交互才能播放
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch((error) => {
+            console.error('播放失败:', error);
+            ErrorService.handleError(error, 'Playback');
+            // 如果是自动播放策略限制，显示提示信息
+            if (error.name === 'NotAllowedError') {
+              console.warn('浏览器阻止了自动播放，需要用户交互');
+            }
+          });
+      }
     }
   }, [isPlaying, track]);
 
@@ -252,12 +265,21 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
         if (audioRef.current) {
           audioRef.current.src = objectUrl;
           audioRef.current.load();
-          try {
-            await audioRef.current.play();
-            setIsPlaying(true);
-          } catch (e) {
-            ErrorService.handleError(e, 'Autoplay');
-          }
+          // 等待音频加载完成后再播放
+          audioRef.current.oncanplay = async () => {
+            try {
+              await audioRef.current!.play();
+              setIsPlaying(true);
+            } catch (e) {
+              console.error('自动播放失败:', e);
+              ErrorService.handleError(e, 'Autoplay');
+              // 如果是自动播放策略限制，保持暂停状态，等待用户点击播放
+              if (e.name === 'NotAllowedError') {
+                console.warn('浏览器阻止了自动播放，等待用户交互');
+                setIsPlaying(false);
+              }
+            }
+          };
         }
       }, 100);
 

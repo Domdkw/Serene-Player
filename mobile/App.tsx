@@ -166,6 +166,7 @@ const MobileAppContent: React.FC = () => {
     onLoadTrack: loadMusicFromUrl,
     neteasePlaylist: playlist.neteasePlaylist,
     setNeteaseCurrentIndex: playlist.setNeteaseCurrentIndex,
+    updateNeteaseLikedIndexById: playlist.updateNeteaseLikedIndexById,
   });
 
   const addToPlaylistFolders = useCallback((name: string, items: any[]) => {
@@ -267,8 +268,15 @@ const MobileAppContent: React.FC = () => {
         loadMusicFromUrl(playlist.playlist[randomIndex], randomIndex);
       }
     } else if (playlist.neteasePlaylist.length > 0 && libraryView === 'netease') {
-      if (playlist.neteaseCurrentIndex === -1) return;
-      const nextIndex = (playlist.neteaseCurrentIndex + 1) % playlist.neteasePlaylist.length;
+      // 网易云音乐模式
+      let nextIndex;
+      if (playlist.neteaseCurrentIndex === -1) {
+        // 如果当前索引为 -1，从第一个开始
+        nextIndex = 0;
+      } else {
+        // 列表循环：到达末尾时回到开头
+        nextIndex = (playlist.neteaseCurrentIndex + 1) % playlist.neteasePlaylist.length;
+      }
       loadNeteaseMusic(playlist.neteasePlaylist[nextIndex], nextIndex);
     } else if (playlist.currentFolder && playlist.playlistFolders[playlist.currentFolder]) {
       const folderTracks = playlist.playlistFolders[playlist.currentFolder];
@@ -293,9 +301,14 @@ const MobileAppContent: React.FC = () => {
     if (player.playbackMode === 'shuffle') {
       handleNext();
     } else if (playlist.neteasePlaylist.length > 0 && libraryView === 'netease') {
-      if (playlist.neteaseCurrentIndex === -1) return;
-      const prevIndex = (playlist.neteaseCurrentIndex - 1 + playlist.neteasePlaylist.length) % playlist.neteasePlaylist.length;
-      loadNeteaseMusic(playlist.neteasePlaylist[prevIndex], prevIndex);
+      // 网易云音乐模式
+      if (playlist.neteaseCurrentIndex === -1) {
+        // 如果当前索引为 -1，从第一个开始
+        loadNeteaseMusic(playlist.neteasePlaylist[0], 0);
+      } else {
+        const prevIndex = (playlist.neteaseCurrentIndex - 1 + playlist.neteasePlaylist.length) % playlist.neteasePlaylist.length;
+        loadNeteaseMusic(playlist.neteasePlaylist[prevIndex], prevIndex);
+      }
     } else if (playlist.currentFolder && playlist.playlistFolders[playlist.currentFolder]) {
       const folderTracks = playlist.playlistFolders[playlist.currentFolder];
       const currentTrack = playlist.playlist[playlist.currentIndex];
@@ -661,7 +674,7 @@ const MobileAppContent: React.FC = () => {
                 <PlaybackControls
                   isPlaying={player.isPlaying}
                   hasTrack={!!player.track}
-                  hasPlaylist={playlist.playlist.length > 0}
+                  hasPlaylist={playlist.neteasePlaylist.length > 0 || playlist.playlist.length > 0}
                   playbackMode={player.playbackMode}
                   onTogglePlay={player.togglePlay}
                   onPrev={handlePrev}
@@ -912,11 +925,12 @@ const MobileAppContent: React.FC = () => {
       <audio
         ref={player.audioRef}
         onLoadedMetadata={() => player.setDuration(player.audioRef.current?.duration || 0)}
+        onTimeUpdate={() => player.setCurrentTime(player.audioRef.current?.currentTime || 0)}
         onEnded={() => {
           if (player.playbackMode === 'single') {
             if (player.audioRef.current) {
               player.audioRef.current.currentTime = 0;
-              player.audioRef.current.play();
+              player.audioRef.current.play().catch(() => {});
             }
           } else {
             handleNext();
