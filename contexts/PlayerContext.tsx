@@ -61,7 +61,16 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('single');
+  
+  const getSavedPlaybackMode = (): PlaybackMode => {
+    const saved = localStorage.getItem('playbackMode');
+    if (saved === 'single' || saved === 'list' || saved === 'shuffle') {
+      return saved;
+    }
+    return 'list';
+  };
+  
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>(getSavedPlaybackMode);
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [loadingTrackUrl, setLoadingTrackUrl] = useState<string | null>(null);
@@ -105,9 +114,12 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
 
   const cyclePlaybackMode = useCallback(() => {
     setPlaybackMode(prev => {
-      if (prev === 'single') return 'list';
-      if (prev === 'list') return 'shuffle';
-      return 'single';
+      let next: PlaybackMode;
+      if (prev === 'single') next = 'list';
+      else if (prev === 'list') next = 'shuffle';
+      else next = 'single';
+      localStorage.setItem('playbackMode', next);
+      return next;
     });
   }, []);
 
@@ -271,22 +283,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
 
-    const handleEnded = () => {
-      if (playbackMode === 'single') {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      } else {
-        onTrackEnd?.();
-      }
-    };
-
-    audio.addEventListener('ended', handleEnded);
-    return () => audio.removeEventListener('ended', handleEnded);
-  }, [playbackMode, onTrackEnd]);
 
   const value = useMemo(() => ({
     track,

@@ -6,71 +6,54 @@ import { ErrorService } from '../utils/errorService';
 interface UseNeteaseOptions {
   onLoadTrack: (item: PlaylistItem, index: number) => void;
   neteasePlaylist: PlaylistItem[];
-  setNeteasePlaylist: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
-  setNeteaseCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
+  setNeteaseCurrentIndex: (index: number) => void;
+  updateNeteaseLikedIndexById: (neteaseId: number) => void; // 新增：根据ID更新"我喜欢"列表索引
 }
 
 interface UseNeteaseReturn {
-  loadNeteaseMusic: (item: PlaylistItem, index: number) => void;
+  loadNeteaseMusic: (item: PlaylistItem, index: number) => Promise<void>;
   playNeteaseById: (neteaseId: number) => Promise<void>;
-  addToNeteasePlaylist: (item: PlaylistItem) => void;
   loadingProgress: number | null;
   setLoadingProgress: (progress: number | null) => void;
 }
 
+/**
+ * 网易云音乐播放Hook
+ * 仅读取播放列表，不写入localStorage
+ */
 export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
   const {
     onLoadTrack,
     neteasePlaylist,
-    setNeteasePlaylist,
-    setNeteaseCurrentIndex
+    setNeteaseCurrentIndex,
+    updateNeteaseLikedIndexById
   } = options;
 
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const loadingRef = useRef(false);
 
-  const loadNeteaseMusic = useCallback((item: PlaylistItem, index: number) => {
-    setNeteaseCurrentIndex(index);
-    onLoadTrack(item, index);
-  }, [onLoadTrack, setNeteaseCurrentIndex]);
-
-  const addToNeteasePlaylist = useCallback((item: PlaylistItem) => {
-    setNeteasePlaylist(prev => {
-      if (prev.some(p => p.url === item.url)) {
-        return prev;
-      }
-      return [...prev, item];
-    });
-  }, [setNeteasePlaylist]);
-
-  const playNeteaseById = useCallback(async (neteaseId: number) => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-
-    setLoadingProgress(0);
-
+  /**
+   * 通过歌曲ID获取完整的歌曲信息
+   * 包括：播放链接、封面、歌词等
+   */
+  const fetchSongDetailsById = useCallback(async (neteaseId: number): Promise<PlaylistItem | null> => {
     try {
+      // 1. 获取歌曲详情
       const songDetails = await getSongDetail(neteaseId);
       if (!songDetails || songDetails.length === 0) {
-        ErrorService.handleError(new Error('无法获取歌曲详情'), 'Netease Play');
-        setLoadingProgress(null);
-        loadingRef.current = false;
-        return;
+        ErrorService.handleError(new Error('无法获取歌曲详情'), 'Netease API');
+        return null;
       }
-
       const songDetail = songDetails[0];
-      setLoadingProgress(30);
 
+      // 2. 获取播放链接
       const songUrl = await getSongUrl(neteaseId);
       if (!songUrl) {
-        ErrorService.handleError(new Error('无法获取歌曲播放链接'), 'Netease Play');
-        setLoadingProgress(null);
-        loadingRef.current = false;
-        return;
+        ErrorService.handleError(new Error('无法获取歌曲播放链接'), 'Netease API');
+        return null;
       }
 
-      setLoadingProgress(60);
-
+      // 3. 获取歌词（可选，失败不影响播放）
       let lyrics: string | undefined;
       try {
         const lyricData = await getSongLyric(neteaseId);
@@ -78,16 +61,15 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
           lyrics = lyricData.lyric;
         }
       } catch (e) {
-        ErrorService.handleError(e as Error, 'Get Lyrics');
+        // 歌词获取失败不影响播放
       }
 
-      setLoadingProgress(80);
-
+      // 4. 获取封面
       const coverUrl = songDetail.album.picUrl
         ? getAlbumCoverUrl(songDetail.album.picUrl, 800, true)
         : undefined;
 
-      const playlistItem: PlaylistItem = {
+      return {
         name: songDetail.name,
         artist: songDetail.artists.map(a => a.name).join(', '),
         url: songUrl,
@@ -98,34 +80,108 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
         lyrics: lyrics,
         album: songDetail.album.name,
       };
+    } catch (error) {
+      ErrorService.handleError(error as Error, 'Fetch Song Details');
+      return null;
+    }
+  }, []);
 
-      const existingIndex = neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
-      let index: number;
+  /**
+   * 加载并播放网易云音乐
+   * 如果item信息不完整（没有URL），通过ID获取完整信息
+   */
+  const loadNeteaseMusic = useCallback(async (item: PlaylistItem, index: number) => {
+    // 防止重复加载
+    if (loadingRef.current) return;
+    loadingRef.current = true;
 
-      if (existingIndex === -1) {
-        const newPlaylist = [...neteasePlaylist, playlistItem];
-        setNeteasePlaylist(newPlaylist);
-        index = newPlaylist.length - 1;
+    setNeteaseCurrentIndex(index);
+    
+    // 根据歌曲ID更新"我喜欢"列表的当前播放索引
+    if (item.neteaseId) {
+      updateNeteaseLikedIndexById(item.neteaseId);
+    }
+    
+    setLoadingProgress(0);
+
+    try {
+      let trackToPlay: PlaylistItem;
+
+      // 如果歌曲已经有完整的URL，直接播放
+      if (item.url) {
+        trackToPlay = item;
+        setLoadingProgress(100);
+      } else if (item.neteaseId) {
+        // 通过ID获取完整信息
+        const fullDetails = await fetchSongDetailsById(item.neteaseId);
+        if (fullDetails) {
+          trackToPlay = fullDetails;
+          setLoadingProgress(100);
+        } else {
+          setLoadingProgress(null);
+          loadingRef.current = false;
+          return;
+        }
       } else {
-        index = existingIndex;
+        ErrorService.handleError(new Error('歌曲信息不完整，无法播放'), 'Load Netease Music');
+        setLoadingProgress(null);
+        loadingRef.current = false;
+        return;
       }
 
-      setNeteaseCurrentIndex(index);
-      setLoadingProgress(100);
-
-      onLoadTrack(playlistItem, index);
-    } catch (error: any) {
-      ErrorService.handleError(error, 'Play Netease By ID');
+      // 播放歌曲
+      onLoadTrack(trackToPlay, index);
+      setLoadingProgress(null);
+    } catch (error) {
+      ErrorService.handleError(error as Error, 'Load Netease Music');
       setLoadingProgress(null);
     } finally {
       loadingRef.current = false;
     }
-  }, [neteasePlaylist, setNeteasePlaylist, setNeteaseCurrentIndex, onLoadTrack]);
+  }, [fetchSongDetailsById, onLoadTrack, setNeteaseCurrentIndex, updateNeteaseLikedIndexById]);
+
+  /**
+   * 通过网易云ID播放歌曲
+   * 先从播放列表中查找，找不到则通过API获取
+   */
+  const playNeteaseById = useCallback(async (neteaseId: number) => {
+    // 防止重复加载
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+
+    setLoadingProgress(0);
+
+    try {
+      // 先从播放列表中查找
+      const existingIndex = neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
+      
+      if (existingIndex !== -1) {
+        // 在列表中找到，使用现有信息播放
+        const existingItem = neteasePlaylist[existingIndex];
+        await loadNeteaseMusic(existingItem, existingIndex);
+        loadingRef.current = false;
+        return;
+      }
+
+      // 不在列表中，通过API获取
+      const fullDetails = await fetchSongDetailsById(neteaseId);
+      if (fullDetails) {
+        setNeteaseCurrentIndex(-1); // 不在列表中，索引设为-1
+        setLoadingProgress(100);
+        onLoadTrack(fullDetails, -1);
+        setLoadingProgress(null);
+      }
+    } catch (error) {
+      ErrorService.handleError(error as Error, 'Play Netease By ID');
+      setLoadingProgress(null);
+    } finally {
+      loadingRef.current = false;
+    }
+  }, [neteasePlaylist, fetchSongDetailsById, loadNeteaseMusic, setNeteaseCurrentIndex, onLoadTrack]);
 
   return {
     loadNeteaseMusic,
     playNeteaseById,
-    addToNeteasePlaylist,
     loadingProgress,
     setLoadingProgress,
   };

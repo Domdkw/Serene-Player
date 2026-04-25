@@ -162,11 +162,9 @@ const MobileAppContent: React.FC = () => {
 
   const {
     loadNeteaseMusic,
-    addToNeteasePlaylist,
   } = useNetease({
     onLoadTrack: loadMusicFromUrl,
     neteasePlaylist: playlist.neteasePlaylist,
-    setNeteasePlaylist: playlist.setNeteasePlaylist,
     setNeteaseCurrentIndex: playlist.setNeteaseCurrentIndex,
   });
 
@@ -354,7 +352,7 @@ const MobileAppContent: React.FC = () => {
           onTrackSelect={loadNeteaseMusic}
           currentTrackUrl={player.track?.objectUrl || null}
           isPlaying={player.isPlaying}
-          onAddToPlaylist={addToNeteasePlaylist}
+          onAddToPlaylist={() => {}}
           neteasePlaylist={playlist.neteasePlaylist}
           neteaseCurrentIndex={playlist.neteaseCurrentIndex}
           setNeteasePlaylist={playlist.setNeteasePlaylist}
@@ -362,7 +360,7 @@ const MobileAppContent: React.FC = () => {
         />
       </Suspense>
     );
-  }, [loadNeteaseMusic, player.track, player.isPlaying, addToNeteasePlaylist, playlist]);
+  }, [loadNeteaseMusic, player.track, player.isPlaying, playlist]);
 
   return (
     <div className="h-dvh w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans" style={{ fontFamily: getFontFamily(settings.selectedFont) }}>

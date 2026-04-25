@@ -1,6 +1,6 @@
 import React, { memo, useState, useCallback } from 'react';
-import { Plus, Search, Upload, FileAudio, FolderOpen, Repeat, Repeat1, Shuffle, Link2, X, RotateCcw } from 'lucide-react';
-import { PlaylistItem, PlaylistFolders, PlaybackMode } from '../types';
+import { Plus, Search, Upload, FileAudio, FolderOpen, Link2, X, RotateCcw } from 'lucide-react';
+import { PlaylistItem, PlaylistFolders } from '../types';
 import { MusicLibrary } from './MusicLibrary';
 import { SearchPanel } from './SearchPanel';
 import { FolderLoadingIndicator } from './LoadingComponents';
@@ -9,8 +9,6 @@ interface SongsViewHeaderProps {
   currentFolder: string | null;
   playlistFolders: PlaylistFolders;
   playlistCount: number;
-  playbackMode: PlaybackMode;
-  onCyclePlaybackMode: () => void;
   onOpenCustomSource: () => void;
   hasCustomSource: boolean;
   onToggleSearch: () => void;
@@ -26,8 +24,6 @@ const SongsViewHeader: React.FC<SongsViewHeaderProps> = memo(({
   currentFolder,
   playlistFolders,
   playlistCount,
-  playbackMode,
-  onCyclePlaybackMode,
   onOpenCustomSource,
   hasCustomSource,
   onToggleSearch,
@@ -38,18 +34,6 @@ const SongsViewHeader: React.FC<SongsViewHeaderProps> = memo(({
   onFileUpload,
   onFolderUpload
 }) => {
-  const getPlaybackModeIcon = () => {
-    if (playbackMode === 'single') return <Repeat1 size={18} />;
-    if (playbackMode === 'list') return <Repeat size={18} />;
-    return <Shuffle size={18} />;
-  };
-
-  const getPlaybackModeLabel = () => {
-    if (playbackMode === 'single') return '单曲循环';
-    if (playbackMode === 'list') return '列表循环';
-    return '随机播放';
-  };
-
   return (
     <div className="flex items-center justify-between p-6 border-b border-white/[0.05]">
       <div>
@@ -60,14 +44,6 @@ const SongsViewHeader: React.FC<SongsViewHeaderProps> = memo(({
       </div>
 
       <div className="flex items-center gap-3">
-        <button
-          onClick={onCyclePlaybackMode}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white transition-all duration-200 text-sm"
-        >
-          {getPlaybackModeIcon()}
-          <span>{getPlaybackModeLabel()}</span>
-        </button>
-
         <button
           onClick={onOpenCustomSource}
           className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 ${hasCustomSource ? 'bg-white/20 text-white' : 'bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white'}`}
@@ -218,7 +194,6 @@ interface SongsViewProps {
   playlist: PlaylistItem[];
   currentIndex: number;
   isPlaying: boolean;
-  playbackMode: PlaybackMode;
   loadingFolders: Set<string>;
   folderLoading: { name: string; progress: number } | null;
   loadingTrackUrl: string | null;
@@ -226,7 +201,6 @@ interface SongsViewProps {
   onSetCurrentFolder: (folder: string | null) => void;
   onLoadLinkedFolder: (folderName: string, linkUrl: string) => Promise<void>;
   onTrackSelect: (item: PlaylistItem, index: number) => void;
-  onCyclePlaybackMode: () => void;
   onFileUpload: () => void;
   onFolderUpload: () => void;
   onSetCustomSourceUrl: (url: string) => void;
@@ -238,7 +212,6 @@ export const SongsView: React.FC<SongsViewProps> = memo(({
   playlist,
   currentIndex,
   isPlaying,
-  playbackMode,
   loadingFolders,
   folderLoading,
   loadingTrackUrl,
@@ -246,7 +219,6 @@ export const SongsView: React.FC<SongsViewProps> = memo(({
   onSetCurrentFolder,
   onLoadLinkedFolder,
   onTrackSelect,
-  onCyclePlaybackMode,
   onFileUpload,
   onFolderUpload,
   onSetCustomSourceUrl
@@ -296,8 +268,6 @@ export const SongsView: React.FC<SongsViewProps> = memo(({
         currentFolder={currentFolder}
         playlistFolders={playlistFolders}
         playlistCount={playlist.length}
-        playbackMode={playbackMode}
-        onCyclePlaybackMode={onCyclePlaybackMode}
         onOpenCustomSource={handleOpenCustomSource}
         hasCustomSource={!!customSourceUrl}
         onToggleSearch={() => setIsSearchOpen(!isSearchOpen)}

@@ -85,13 +85,12 @@ const AppContent: React.FC = () => {
 
   const {
     loadNeteaseMusic,
-    playNeteaseById,
-    addToNeteasePlaylist
+    playNeteaseById
   } = useNetease({
     onLoadTrack: loadMusicFromUrl,
     neteasePlaylist: playlist.neteasePlaylist,
-    setNeteasePlaylist: playlist.setNeteasePlaylist,
-    setNeteaseCurrentIndex: playlist.setNeteaseCurrentIndex
+    setNeteaseCurrentIndex: playlist.setNeteaseCurrentIndex,
+    updateNeteaseLikedIndexById: playlist.updateNeteaseLikedIndexById
   });
 
   const addToPlaylistFolders = useCallback((name: string, items: PlaylistItem[]) => {
@@ -140,51 +139,73 @@ const AppContent: React.FC = () => {
   }, [activeTab, localSongsLoaded, settings.customSourceUrl, loadPlaylistFromUrl]);
 
   const handleNext = useCallback(() => {
+    const isPlayingNetease = !!player.track?.neteaseId;
+    
     if (player.playbackMode === 'shuffle') {
-      if (playlist.neteasePlaylist.length > 0 && activeTab === 'netease') {
+      if (isPlayingNetease && playlist.neteasePlaylist.length > 0) {
         let randomIndex;
         do {
           randomIndex = Math.floor(Math.random() * playlist.neteasePlaylist.length);
-        } while (playlist.neteasePlaylist.length > 1 && randomIndex === playlist.neteaseCurrentIndex);
+        } while (playlist.neteasePlaylist.length > 1 && randomIndex === playlist.neteaseLikedCurrentIndex);
         loadNeteaseMusic(playlist.neteasePlaylist[randomIndex], randomIndex);
-      } else if (playlist.playlist.length === 0) return;
-      else {
+      } else if (playlist.playlist.length > 0) {
         let randomIndex;
         do {
           randomIndex = Math.floor(Math.random() * playlist.playlist.length);
         } while (playlist.playlist.length > 1 && randomIndex === playlist.currentIndex);
         loadMusicFromUrl(playlist.playlist[randomIndex], randomIndex);
       }
-    } else if (playlist.neteasePlaylist.length > 0 && activeTab === 'netease') {
-      if (playlist.neteaseCurrentIndex === -1) return;
-      const nextIndex = (playlist.neteaseCurrentIndex + 1) % playlist.neteasePlaylist.length;
+    } else if (isPlayingNetease && playlist.neteasePlaylist.length > 0) {
+      // 使用"我喜欢"列表索引进行切换
+      let nextIndex;
+      if (playlist.neteaseLikedCurrentIndex === -1) {
+        nextIndex = 0;
+      } else {
+        // 列表循环：到达末尾时回到开头
+        nextIndex = (playlist.neteaseLikedCurrentIndex + 1) % playlist.neteasePlaylist.length;
+      }
       loadNeteaseMusic(playlist.neteasePlaylist[nextIndex], nextIndex);
     } else if (playlist.currentFolder && playlist.playlistFolders[playlist.currentFolder]) {
       const folderTracks = playlist.playlistFolders[playlist.currentFolder];
       const currentTrack = playlist.playlist[playlist.currentIndex];
       if (Array.isArray(folderTracks)) {
-        const currentFolderIndex = folderTracks.findIndex((t: PlaylistItem) => t.url === currentTrack?.url);
+        let currentFolderIndex;
+        if (currentTrack) {
+          currentFolderIndex = folderTracks.findIndex((t: PlaylistItem) => t.url === currentTrack.url);
+        } else {
+          currentFolderIndex = -1;
+        }
 
         if (currentFolderIndex !== -1) {
           const nextFolderIndex = (currentFolderIndex + 1) % folderTracks.length;
           const nextTrack = folderTracks[nextFolderIndex];
           const nextGlobalIndex = playlist.playlist.findIndex(p => p.url === nextTrack.url);
           loadMusicFromUrl(nextTrack, nextGlobalIndex);
+        } else if (folderTracks.length > 0) {
+          loadMusicFromUrl(folderTracks[0], 0);
         }
       }
     } else {
       if (playlist.playlist.length === 0) return;
-      const nextIndex = (playlist.currentIndex + 1) % playlist.playlist.length;
+      let nextIndex;
+      if (playlist.currentIndex === -1) {
+        nextIndex = 0;
+      } else {
+        nextIndex = (playlist.currentIndex + 1) % playlist.playlist.length;
+      }
       loadMusicFromUrl(playlist.playlist[nextIndex], nextIndex);
     }
-  }, [player.playbackMode, playlist, activeTab, loadNeteaseMusic, loadMusicFromUrl]);
+  }, [player.playbackMode, player.track, playlist, loadNeteaseMusic, loadMusicFromUrl]);
 
   const handlePrev = useCallback(() => {
+    const isPlayingNetease = !!player.track?.neteaseId;
+    
     if (player.playbackMode === 'shuffle') {
       handleNext();
-    } else if (playlist.neteasePlaylist.length > 0 && activeTab === 'netease') {
-      if (playlist.neteaseCurrentIndex === -1) return;
-      const prevIndex = (playlist.neteaseCurrentIndex - 1 + playlist.neteasePlaylist.length) % playlist.neteasePlaylist.length;
+    } else if (isPlayingNetease && playlist.neteasePlaylist.length > 0) {
+      // 使用"我喜欢"列表索引进行切换
+      if (playlist.neteaseLikedCurrentIndex === -1) return;
+      const prevIndex = (playlist.neteaseLikedCurrentIndex - 1 + playlist.neteasePlaylist.length) % playlist.neteasePlaylist.length;
       loadNeteaseMusic(playlist.neteasePlaylist[prevIndex], prevIndex);
     } else if (playlist.currentFolder && playlist.playlistFolders[playlist.currentFolder]) {
       const folderTracks = playlist.playlistFolders[playlist.currentFolder];
@@ -204,7 +225,7 @@ const AppContent: React.FC = () => {
       const prevIndex = (playlist.currentIndex - 1 + playlist.playlist.length) % playlist.playlist.length;
       loadMusicFromUrl(playlist.playlist[prevIndex], prevIndex);
     }
-  }, [player.playbackMode, playlist, activeTab, handleNext, loadNeteaseMusic, loadMusicFromUrl]);
+  }, [player.playbackMode, player.track, playlist, handleNext, loadNeteaseMusic, loadMusicFromUrl]);
 
   useQueryParams({
     onPlayNeteaseMusic: (item, index) => {
@@ -251,6 +272,30 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const audio = player.audioRef.current;
+    if (!audio) return;
+
+    const handleEnded = () => {
+      console.log('===== Ended event triggered =====');
+      console.log('Current playback mode:', player.playbackMode);
+      console.log('Current track:', player.track?.metadata.title);
+      console.log('Is playing netease:', !!player.track?.neteaseId);
+      
+      if (player.playbackMode === 'single') {
+        console.log('Single mode: restarting current track');
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } else {
+        console.log('List/shuffle mode: calling handleNext');
+        handleNext();
+      }
+    };
+
+    audio.addEventListener('ended', handleEnded);
+    return () => audio.removeEventListener('ended', handleEnded);
+  }, [player, handleNext]);
+
   const handleArtistClick = useCallback(async (artistName: string) => {
     setShowFullPlayer(false);
     setActiveTab('netease');
@@ -270,11 +315,8 @@ const AppContent: React.FC = () => {
   }, [player]);
 
   const cyclePlaybackMode = useCallback(() => {
-    const modes: PlaybackMode[] = ['single', 'list', 'shuffle'];
-    const currentIndex = modes.indexOf(player.playbackMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    localStorage.setItem('playbackMode', modes[nextIndex]);
-  }, [player.playbackMode]);
+    player.cyclePlaybackMode();
+  }, [player.cyclePlaybackMode]);
 
   const currentTrackItem: PlaylistItem | null = player.track ? {
     name: player.track.metadata.title,
@@ -313,7 +355,7 @@ const AppContent: React.FC = () => {
               onTrackSelect={loadNeteaseMusic}
               currentTrackUrl={player.track?.objectUrl || null}
               isPlaying={player.isPlaying}
-              onAddToPlaylist={addToNeteasePlaylist}
+              onAddToPlaylist={() => {}}
               neteasePlaylist={playlist.neteasePlaylist}
               neteaseCurrentIndex={playlist.neteaseCurrentIndex}
               setNeteasePlaylist={playlist.setNeteasePlaylist}
@@ -361,7 +403,6 @@ const AppContent: React.FC = () => {
             playlist={playlist.playlist}
             currentIndex={playlist.currentIndex}
             isPlaying={player.isPlaying}
-            playbackMode={player.playbackMode}
             loadingFolders={playlist.loadingFolders}
             folderLoading={playlist.folderLoading}
             loadingTrackUrl={player.loadingTrackUrl}
@@ -369,14 +410,13 @@ const AppContent: React.FC = () => {
             onSetCurrentFolder={playlist.setCurrentFolder}
             onLoadLinkedFolder={playlist.loadLinkedFolder}
             onTrackSelect={loadMusicFromUrl}
-            onCyclePlaybackMode={cyclePlaybackMode}
             onFileUpload={triggerFileUpload}
             onFolderUpload={triggerFolderUpload}
             onSetCustomSourceUrl={settings.setCustomSourceUrl}
           />
         );
     }
-  }, [activeTab, selectedArtist, playlist, player, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, addToNeteasePlaylist, cyclePlaybackMode, triggerFileUpload, triggerFolderUpload]);
+  }, [activeTab, selectedArtist, playlist, player, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, triggerFileUpload, triggerFolderUpload]);
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(settings.selectedFont) }}>
@@ -481,7 +521,7 @@ const AppContent: React.FC = () => {
         onTogglePlay={player.togglePlay}
         onPrev={handlePrev}
         onNext={handleNext}
-        onCyclePlaybackMode={cyclePlaybackMode}
+        onCyclePlaybackMode={player.cyclePlaybackMode}
         onSeek={handleSeek}
         onOpenPlayer={() => setShowFullPlayer(!showFullPlayer)}
         isFullPlayerOpen={showFullPlayer}

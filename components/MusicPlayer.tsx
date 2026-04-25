@@ -222,7 +222,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                     <button
                       key={`${artist.id}-${index}`}
                       onClick={() => onArtistClick?.(artist.name)}
-                      className="group relative flex items-center gap-2 rounded-md bg-white/5 px-3 py-1.5 backdrop-blur-sm hover:bg-white/10 transition-all cursor-pointer"
+                      className="group relative flex items-center gap-2 rounded-md px-3 py-1.5 backdrop-blur-sm hover:bg-white/10 transition-all cursor-pointer"
                       title={`搜索歌手：${artist.name}`}
                     >
                       <img

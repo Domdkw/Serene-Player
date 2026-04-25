@@ -1,13 +1,13 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive, Users } from 'lucide-react';
-import { Track } from '../types';
+import { Track, PlaybackMode } from '../types';
 
 interface MiniPlayerBarProps {
   track: Track | null;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
-  playbackMode: 'single' | 'list' | 'shuffle';
+  playbackMode: PlaybackMode;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   onTogglePlay: () => void;
   onPrev: () => void;
@@ -20,11 +20,23 @@ interface MiniPlayerBarProps {
   isTogetherListenConnected?: boolean;
 }
 
-const PlaybackModeIcon = memo(({ mode }: { mode: 'single' | 'list' | 'shuffle' }) => {
+/**
+ * 根据播放模式返回对应的图标组件
+ */
+const PlaybackModeIcon = memo(({ mode }: { mode: PlaybackMode }) => {
   if (mode === 'single') return <Repeat1 size={18} />;
   if (mode === 'list') return <Repeat size={18} />;
   return <Shuffle size={18} />;
 });
+
+/**
+ * 获取播放模式的提示文字
+ */
+const getPlaybackModeTitle = (mode: PlaybackMode): string => {
+  if (mode === 'single') return '单曲循环';
+  if (mode === 'list') return '列表循环';
+  return '随机播放';
+};
 
 const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
   track,
@@ -182,7 +194,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
                 onClick={onCyclePlaybackMode}
                 disabled={!hasTrack}
                 className={`transition-colors ${hasTrack ? 'text-white/60 hover:text-white' : 'text-white/30 cursor-not-allowed'}`}
-                title={playbackMode === 'single' ? '单曲循环' : playbackMode === 'list' ? '列表循环' : '随机播放'}
+                title={getPlaybackModeTitle(playbackMode)}
               >
                 <PlaybackModeIcon mode={playbackMode} />
               </button>
