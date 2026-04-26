@@ -357,26 +357,34 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     }
   }, [handleSearch]);
 
-  const handlePlaySong = useCallback(async (song: NeteaseSong) => {
-    setLoadingSongId(song.id);
-    setLoadingStatus({ loading: true, error: false, songId: song.id });
-
+  /**
+   * 统一的歌曲加载函数
+   * @param songId 歌曲ID
+   * @param songName 歌曲名称
+   * @param artistNames 艺术家名称数组
+   * @param artistIds 艺术家ID数组
+   * @param albumName 专辑名称
+   * @param coverUrl 封面URL（可选）
+   * @returns Promise<PlaylistItem | null> 返回播放列表项，失败返回null
+   */
+  const loadNeteaseSong = async (
+    songId: number,
+    songName: string,
+    artistNames: string[],
+    artistIds: number[],
+    albumName: string,
+    coverUrl?: string
+  ): Promise<PlaylistItem | null> => {
     try {
-      const songUrl = await getSongUrl(song.id);
-
+      const songUrl = await getSongUrl(songId);
       if (!songUrl) {
         console.error('无法获取歌曲 URL');
-        setLoadingStatus({ loading: false, error: true, songId: song.id });
-        setLoadingSongId(null);
-        return;
+        return null;
       }
-
-      const detail = songDetails[song.id];
-      const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800, true) : null;
 
       let lyrics: string | undefined;
       try {
-        const lyricData = await getSongLyric(song.id);
+        const lyricData = await getSongLyric(songId);
         if (lyricData && lyricData.lyric) {
           lyrics = lyricData.lyric;
         }
@@ -385,19 +393,51 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       }
 
       const playlistItem: PlaylistItem = {
-        name: song.name,
-        artist: song.artists.map(a => a.name).join(', '),
+        name: songName,
+        artist: artistNames.join(', '),
         url: songUrl,
         themeColor: '#C20C0C',
-        neteaseId: song.id,
-        artistIds: song.artists.map(a => a.id),
-        coverUrl: coverUrl || undefined,
+        neteaseId: songId,
+        artistIds: artistIds,
+        coverUrl: coverUrl,
         lyrics: lyrics,
-        album: detail?.album.name || song.album.name,
+        album: albumName,
       };
 
+      return playlistItem;
+    } catch (error) {
+      console.error('加载歌曲失败:', error);
+      return null;
+    }
+  };
+
+  const handlePlaySong = useCallback(async (song: NeteaseSong) => {
+    setLoadingSongId(song.id);
+    setLoadingStatus({ loading: true, error: false, songId: song.id });
+
+    try {
+      const detail = songDetails[song.id];
+      const coverUrl = detail?.album.picUrl 
+        ? getAlbumCoverUrl(detail.album.picUrl, 800, true) 
+        : undefined;
+
+      const playlistItem = await loadNeteaseSong(
+        song.id,
+        song.name,
+        song.artists.map(a => a.name),
+        song.artists.map(a => a.id),
+        detail?.album.name || song.album.name,
+        coverUrl
+      );
+
+      if (!playlistItem) {
+        setLoadingStatus({ loading: false, error: true, songId: song.id });
+        setLoadingSongId(null);
+        return;
+      }
+
       const currentPlaylist = neteasePlaylist || [];
-      const existingIndex = currentPlaylist.findIndex(p => p.url === songUrl);
+      const existingIndex = currentPlaylist.findIndex(p => p.url === playlistItem.url);
       let index: number;
 
       if (existingIndex === -1) {
@@ -422,39 +462,23 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     setLoadingStatus({ loading: true, error: false, songId: favorite.id });
 
     try {
-      const songUrl = await getSongUrl(favorite.id);
+      const playlistItem = await loadNeteaseSong(
+        favorite.id,
+        favorite.name,
+        [favorite.artist],
+        favorite.artistIds || [],
+        favorite.album,
+        favorite.coverUrl
+      );
 
-      if (!songUrl) {
-        console.error('无法获取歌曲 URL');
+      if (!playlistItem) {
         setLoadingStatus({ loading: false, error: true, songId: favorite.id });
         setLoadingSongId(null);
         return;
       }
 
-      let lyrics: string | undefined;
-      try {
-        const lyricData = await getSongLyric(favorite.id);
-        if (lyricData && lyricData.lyric) {
-          lyrics = lyricData.lyric;
-        }
-      } catch (e) {
-        console.warn('获取歌词失败:', e);
-      }
-
-      const playlistItem: PlaylistItem = {
-        name: favorite.name,
-        artist: favorite.artist,
-        url: songUrl,
-        themeColor: '#C20C0C',
-        neteaseId: favorite.id,
-        artistIds: favorite.artistIds || [],
-        coverUrl: favorite.coverUrl,
-        lyrics: lyrics,
-        album: favorite.album,
-      };
-
       const currentPlaylist = neteasePlaylist || [];
-      const existingIndex = currentPlaylist.findIndex(p => p.url === songUrl);
+      const existingIndex = currentPlaylist.findIndex(p => p.url === playlistItem.url);
       let index: number;
 
       if (existingIndex === -1) {
@@ -478,35 +502,24 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     setLoadingSongId(song.id);
 
     try {
-      const songUrl = await getSongUrl(song.id);
+      const detail = songDetails[song.id];
+      const coverUrl = detail?.album.picUrl 
+        ? getAlbumCoverUrl(detail.album.picUrl, 800, true) 
+        : undefined;
 
-      if (!songUrl) {
-        console.error('无法获取歌曲URL');
+      const playlistItem = await loadNeteaseSong(
+        song.id,
+        song.name,
+        song.artists.map(a => a.name),
+        song.artists.map(a => a.id),
+        detail?.album.name || song.album.name,
+        coverUrl
+      );
+
+      if (!playlistItem) {
+        console.error('无法加载歌曲');
         return;
       }
-
-      const detail = songDetails[song.id];
-      const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800, true) : null;
-
-      let lyrics: string | undefined;
-      try {
-        const lyricData = await getSongLyric(song.id);
-        if (lyricData && lyricData.lyric) {
-          lyrics = lyricData.lyric;
-        }
-      } catch (e) {
-        console.warn('获取歌词失败:', e);
-      }
-
-      const playlistItem: PlaylistItem = {
-        name: song.name,
-        artist: song.artists.map(a => a.name).join(', '),
-        url: songUrl,
-        themeColor: '#C20C0C',
-        coverUrl: coverUrl || undefined,
-        lyrics: lyrics,
-        album: detail?.album.name || song.album.name,
-      };
 
       onAddToPlaylist(playlistItem);
     } catch (error) {
