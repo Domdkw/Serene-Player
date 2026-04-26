@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react';
 import { PlaylistItem } from '../types';
 import { MusicLibrary } from './MusicLibrary';
 import { parseComposers } from '../utils/composerUtils';
+import { createStopPropagationProps } from '../utils/swipeUtils';
 
 interface ArtistsViewProps {
   selectedArtist: string | null;
@@ -14,8 +15,14 @@ interface ArtistsViewProps {
   loadingTrackUrl: string | null;
   artistsByLetter: Record<string, string[]>;
   pinyinLoadError: boolean;
+  isMobile?: boolean;
 }
 
+/**
+ * 艺术家视图组件
+ * 支持按字母分组显示艺术家列表，点击可查看该艺术家的所有歌曲
+ * @param isMobile - 是否为移动端模式，移动端使用横向滚动字母选择器和更紧凑的布局
+ */
 export const ArtistsView: React.FC<ArtistsViewProps> = ({
   selectedArtist,
   setSelectedArtist,
@@ -25,7 +32,8 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
   loadMusicFromUrl,
   loadingTrackUrl,
   artistsByLetter,
-  pinyinLoadError
+  pinyinLoadError,
+  isMobile = false
 }) => {
   if (selectedArtist) {
     const artistTracks = playlist.filter(item => {
@@ -35,7 +43,7 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
     
     return (
       <div className="h-full flex flex-col">
-        <div className="flex items-center gap-4 p-6 border-b border-white/[0.05]">
+        <div className={`flex items-center gap-4 border-b border-white/[0.05] ${isMobile ? 'p-4' : 'p-6'}`}>
           <button
             onClick={() => setSelectedArtist(null)}
             className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/[0.15] flex items-center justify-center transition-colors"
@@ -43,7 +51,7 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
             <ChevronLeft size={20} className="text-white/60" />
           </button>
           <div>
-            <h2 className="text-2xl font-bold text-white drop-shadow-md">{selectedArtist}</h2>
+            <h2 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-white drop-shadow-md`}>{selectedArtist}</h2>
             <p className="text-sm text-white/40 drop-shadow-sm">{artistTracks.length} 首歌曲</p>
           </div>
         </div>
@@ -68,10 +76,14 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-6 border-b border-white/[0.05] flex items-center justify-between">
+      <div className={`border-b border-white/[0.05] flex items-center justify-between ${isMobile ? 'p-4' : 'p-6'}`}>
         <div>
-          <h2 className="text-2xl font-bold text-white drop-shadow-md">艺术家</h2>
-          <span className="text-sm text-white/40 mt-1 drop-shadow-sm">按字母排序</span>
+          <h2 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-white drop-shadow-md`}>艺术家</h2>
+          {isMobile ? (
+            <span className="text-sm text-white/40 mt-1 ml-1">按字母排序</span>
+          ) : (
+            <span className="text-sm text-white/40 mt-1 drop-shadow-sm">按字母排序</span>
+          )}
         </div>
         {pinyinLoadError && (
           <div className="flex items-center gap-2 text-amber-400/80 bg-amber-400/10 px-3 py-1.5 rounded-lg" title="拼音库加载失败，中文歌手暂按 # 分组">
@@ -85,7 +97,11 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
         )}
       </div>
 
-      <div className="px-6 py-3 border-b border-white/[0.05] flex flex-wrap gap-1">
+      {/* 字母选择器 - 移动端横向滚动，PC端换行显示 */}
+      <div
+        className={`border-b border-white/[0.05] ${isMobile ? 'px-4 py-2 flex flex-row gap-2 overflow-x-auto hide-scrollbar' : 'px-6 py-3 flex flex-wrap gap-1'}`}
+        {...(isMobile ? createStopPropagationProps() : {})}
+      >
         {alphabet.map(letter => {
           const hasArtists = artistsByLetter[letter] && artistsByLetter[letter].length > 0;
           return (
@@ -97,10 +113,18 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
                   element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
               }}
-              className={`w-7 h-7 rounded-md text-xs font-bold transition-all ${
-                hasArtists
-                  ? 'text-white/70 hover:text-white hover:bg-white/10 cursor-pointer'
-                  : 'text-white/20 cursor-default'
+              className={`${
+                isMobile 
+                  ? `min-w-[36px] h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center border ${
+                      hasArtists
+                        ? 'text-white/80 border-white/10 bg-white/5 hover:bg-white/15 hover:border-white/20 cursor-pointer'
+                        : 'text-white/20 border-white/5 bg-transparent cursor-default'
+                    }`
+                  : `w-7 h-7 rounded-md text-xs font-bold transition-all ${
+                      hasArtists
+                        ? 'text-white/70 hover:text-white hover:bg-white/10 cursor-pointer'
+                        : 'text-white/20 cursor-default'
+                    }`
               }`}
               disabled={!hasArtists}
             >
@@ -110,22 +134,30 @@ export const ArtistsView: React.FC<ArtistsViewProps> = ({
         })}
       </div>
 
-      <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
+      {/* 艺术家列表 */}
+      <div
+        className={`flex-1 overflow-y-auto ${isMobile ? 'hide-scrollbar' : 'playlist-scrollbar p-4'}`}
+        {...(isMobile ? createStopPropagationProps() : {})}
+      >
         {alphabet.map(letter => {
           const artists = artistsByLetter[letter];
           if (!artists || artists.length === 0) return null;
 
           return (
             <div key={letter} id={`letter-group-${letter}`} className="mb-6">
-              <div className="sticky top-0 z-10 px-4 py-2 bg-transparent backdrop-blur-sm">
+              <div className={`sticky top-0 z-10 bg-transparent backdrop-blur-sm ${isMobile ? 'px-4 py-1' : 'px-4 py-2'}`}>
                 <span className="text-2xl font-black text-white/20 drop-shadow-md">{letter}</span>
               </div>
-              <div className="space-y-1 px-2">
+              <div className={`${isMobile ? 'px-2' : 'space-y-1 px-2'}`}>
                 {artists.map((artist, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedArtist(artist)}
-                    className="w-full text-left px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white rounded-xl transition-all duration-200 text-sm font-medium"
+                    className={`w-full text-left text-white/70 rounded-xl text-sm font-medium ${
+                      isMobile 
+                        ? 'px-4 py-2' 
+                        : 'px-4 py-3 hover:bg-white/[0.05] hover:text-white transition-all duration-200'
+                    }`}
                   >
                     {artist}
                   </button>

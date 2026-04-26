@@ -357,26 +357,34 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     }
   }, [handleSearch]);
 
-  const handlePlaySong = useCallback(async (song: NeteaseSong) => {
-    setLoadingSongId(song.id);
-    setLoadingStatus({ loading: true, error: false, songId: song.id });
-
+  /**
+   * 统一的歌曲加载函数
+   * @param songId 歌曲ID
+   * @param songName 歌曲名称
+   * @param artistNames 艺术家名称数组
+   * @param artistIds 艺术家ID数组
+   * @param albumName 专辑名称
+   * @param coverUrl 封面URL（可选）
+   * @returns Promise<PlaylistItem | null> 返回播放列表项，失败返回null
+   */
+  const loadNeteaseSong = async (
+    songId: number,
+    songName: string,
+    artistNames: string[],
+    artistIds: number[],
+    albumName: string,
+    coverUrl?: string
+  ): Promise<PlaylistItem | null> => {
     try {
-      const songUrl = await getSongUrl(song.id);
-
+      const songUrl = await getSongUrl(songId);
       if (!songUrl) {
         console.error('无法获取歌曲 URL');
-        setLoadingStatus({ loading: false, error: true, songId: song.id });
-        setLoadingSongId(null);
-        return;
+        return null;
       }
-
-      const detail = songDetails[song.id];
-      const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800, true) : null;
 
       let lyrics: string | undefined;
       try {
-        const lyricData = await getSongLyric(song.id);
+        const lyricData = await getSongLyric(songId);
         if (lyricData && lyricData.lyric) {
           lyrics = lyricData.lyric;
         }
@@ -385,19 +393,51 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       }
 
       const playlistItem: PlaylistItem = {
-        name: song.name,
-        artist: song.artists.map(a => a.name).join(', '),
+        name: songName,
+        artist: artistNames.join(', '),
         url: songUrl,
         themeColor: '#C20C0C',
-        neteaseId: song.id,
-        artistIds: song.artists.map(a => a.id),
-        coverUrl: coverUrl || undefined,
+        neteaseId: songId,
+        artistIds: artistIds,
+        coverUrl: coverUrl,
         lyrics: lyrics,
-        album: detail?.album.name || song.album.name,
+        album: albumName,
       };
 
+      return playlistItem;
+    } catch (error) {
+      console.error('加载歌曲失败:', error);
+      return null;
+    }
+  };
+
+  const handlePlaySong = useCallback(async (song: NeteaseSong) => {
+    setLoadingSongId(song.id);
+    setLoadingStatus({ loading: true, error: false, songId: song.id });
+
+    try {
+      const detail = songDetails[song.id];
+      const coverUrl = detail?.album.picUrl 
+        ? getAlbumCoverUrl(detail.album.picUrl, 800, true) 
+        : undefined;
+
+      const playlistItem = await loadNeteaseSong(
+        song.id,
+        song.name,
+        song.artists.map(a => a.name),
+        song.artists.map(a => a.id),
+        detail?.album.name || song.album.name,
+        coverUrl
+      );
+
+      if (!playlistItem) {
+        setLoadingStatus({ loading: false, error: true, songId: song.id });
+        setLoadingSongId(null);
+        return;
+      }
+
       const currentPlaylist = neteasePlaylist || [];
-      const existingIndex = currentPlaylist.findIndex(p => p.url === songUrl);
+      const existingIndex = currentPlaylist.findIndex(p => p.url === playlistItem.url);
       let index: number;
 
       if (existingIndex === -1) {
@@ -422,39 +462,23 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     setLoadingStatus({ loading: true, error: false, songId: favorite.id });
 
     try {
-      const songUrl = await getSongUrl(favorite.id);
+      const playlistItem = await loadNeteaseSong(
+        favorite.id,
+        favorite.name,
+        [favorite.artist],
+        favorite.artistIds || [],
+        favorite.album,
+        favorite.coverUrl
+      );
 
-      if (!songUrl) {
-        console.error('无法获取歌曲 URL');
+      if (!playlistItem) {
         setLoadingStatus({ loading: false, error: true, songId: favorite.id });
         setLoadingSongId(null);
         return;
       }
 
-      let lyrics: string | undefined;
-      try {
-        const lyricData = await getSongLyric(favorite.id);
-        if (lyricData && lyricData.lyric) {
-          lyrics = lyricData.lyric;
-        }
-      } catch (e) {
-        console.warn('获取歌词失败:', e);
-      }
-
-      const playlistItem: PlaylistItem = {
-        name: favorite.name,
-        artist: favorite.artist,
-        url: songUrl,
-        themeColor: '#C20C0C',
-        neteaseId: favorite.id,
-        artistIds: favorite.artistIds || [],
-        coverUrl: favorite.coverUrl,
-        lyrics: lyrics,
-        album: favorite.album,
-      };
-
       const currentPlaylist = neteasePlaylist || [];
-      const existingIndex = currentPlaylist.findIndex(p => p.url === songUrl);
+      const existingIndex = currentPlaylist.findIndex(p => p.url === playlistItem.url);
       let index: number;
 
       if (existingIndex === -1) {
@@ -478,35 +502,24 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     setLoadingSongId(song.id);
 
     try {
-      const songUrl = await getSongUrl(song.id);
+      const detail = songDetails[song.id];
+      const coverUrl = detail?.album.picUrl 
+        ? getAlbumCoverUrl(detail.album.picUrl, 800, true) 
+        : undefined;
 
-      if (!songUrl) {
-        console.error('无法获取歌曲URL');
+      const playlistItem = await loadNeteaseSong(
+        song.id,
+        song.name,
+        song.artists.map(a => a.name),
+        song.artists.map(a => a.id),
+        detail?.album.name || song.album.name,
+        coverUrl
+      );
+
+      if (!playlistItem) {
+        console.error('无法加载歌曲');
         return;
       }
-
-      const detail = songDetails[song.id];
-      const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800, true) : null;
-
-      let lyrics: string | undefined;
-      try {
-        const lyricData = await getSongLyric(song.id);
-        if (lyricData && lyricData.lyric) {
-          lyrics = lyricData.lyric;
-        }
-      } catch (e) {
-        console.warn('获取歌词失败:', e);
-      }
-
-      const playlistItem: PlaylistItem = {
-        name: song.name,
-        artist: song.artists.map(a => a.name).join(', '),
-        url: songUrl,
-        themeColor: '#C20C0C',
-        coverUrl: coverUrl || undefined,
-        lyrics: lyrics,
-        album: detail?.album.name || song.album.name,
-      };
 
       onAddToPlaylist(playlistItem);
     } catch (error) {
@@ -560,13 +573,13 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
           <div
             key={song.id}
             onClick={() => handlePlaySong(song)}
-            className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer relative ${
+            className={`group flex items-center gap-2 md:gap-4 p-1 md:p-2 transition-all cursor-pointer relative${
               isCurrentTrack
-                ? 'bg-white/10 border border-white/20'
-                : 'bg-white/5 border border-white/[0.05] hover:bg-white/[0.08]'
+                ? 'bg-white/20 hover:bg-white/10'
+                : 'bg-transparent hover:bg-white/10'
             }`}
           >
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
               {coverUrl ? (
                 <LazyImage
                   src={coverUrl}
@@ -579,12 +592,12 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
               )}
             </div>
 
-            <div className="flex-1 min-w-0">
-              <p className={`font-medium truncate text-sm md:text-base ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <p className={`font-medium truncate text-sm md:text-base flex-1 min-w-0 ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
                 {song.name}
               </p>
-              <p className="text-xs md:text-sm text-white/50 truncate">
-                {song.artists.map(a => a.name).join(', ')} · {song.album.name}
+              <p className="text-xs md:text-sm text-white/50 truncate flex-1 min-w-0">
+                {song.artists.map(a => a.name).join(', ')}
               </p>
             </div>
 
@@ -599,14 +612,14 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                   toggleFavorite(song);
                 }}
                 disabled={isLoading}
-                className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all ${
+                className={`w-4 h-4 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
                   isLiked 
                     ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' 
                     : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
                 }`}
                 title={isLiked ? '从喜欢中移除' : '添加到喜欢'}
               >
-                <Heart size={14} md:size={18} fill={isLiked ? 'currentColor' : 'none'} />
+                <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
               </button>
             </div>
           </div>
@@ -638,10 +651,10 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
             <div
               key={favorite.id}
               onClick={() => handlePlayFavorite(favorite)}
-              className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer ${
+              className={`group flex items-center gap-2 md:gap-4 p-1 md:p-2 transition-all cursor-pointer relative${
                 isCurrentTrack
-                  ? 'bg-white/10 border border-white/20'
-                  : 'bg-white/5 border border-white/[0.05] hover:bg-white/[0.08]'
+                  ? 'bg-white/20 hover:bg-white/10'
+                  : 'bg-transparent hover:bg-white/10'
               }`}
             >
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -657,12 +670,12 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                 )}
               </div>
 
-              <div className="flex-1 min-w-0">
-                <p className={`font-medium truncate text-sm md:text-base ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <p className={`font-medium truncate text-sm md:text-base flex-1 min-w-0 ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
                   {favorite.name}
                 </p>
-                <p className="text-xs md:text-sm text-white/50 truncate">
-                  {favorite.artist} · {favorite.album}
+                <p className="text-xs md:text-sm text-white/50 truncate flex-1 min-w-0">
+                  {favorite.artist}
                 </p>
               </div>
 
@@ -677,10 +690,10 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                     toggleFavorite({ id: favorite.id } as NeteaseSong);
                   }}
                   disabled={isLoading}
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  className="w-4 h-4 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all bg-red-500/20 text-red-400 hover:bg-red-500/30"
                   title="从喜欢中移除"
                 >
-                  <Heart size={14} md:size={18} fill="currentColor" />
+                  <Heart size={18} fill="currentColor" />
                 </button>
               </div>
             </div>
@@ -757,11 +770,11 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                 className="p-2 md:p-2.5 bg-white/10 hover:bg-white/20 text-white/80 rounded-xl transition-colors flex items-center justify-center"
                 title="返回搜索"
               >
-                <ChevronLeft size={14} md:size={18} />
+                <ChevronLeft size={18} />
               </button>
             )}
             <div className="flex-1 relative">
-              <Search size={14} md:size={18} className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-white/40" />
+              <Search size={18} className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-white/40" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -781,12 +794,12 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={14} md:size={18} className="animate-spin" />
+                  <Loader2 size={18} className="animate-spin" />
                   <span className="hidden md:inline">搜索中</span>
                 </>
               ) : (
                 <>
-                  <Search size={14} md:size={18} />
+                  <Search size={18} />
                 </>
               )}
             </button>

@@ -1,7 +1,9 @@
 /**
- * WebRTC P2P 连接管理模块
+ * WebRTC P2P 连接管理模块（基于 PeerJS）
  * 用于"一起听"功能的实时音频同步
  */
+
+import { loadPeerJSLib } from './peerjsLoader';
 
 export interface SyncMessage {
   type: 'play' | 'pause' | 'seek' | 'track_change' | 'sync_all' | 'request_sync' | 'sync_state' | 'initial_sync';
@@ -9,7 +11,7 @@ export interface SyncMessage {
     currentTime?: number;
     isPlaying?: boolean;
     neteaseId?: number;
-    timestamp: number;
+    timestamp?: number;
   };
 }
 
@@ -31,71 +33,69 @@ export interface PeerConnectionCallbacks {
   onLog?: (log: ConnectionLog) => void;
 }
 
-const STUN_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
-  { urls: 'stun:stun.miwifi.com:3478' },
-  { urls: 'stun:stun.chat.bilibili.com:3478' },
-];
-
 /**
- * 解析 ICE candidate 类型
+ * 验证房间号是否有效
+ * 规则：长度大于 8 位，字母数量大于 4 个，符合 PeerJS ID 格式要求
+ * @param roomId 房间号
+ * @returns 验证结果
  */
-function parseCandidateType(candidate: string): { type: string; protocol: string; ip: string; port: string } | null {
-  const parts = candidate.split(' ');
-  let type = 'unknown';
-  let protocol = 'unknown';
-  let ip = 'unknown';
-  let port = 'unknown';
-
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i] === 'typ' && parts[i + 1]) {
-      type = parts[i + 1];
-    }
-    if (parts[i] === 'protocol' && parts[i + 1]) {
-      protocol = parts[i + 1].toUpperCase();
-    }
-    if (parts[i] === 'udp' || parts[i] === 'tcp') {
-      protocol = parts[i].toUpperCase();
-    }
-    if (parts[i] && parts[i].match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
-      ip = parts[i];
-    }
-    if (parts[i] && parts[i].match(/^\d+$/) && parts[i - 1] && parts[i - 1].match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
-      port = parts[i];
-    }
+export function validateRoomId(roomId: string): { valid: boolean; error?: string } {
+  if (!roomId || roomId.length === 0) {
+    return { valid: false, error: '请输入房间号' };
   }
 
-  return { type, protocol, ip, port };
+  if (roomId.length <= 8) {
+    return { valid: false, error: '房间号长度必须大于 8 位' };
+  }
+
+  const letterCount = (roomId.match(/[a-zA-Z]/g) || []).length;
+  if (letterCount <= 4) {
+    return { valid: false, error: '房间号必须包含多于 4 个字母' };
+  }
+
+  // PeerJS ID 格式验证：必须以字母或数字开头和结尾，中间可以包含字母、数字、下划线、短横线
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/.test(roomId) && roomId.length !== 1) {
+    return { valid: false, error: '房间号只能包含字母、数字、下划线 (_) 和短横线 (-)' };
+  }
+
+  return { valid: true };
 }
 
 /**
- * 获取候选类型的中文描述
+ * 生成符合规则的房间号
+ * 规则：长度大于 8 位，字母数量大于 4 个
+ * @returns 生成的房间号
  */
-function getCandidateTypeDesc(type: string): string {
-  switch (type) {
-    case 'host': return '本地地址';
-    case 'srflx': return '服务器反射';
-    case 'prflx': return '对等反射';
-    case 'relay': return '中继';
-    default: return type;
+export function generateRoomId(): string {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  
+  // 确保至少有 5 个字母
+  let roomId = '';
+  for (let i = 0; i < 5; i++) {
+    roomId += letters.charAt(Math.floor(Math.random() * letters.length));
   }
+  
+  // 添加随机字符使总长度达到 10 位
+  const allChars = letters + numbers;
+  for (let i = 0; i < 5; i++) {
+    roomId += allChars.charAt(Math.floor(Math.random() * allChars.length));
+  }
+  
+  // 打乱顺序
+  return roomId.split('').sort(() => Math.random() - 0.5).join('');
 }
 
 /**
- * WebRTC P2P 连接管理类
+ * WebRTC P2P 连接管理类（基于 PeerJS）
  */
 export class PeerConnection {
-  private peerConnection: RTCPeerConnection | null = null;
-  private dataChannel: RTCDataChannel | null = null;
+  private peer: any = null;
+  private connection: any = null;
   private callbacks: PeerConnectionCallbacks;
-  private isInitiator: boolean = false;
-  private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 3;
-  private stunServerIndex: number = 0;
+  private isHost: boolean = false;
+  private roomId: string | null = null;
+  private initPromise: Promise<void> | null = null;
 
   constructor(callbacks: PeerConnectionCallbacks) {
     this.callbacks = callbacks;
@@ -108,150 +108,245 @@ export class PeerConnection {
   }
 
   /**
-   * 创建新的 P2P 连接（作为发起方）
+   * 初始化 PeerJS
+   * @param forceId 是否强制使用指定的 roomId（主机模式）
    */
-  async createOffer(): Promise<RTCSessionDescriptionInit> {
-    this.isInitiator = true;
-    this.cleanup();
+  private async initializePeer(forceId: boolean = false): Promise<void> {
+    if (this.initPromise) {
+      return this.initPromise;
+    }
 
-    this.log('stun', '初始化 STUN 服务器', STUN_SERVERS.map(s => s.urls).join('\n'));
+    this.initPromise = new Promise<void>((resolve, reject) => {
+      try {
+        loadPeerJSLib().then((Peer) => {
+          // 如果是主机模式，使用指定的 roomId；否则让 PeerJS 自动生成 ID
+          const peerId = (forceId && this.roomId) ? this.roomId : undefined;
+          
+          this.peer = new Peer(peerId, {
+            debug: 2,
+          });
 
-    this.peerConnection = new RTCPeerConnection({
-      iceServers: STUN_SERVERS,
+          const cleanup = () => {
+            if (this.peer) {
+              this.peer.off('open');
+              this.peer.off('error');
+            }
+          };
+
+          this.peer.on('open', (id: string) => {
+            this.log('connection', `PeerJS 已初始化，ID: ${id}`);
+            cleanup();
+            resolve();
+          });
+
+          this.peer.on('error', (error: any) => {
+            this.log('error', `PeerJS 错误：${error.type}`, error.message);
+            cleanup();
+            this.callbacks.onConnectionStateChange({
+              status: 'failed',
+              errorMessage: `连接错误：${error.type}`,
+            });
+            reject(error);
+          });
+        }).catch((error) => {
+          this.log('error', 'PeerJS 加载失败', String(error));
+          this.callbacks.onError('PeerJS 库加载失败');
+          reject(error);
+        });
+      } catch (error) {
+        this.log('error', 'PeerJS 初始化失败', String(error));
+        this.callbacks.onError('PeerJS 库初始化失败');
+        reject(error);
+      }
     });
 
-    this.setupPeerConnectionHandlers();
-
-    this.dataChannel = this.peerConnection.createDataChannel('sync', {
-      ordered: true,
-    });
-    this.setupDataChannelHandlers();
-
-    this.log('connection', '创建 Offer...');
-    const offer = await this.peerConnection.createOffer();
-    await this.peerConnection.setLocalDescription(offer);
-
-    this.log('ice', '开始收集 ICE 候选...');
-    await this.waitForIceGathering();
-
-    return this.peerConnection.localDescription!;
+    return this.initPromise;
   }
 
   /**
-   * 接收 offer 并创建 answer（作为接收方）
+   * 创建房间（作为主机）
+   * @param customRoomId 自定义房间号（可选）
+   * @returns 房间号
    */
-  async handleOffer(offer: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
-    this.isInitiator = false;
-    this.cleanup();
+  async createRoom(customRoomId?: string): Promise<string> {
+    this.isHost = true;
+    this.roomId = customRoomId || generateRoomId();
+    
+    await this.initializePeer(true);
 
-    this.log('stun', '初始化 STUN 服务器', STUN_SERVERS.map(s => s.urls).join('\n'));
+    return this.roomId;
+  }
 
-    this.peerConnection = new RTCPeerConnection({
-      iceServers: STUN_SERVERS,
+  /**
+   * 加入房间（作为客户端）
+   * @param roomId 房间号
+   */
+  async joinRoom(roomId: string): Promise<void> {
+    this.isHost = false;
+    this.roomId = null; // 客户端不需要设置自己的 ID
+    
+    // 先初始化 peer（不指定 ID，让 PeerJS 自动生成）
+    await this.initializePeer(false);
+
+    // 等待 peer 完全初始化
+    if (!this.peer || !this.peer.id) {
+      throw new Error('PeerJS 初始化失败');
+    }
+
+    // 连接到主机
+    await this.connectToPeer(roomId);
+  }
+
+  /**
+   * 连接到指定的 Peer
+   * @param peerId 目标 Peer ID
+   */
+  private async connectToPeer(peerId: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      this.log('connection', `正在连接到 ${peerId}...`);
+      this.callbacks.onConnectionStateChange({ status: 'connecting' });
+
+      this.connection = this.peer.connect(peerId, {
+        label: 'sync',
+        reliable: true,
+      });
+
+      const cleanup = () => {
+        if (this.connection) {
+          this.connection.off('open');
+          this.connection.off('error');
+        }
+      };
+
+      this.connection.on('open', () => {
+        this.log('datachannel', '数据通道已打开');
+        cleanup();
+        this.callbacks.onConnectionStateChange({ status: 'connected' });
+        resolve();
+      });
+
+      this.connection.on('error', (error: any) => {
+        this.log('error', '连接失败', String(error));
+        cleanup();
+        this.callbacks.onConnectionStateChange({
+          status: 'failed',
+          errorMessage: '无法连接到对方',
+        });
+        reject(error);
+      });
+
+      // 设置其他事件处理器
+      this.setupConnectionHandlers();
+    });
+  }
+
+  /**
+   * 设置连接事件处理器
+   */
+  private setupConnectionHandlers(): void {
+    if (!this.connection) return;
+
+    this.connection.on('close', () => {
+      this.log('datachannel', '数据通道已关闭');
+      this.callbacks.onConnectionStateChange({ status: 'disconnected' });
     });
 
-    this.setupPeerConnectionHandlers();
+    this.connection.on('error', (error: any) => {
+      this.log('error', '数据通道错误', String(error));
+      this.callbacks.onError('数据通道错误');
+    });
 
-    this.peerConnection.ondatachannel = (event) => {
-      this.dataChannel = event.channel;
-      this.setupDataChannelHandlers();
-    };
-
-    this.log('connection', '接收远程 Offer');
-    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-
-    this.log('connection', '创建 Answer...');
-    const answer = await this.peerConnection.createAnswer();
-    await this.peerConnection.setLocalDescription(answer);
-
-    this.log('ice', '开始收集 ICE 候选...');
-    await this.waitForIceGathering();
-
-    return this.peerConnection.localDescription!;
+    this.connection.on('data', (data: any) => {
+      try {
+        const message: SyncMessage = JSON.parse(data);
+        this.callbacks.onMessage(message);
+      } catch (error) {
+        console.error('Failed to parse message:', error);
+      }
+    });
   }
 
   /**
-   * 接收 answer 并完成连接（作为发起方）
+   * 监听传入的连接（主机使用）
    */
-  async handleAnswer(answer: RTCSessionDescriptionInit): Promise<void> {
-    if (!this.peerConnection) {
-      throw new Error('No peer connection exists');
-    }
+  listenForConnections(): void {
+    if (!this.peer) return;
 
-    this.log('connection', '接收远程 Answer');
-    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-  }
+    this.peer.on('connection', (conn: any) => {
+      this.log('connection', '接收到新的连接请求');
+      this.connection = conn;
+      
+      // 设置连接事件处理器
+      const cleanup = () => {
+        if (this.connection) {
+          this.connection.off('open');
+          this.connection.off('error');
+        }
+      };
 
-  /**
-   * 添加 ICE candidate
-   */
-  async addIceCandidate(candidate: RTCIceCandidateInit): Promise<void> {
-    if (!this.peerConnection) {
-      throw new Error('No peer connection exists');
-    }
+      this.connection.on('open', () => {
+        this.log('datachannel', '数据通道已打开');
+        cleanup();
+        this.callbacks.onConnectionStateChange({ status: 'connected' });
+      });
 
-    const parsed = parseCandidateType(candidate.candidate || '');
-    if (parsed) {
-      this.log('ice', `添加远程候选 [${parsed.type}]`, `${parsed.ip}:${parsed.port} (${parsed.protocol})`);
-    }
-    await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      this.connection.on('error', (error: any) => {
+        this.log('error', '连接错误', String(error));
+        cleanup();
+        this.callbacks.onConnectionStateChange({
+          status: 'failed',
+          errorMessage: '连接错误',
+        });
+      });
+
+      this.setupConnectionHandlers();
+    });
   }
 
   /**
    * 发送同步消息
    */
   sendMessage(message: SyncMessage): void {
-    if (this.dataChannel && this.dataChannel.readyState === 'open') {
-      this.dataChannel.send(JSON.stringify(message));
+    if (this.connection && this.connection.open) {
+      this.connection.send(JSON.stringify(message));
+      this.log('datachannel', `发送消息：${message.type}`);
     } else {
       console.warn('Data channel is not open');
+      this.log('error', '数据通道未打开，无法发送消息');
     }
-  }
-
-  /**
-   * 获取本地 ICE candidates
-   */
-  getLocalIceCandidates(): RTCIceCandidate[] {
-    if (!this.peerConnection) return [];
-    return Array.from(this.peerConnection.localDescription?.sdp?.match(/a=candidate:.*/g) || []).map((line, index) => {
-      return {
-        candidate: line.substring(2),
-        sdpMid: '0',
-        sdpMLineIndex: index,
-      } as RTCIceCandidate;
-    });
   }
 
   /**
    * 获取连接状态
    */
   getConnectionState(): ConnectionState {
-    if (!this.peerConnection) {
+    if (!this.peer) {
       return { status: 'disconnected' };
     }
 
-    const state = this.peerConnection.connectionState;
-    switch (state) {
-      case 'new':
-      case 'connecting':
-        return { status: 'connecting' };
-      case 'connected':
-        return { status: 'connected' };
-      case 'disconnected':
-      case 'closed':
-        return { status: 'disconnected' };
-      case 'failed':
-        return { status: 'failed', errorMessage: '连接失败' };
-      default:
-        return { status: 'disconnected' };
+    if (this.connection && this.connection.open) {
+      return { status: 'connected' };
     }
+
+    if (this.peer.disconnected) {
+      return { status: 'disconnected' };
+    }
+
+    return { status: 'connecting' };
   }
 
   /**
    * 检查是否已连接
    */
   isConnected(): boolean {
-    return this.dataChannel?.readyState === 'open';
+    return this.connection?.open === true;
+  }
+
+  /**
+   * 获取房间号
+   */
+  getRoomId(): string | null {
+    return this.roomId;
   }
 
   /**
@@ -259,170 +354,18 @@ export class PeerConnection {
    */
   close(): void {
     this.log('connection', '关闭连接');
-    this.cleanup();
+    
+    if (this.connection) {
+      this.connection.close();
+      this.connection = null;
+    }
+
+    if (this.peer) {
+      this.peer.destroy();
+      this.peer = null;
+    }
+
+    this.initPromise = null;
     this.callbacks.onConnectionStateChange({ status: 'disconnected' });
-  }
-
-  /**
-   * 设置 PeerConnection 事件处理器
-   */
-  private setupPeerConnectionHandlers(): void {
-    if (!this.peerConnection) return;
-
-    this.peerConnection.onconnectionstatechange = () => {
-      const state = this.peerConnection?.connectionState;
-      this.log('connection', `连接状态: ${state}`);
-      const connState = this.getConnectionState();
-      this.callbacks.onConnectionStateChange(connState);
-    };
-
-    this.peerConnection.oniceconnectionstatechange = () => {
-      const iceState = this.peerConnection?.iceConnectionState;
-      this.log('ice', `ICE 状态: ${iceState}`);
-      if (iceState === 'failed') {
-        this.callbacks.onConnectionStateChange({
-          status: 'failed',
-          errorMessage: 'ICE 连接失败，请检查网络环境',
-        });
-      }
-    };
-
-    this.peerConnection.onicegatheringstatechange = () => {
-      const state = this.peerConnection?.iceGatheringState;
-      this.log('ice', `ICE 收集状态: ${state}`);
-    };
-
-    this.peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        const parsed = parseCandidateType(event.candidate.candidate);
-        if (parsed) {
-          const typeDesc = getCandidateTypeDesc(parsed.type);
-          this.log('ice', `发现本地候选 [${typeDesc}]`, `${parsed.ip}:${parsed.port} (${parsed.protocol})`);
-        }
-      } else {
-        this.log('ice', 'ICE 候选收集完成');
-      }
-    };
-    /*
-    this.peerConnection.onicecandidateerror = (event) => {
-      const errorEvent = event as RTCPeerConnectionIceErrorEvent;
-      this.log('error', `ICE 候选错误`, `URL: ${errorEvent.url}, Code: ${errorEvent.errorCode}, Text: ${errorEvent.errorText}`);
-    };
-    */
-  }
-
-  /**
-   * 设置 DataChannel 事件处理器
-   */
-  private setupDataChannelHandlers(): void {
-    if (!this.dataChannel) return;
-
-    this.dataChannel.onopen = () => {
-      this.log('datachannel', '数据通道已打开');
-      this.callbacks.onConnectionStateChange({ status: 'connected' });
-      this.reconnectAttempts = 0;
-    };
-
-    this.dataChannel.onclose = () => {
-      this.log('datachannel', '数据通道已关闭');
-      this.callbacks.onConnectionStateChange({ status: 'disconnected' });
-    };
-
-    this.dataChannel.onerror = (error) => {
-      this.log('error', '数据通道错误', String(error));
-      this.callbacks.onError('数据通道错误');
-    };
-
-    this.dataChannel.onmessage = (event) => {
-      try {
-        const message: SyncMessage = JSON.parse(event.data);
-        this.callbacks.onMessage(message);
-      } catch (error) {
-        console.error('Failed to parse message:', error);
-      }
-    };
-  }
-
-  /**
-   * 等待 ICE gathering 完成
-   */
-  private waitForIceGathering(): Promise<void> {
-    return new Promise((resolve) => {
-      if (!this.peerConnection) {
-        resolve();
-        return;
-      }
-
-      if (this.peerConnection.iceGatheringState === 'complete') {
-        resolve();
-        return;
-      }
-
-      const checkState = () => {
-        if (this.peerConnection?.iceGatheringState === 'complete') {
-          this.peerConnection.removeEventListener('icegatheringstatechange', checkState);
-          resolve();
-        }
-      };
-
-      this.peerConnection.addEventListener('icegatheringstatechange', checkState);
-
-      setTimeout(() => {
-        this.peerConnection?.removeEventListener('icegatheringstatechange', checkState);
-        this.log('ice', 'ICE 收集超时 (5s)，使用已有候选');
-        resolve();
-      }, 5000);
-    });
-  }
-
-  /**
-   * 清理资源
-   */
-  private cleanup(): void {
-    if (this.dataChannel) {
-      this.dataChannel.close();
-      this.dataChannel = null;
-    }
-
-    if (this.peerConnection) {
-      this.peerConnection.close();
-      this.peerConnection = null;
-    }
-  }
-}
-
-/**
- * 将 SDP 和 ICE candidates 序列化为可传输的字符串
- */
-export function serializeSignalData(sdp: RTCSessionDescriptionInit, candidates: RTCIceCandidateInit[]): string {
-  return JSON.stringify({ sdp, candidates });
-}
-
-/**
- * 从字符串反序列化 SDP 和 ICE candidates
- */
-export function deserializeSignalData(data: string): { sdp: RTCSessionDescriptionInit; candidates: RTCIceCandidateInit[] } {
-  return JSON.parse(data);
-}
-
-/**
- * 压缩 SDP 数据（用于更短的传输字符串）
- */
-export function compressSignalData(data: string): string {
-  try {
-    return btoa(encodeURIComponent(data));
-  } catch {
-    return data;
-  }
-}
-
-/**
- * 解压 SDP 数据
- */
-export function decompressSignalData(data: string): string {
-  try {
-    return decodeURIComponent(atob(data));
-  } catch {
-    return data;
   }
 }

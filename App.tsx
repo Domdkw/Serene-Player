@@ -1,367 +1,128 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
-import {
-  Upload, Music, Loader2, AlertCircle, Settings, FileAudio, FolderOpen, User, ChevronLeft, Folder, ListMusic, Repeat, Repeat1, Shuffle, Search, Plus, X, Link2, RotateCcw, Cloud, Users
-} from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
-import { extractMetadata, parseLyrics } from './utils/metadata';
-import { MusicLibrary } from './components/MusicLibrary';
-import { ArtistsView } from './components/ArtistsView';
-import { SearchPanel } from './components/SearchPanel';
-import { NeteasePanel, NeteasePanelRef } from './components/NeteasePanel';
-import SettingsPanel from './components/SettingsPanel';
-import MusicPlayer from './components/MusicPlayer';
-import MiniPlayerBar from './components/MiniPlayerBar';
-import GlobalBackground from './components/GlobalBackground';
-import TogetherListenPanel, { TogetherListenPanelRef } from './components/TogetherListenPanel';
-import fetchInChunks from 'fetch-in-chunks';
-import { getFontUrl, getFontFamily } from './utils/fontUtils';
-import { getArtistsFirstLetters, getFirstLetterSync, containsChinese } from './utils/pinyinLoader';
-import { parseComposers, groupComposersByInitial } from './utils/composerUtils';
+import { PlayerProvider, usePlayer } from './contexts/PlayerContext';
+import { PlaylistProvider, usePlaylist } from './contexts/PlaylistContext';
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useQueryParams } from './hooks/useQueryParams';
-import { getSongUrl, getSongDetail, getSongLyric, getAlbumCoverUrl } from './apis/netease';
+import { useArtists } from './hooks/useArtists';
+import { useFileUpload } from './hooks/useFileUpload';
+import { useNetease } from './hooks/useNetease';
+import { usePageTitle } from './hooks/usePageTitle';
+import { getFontFamily } from './utils/fontUtils';
+import { ErrorService } from './utils/errorService';
+import ErrorBoundary from './components/ErrorBoundary';
+import { Sidebar } from './components/Sidebar';
+import { SongsView } from './components/SongsView';
+import { ShimmerLoadingBar } from './components/LoadingComponents';
+import GlobalBackground from './components/GlobalBackground';
+import MiniPlayerBar from './components/MiniPlayerBar';
+import { getSongDetail, getSongUrl, getSongLyric, getAlbumCoverUrl } from './apis/netease';
 
 type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings';
 
-/**
- * 网易云音乐图标组件
- * 使用稳定的组件引用避免重复渲染导致的图片重复请求
- */
-const NeteaseIcon = memo(() => (
-  <img src="https://s1.music.126.net/style/favicon.ico" alt="网易云" className="w-4.5 h-4.5" />
-));
+const ArtistsView = lazy(() => import('./components/ArtistsView').then(m => ({ default: m.ArtistsView })));
+const NeteasePanel = lazy(() => import('./components/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
+const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
+const MusicPlayer = lazy(() => import('./components/MusicPlayer'));
+const TogetherListenPanel = lazy(() => import('./components/TogetherListenPanel'));
 
-//region 使用memo优化子组件，避免不必要的重渲染
-const SidebarItem = memo(({
-  icon: Icon,
-  label,
-  isActive,
-  onClick,
-  badge
-}: {
-  icon: React.ElementType | (() => React.ReactNode);
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-  badge?: number;
-}) => {
-  /**
-   * 判断是否为自定义图标组件（不需要 size/strokeWidth props）
-   * lucide 图标组件的 length 属性表示其接受的参数个数，通常大于 0
-   * 自定义组件（如 NeteaseIcon）不需要额外 props
-   */
-  const isCustomIconComponent = typeof Icon === 'function' && (!('length' in Icon) || Icon.length === 0);
-  
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ease-out group relative overflow-hidden ${
-        isActive
-          ? 'bg-white text-black shadow-lg shadow-white/10'
-          : 'text-white/60 hover:text-white hover:bg-white/5'
-      }`}
-    >
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-        isActive ? 'bg-black/10' : 'bg-white/5'
-      }`}>
-        {isCustomIconComponent ? (
-          <Icon />
-        ) : (
-          <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-        )}
-      </div>
-      <span className="font-medium text-sm">{label}</span>
-      {badge !== undefined && badge > 0 && (
-        <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
-          isActive ? 'bg-black/10 text-black' : 'bg-white/10 text-white/60'
-        }`}>
-          {badge}
-        </span>
-      )}
-    </button>
-  );
-});
-
-//region 流光加载条组件
-const ShimmerLoadingBar = memo(({ progress }: { progress: number }) => (
-  <div className="fixed top-0 left-0 w-full z-50 pointer-events-none">
-    <div className="relative h-1.5 md:h-2 bg-white/5 overflow-hidden shimmer-effect">
-      <div className="h-full bg-white transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.8)]" style={{ width: `${progress}%` }} />
-    </div>
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-full">
+    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
   </div>
-));
+);
 
-//region 文件夹加载指示器
-const FolderLoadingIndicator = memo(({ name, progress }: { name: string; progress: number }) => (
-  <div className="mb-6 p-4 bg-transparent rounded-2xl border border-white/[0.05] backdrop-blur-sm">
-    <div className="flex items-center justify-between mb-3">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
-          <Loader2 size={16} className="text-white/60 animate-spin" />
-        </div>
-        <div>
-          <span className="text-sm text-white font-medium">Loading {name}</span>
-          <span className="text-xs text-white/40 ml-2">{progress}%</span>
-        </div>
-      </div>
-    </div>
-    <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-      <div 
-        className="h-full relative overflow-hidden rounded-full transition-all duration-300"
-        style={{ width: `${progress}%` }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer" />
-      </div>
-    </div>
-  </div>
-));
+const defaultSourceUrl = './discList.json';
 
-//region 内容切换动画包装器
-const AnimatedContent = memo(({ 
-  children, 
-  activeTab,
-  className = ''
-}: { 
-  children: React.ReactNode; 
-  activeTab: NavTab;
-  className?: string;
-}) => {
-  const [displayTab, setDisplayTab] = useState(activeTab);
-  const [isAnimating, setIsAnimating] = useState(false);
-  
-  useEffect(() => {
-    if (displayTab !== activeTab) {
-      setIsAnimating(true);
-      const timer = setTimeout(() => {
-        setDisplayTab(activeTab);
-        setIsAnimating(false);
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab, displayTab]);
+const AppContent: React.FC = () => {
+  const player = usePlayer();
+  const playlist = usePlaylist();
+  const settings = useSettings();
 
-  return (
-    <div 
-      className={`transition-all duration-300 ease-out ${
-        isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
-      } ${className}`}
-    >
-      {children}
-    </div>
-  );
-});
-
-const App: React.FC = () => {
-  const [track, setTrack] = useState<Track | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isAutoScrolling, setIsAutoScrolling] = useState(true);
-  
-  //region Playlist states
-  const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
-  const [playlistFolders, setPlaylistFolders] = useState<Record<string, PlaylistItem[]>>({});
-  const [loadedLinks, setLoadedLinks] = useState<Set<string>>(new Set());
-  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
-  const [currentIndex, setCurrentIndex] = useState<number>(-1);
-  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('single');
-  
-  //region 网易云播放列表状态
-  const [neteasePlaylist, setNeteasePlaylist] = useState<PlaylistItem[]>([]);
-  const [neteaseCurrentIndex, setNeteaseCurrentIndex] = useState<number>(-1);
-  
-  //region Navigation state
   const [activeTab, setActiveTab] = useState<NavTab>('netease');
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [localSongsLoaded, setLocalSongsLoaded] = useState(false);
-  
-  //region UI states
-  const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
-  const [folderLoading, setFolderLoading] = useState<{name: string, progress: number} | null>(null);
-  const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set());
-  const [loadingTrackUrl, setLoadingTrackUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [lyricsLoading, setLyricsLoading] = useState(false);
   const [showFullPlayer, setShowFullPlayer] = useState(false);
-  
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  
-  //region Custom Source states
-  const [isCustomSourceOpen, setIsCustomSourceOpen] = useState(false);
-  const [customSourceUrl, setCustomSourceUrl] = useState<string>(() => {
-    return localStorage.getItem('customMusicSource') || '';
-  });
-  const [sourceInputValue, setSourceInputValue] = useState('');
-  
-  //region Settings states
-  const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
-  const [chunkCount, setChunkCount] = useState<number>(() => {
-    const saved = localStorage.getItem('chunkCount');
-    return saved ? parseInt(saved) : 4;
-  });
-  const [fontWeight, setFontWeight] = useState<string>(() => {
-    const saved = localStorage.getItem('fontWeight');
-    return saved || 'medium';
-  });
-  const [letterSpacing, setLetterSpacing] = useState<number>(() => {
-    const saved = localStorage.getItem('letterSpacing');
-    return saved ? parseFloat(saved) : 0.5;
-  });
-  const [lineHeight, setLineHeight] = useState<number>(() => {
-    const saved = localStorage.getItem('lineHeight');
-    return saved ? parseFloat(saved) : 1.5;
-  });
-  const [selectedFont, setSelectedFont] = useState<string>(() => {
-    const saved = localStorage.getItem('selectedFont');
-    return saved || 'default';
-  });
-  const [showTranslation, setShowTranslation] = useState<boolean>(() => {
-    const saved = localStorage.getItem('showTranslation');
-    return saved ? saved === 'true' : true;
-  });
-  const [showSpectrum, setShowSpectrum] = useState<boolean>(() => {
-    const saved = localStorage.getItem('showSpectrum');
-    return saved ? saved === 'true' : true;
-  });
-  const [streamingMode, setStreamingMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('streamingMode');
-    return saved ? saved === 'true' : false;
-  });
-  const [spectrumFps, setSpectrumFps] = useState<number>(() => {
-    const saved = localStorage.getItem('spectrumFps');
-    return saved ? parseInt(saved, 10) : 60;
-  });
-  const [backgroundRotate, setBackgroundRotate] = useState<boolean>(() => {
-    const saved = localStorage.getItem('backgroundRotate');
-    return saved ? saved === 'true' : false;
-  });
-
-  //region Refs
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const folderInputRef = useRef<HTMLInputElement | null>(null);
-  const uploadMenuRef = useRef<HTMLDivElement | null>(null);
-  const neteasePanelRef = useRef<NeteasePanelRef>(null);
-  const togetherListenRef = useRef<TogetherListenPanelRef>(null);
-  const [isTogetherListenConnected, setIsTogetherListenConnected] = useState(false);
-
-  //region 加载字体
-  useEffect(() => {
-    const existingFontLinks = document.querySelectorAll('link[data-font-link="true"]');
-    existingFontLinks.forEach(link => link.remove());
-
-    if (selectedFont !== 'default') {
-      const fontUrl = getFontUrl(selectedFont);
-      if (fontUrl) {
-        const fontLink = document.createElement('link');
-        fontLink.rel = 'stylesheet';
-        fontLink.href = fontUrl;
-        fontLink.setAttribute('data-font-link', 'true');
-        document.head.appendChild(fontLink);
-        return () => {
-          document.head.removeChild(fontLink);
-        };
-      }
-    }
-  }, [selectedFont]);
-
-  //region 监听一起听连接状态
-  useEffect(() => {
-    const checkInterval = setInterval(() => {
-      const connected = togetherListenRef.current?.isConnected() ?? false;
-      setIsTogetherListenConnected(connected);
-    }, 1000);
-    return () => clearInterval(checkInterval);
-  }, []);
-
-  /**
-   * 检测当前歌词类型
-   * @returns 'word' - 逐字歌词, 'line' - 逐行歌词, 'none' - 无歌词
-   */
-  const lyricsType = useMemo(() => {
-    const parsedLyrics = track?.metadata?.parsedLyrics;
-    if (!parsedLyrics || parsedLyrics.length === 0) return 'none';
-    const firstLine = parsedLyrics[0];
-    if (firstLine.chars && firstLine.chars.length > 0) return 'word';
-    return 'line';
-  }, [track?.metadata?.parsedLyrics]);
-
-  //region 歌词时间更新 - 根据歌词类型动态调整刷新间隔
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (audioRef.current && !audioRef.current.paused) {
-        setCurrentTime(audioRef.current.currentTime);
-      }
-    }, lyricsType === 'word' ? 100 : 250);
-
-    return () => clearInterval(interval);
-  }, [lyricsType]);
-
-  //region 保存翻译显示设置到 LocalStorage
-  useEffect(() => {
-    localStorage.setItem('showTranslation', showTranslation.toString());
-  }, [showTranslation]);
-
-  //region 保存流媒体播放模式设置到 LocalStorage
-  useEffect(() => {
-    localStorage.setItem('streamingMode', streamingMode.toString());
-  }, [streamingMode]);
-
-  //region 应用启动时隐藏加载界面
-  useEffect(() => {
-    if ((window as any).hideAppLoader) {
-      (window as any).hideAppLoader();
-    }
-  }, []);
-
-  //region URL 参数处理状态
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const [playlistReady, setPlaylistReady] = useState(false);
+  const [isTogetherListenConnected, setIsTogetherListenConnected] = useState(false);
 
-  //region Load playlist on mount
-  const defaultSourceUrl = './discList.json';
-  
-  /**
-   * 从指定URL加载播放列表
-   * @param url - 播放列表JSON文件的URL
-   * @returns 加载成功返回true，失败返回false
-   */
-  const loadPlaylistFromUrl = useCallback(async (url: string) => {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Playlist file not found: ${url}`);
-      const data = await res.json();
-      
-      const processedFolders: Record<string, PlaylistItem[] | { link?: string }> = {};
-      const allTracks: PlaylistItem[] = [];
-      
-      for (const [key, value] of Object.entries(data)) {
-        if (Array.isArray(value)) {
-          processedFolders[key] = value;
-          allTracks.push(...value);
-        } else if (value && typeof value === 'object' && 'link' in value) {
-          processedFolders[key] = value as { link?: string };
-        }
+  const neteasePanelRef = useRef<any>(null);
+  const togetherListenRef = useRef<any>(null);
+
+  const {
+    artistsByLetter,
+    pinyinLoadError
+  } = useArtists({
+    playlist: playlist.playlist,
+    activeTab
+  });
+
+  const loadMusicFromUrl = useCallback(async (item: PlaylistItem, index: number) => {
+    setErrorMessage(null);
+    playlist.setCurrentIndex(index);
+    await player.loadTrackFromItem(
+      {
+        url: item.url,
+        name: item.name,
+        artist: item.artist,
+        album: item.album,
+        coverUrl: item.coverUrl,
+        lyrics: item.lyrics,
+        neteaseId: item.neteaseId,
+        artistIds: item.artistIds,
+        file: item.file
+      },
+      index,
+      {
+        streamingMode: settings.streamingMode,
+        chunkCount: settings.chunkCount
       }
-      
-      setPlaylistFolders(processedFolders);
-      setPlaylist(allTracks);
-      setPlaylistReady(true);
-      return true;
-    } catch (err) {
-      console.error("Failed to load playlist", err);
-      setErrorMessage(`Could not load playlist from: ${url}`);
-      return false;
-    }
-  }, []);
+    );
+  }, [player, playlist, settings.streamingMode, settings.chunkCount]);
 
-  //region 性能优化：使用useCallback缓存函数
-  /**
-   * 处理标签页切换
-   * 当切换到歌曲标签页时，延迟加载本地歌曲列表
-   */
+  const {
+    loadNeteaseMusic,
+    playNeteaseById
+  } = useNetease({
+    onLoadTrack: loadMusicFromUrl,
+    neteasePlaylist: playlist.neteasePlaylist,
+    setNeteaseCurrentIndex: playlist.setNeteaseCurrentIndex,
+    updateNeteaseLikedIndexById: playlist.updateNeteaseLikedIndexById
+  });
+
+  const addToPlaylistFolders = useCallback((name: string, items: PlaylistItem[]) => {
+    playlist.setPlaylistFolders(prev => ({
+      ...prev,
+      [name]: items
+    }));
+  }, [playlist]);
+
+  const {
+    fileInputRef,
+    folderInputRef,
+    handleFileUpload,
+    handleFolderUpload,
+    triggerFileUpload,
+    triggerFolderUpload
+  } = useFileUpload({
+    onTrackLoad: loadMusicFromUrl,
+    addToPlaylist: playlist.addMultipleToPlaylist,
+    addToPlaylistFolders,
+    currentIndex: playlist.currentIndex
+  });
+
+  const loadPlaylistFromUrl = useCallback(async (url: string) => {
+    const success = await playlist.loadPlaylistFromUrl(url);
+    if (success) {
+      setPlaylistReady(true);
+    }
+    return success;
+  }, [playlist]);
+
   const handleTabChange = useCallback((tab: NavTab) => {
     if (tab === activeTab) return;
     setIsTransitioning(true);
@@ -370,443 +131,106 @@ const App: React.FC = () => {
       setSelectedArtist(null);
       setIsTransitioning(false);
     }, 200);
-    
+
     if (tab === 'songs' && !localSongsLoaded) {
-      const url = customSourceUrl || defaultSourceUrl;
+      const url = settings.customSourceUrl || defaultSourceUrl;
       loadPlaylistFromUrl(url);
       setLocalSongsLoaded(true);
     }
-  }, [activeTab, localSongsLoaded, customSourceUrl, loadPlaylistFromUrl]);
-  
-  //region 艺术家按首字母分组（支持中文转拼音）
-  const [artistsByLetter, setArtistsByLetter] = useState<Record<string, string[]>>({});
-  const [artistLetterMap, setArtistLetterMap] = useState<Record<string, string>>({});
-  const [hasChineseArtists, setHasChineseArtists] = useState(false);
+  }, [activeTab, localSongsLoaded, settings.customSourceUrl, loadPlaylistFromUrl]);
 
-  // 初始分组（仅处理英文，中文暂时归为 #）
-  useEffect(() => {
-    const artistSet = new Set<string>();
-    let hasChinese = false;
-
-    playlist.forEach(item => {
-      if (item.artist) {
-        const composers = parseComposers(item.artist);
-        composers.forEach(composer => {
-          artistSet.add(composer.name);
-          if (containsChinese(composer.name)) {
-            hasChinese = true;
-          }
-        });
-      }
-    });
-
-    const grouped: Record<string, string[]> = {};
-    const letterMap: Record<string, string> = {};
-
-    Array.from(artistSet).forEach(artist => {
-      const firstLetter = getFirstLetterSync(artist);
-      letterMap[artist] = firstLetter;
-      if (!grouped[firstLetter]) {
-        grouped[firstLetter] = [];
-      }
-      grouped[firstLetter].push(artist);
-    });
-
-    // 对每个分组内的艺术家排序
-    Object.keys(grouped).forEach(letter => {
-      grouped[letter].sort((a, b) => a.localeCompare(b, 'zh-CN'));
-    });
-
-    setArtistsByLetter(grouped);
-    setArtistLetterMap(letterMap);
-    setHasChineseArtists(hasChinese);
-  }, [playlist]);
-
-  // 当用户点击艺术家标签时，加载拼音库并重新分组中文艺术家
-  const [pinyinLoaded, setPinyinLoaded] = useState(false);
-  const [pinyinLoadError, setPinyinLoadError] = useState(false);
-
-  useEffect(() => {
-    if (activeTab === 'artists' && hasChineseArtists && !pinyinLoaded && !pinyinLoadError) {
-      getArtistsFirstLetters(Object.keys(artistLetterMap).filter(a => containsChinese(a))).then(newLetters => {
-        setArtistLetterMap(prev => ({ ...prev, ...newLetters }));
-
-        // 重新分组
-        const regrouped: Record<string, string[]> = {};
-        Object.entries({ ...artistLetterMap, ...newLetters }).forEach(([artist, letter]) => {
-          const letterKey = letter as string;
-          if (!regrouped[letterKey]) {
-            regrouped[letterKey] = [];
-          }
-          regrouped[letterKey].push(artist);
-        });
-
-        // 对每个分组内的艺术家排序
-        Object.keys(regrouped).forEach(letter => {
-          regrouped[letter].sort((a, b) => a.localeCompare(b, 'zh-CN'));
-        });
-
-        setArtistsByLetter(regrouped);
-        setPinyinLoaded(true);
-      }).catch(err => {
-        console.warn('Failed to load pinyin library:', err);
-        setPinyinLoadError(true);
-        // 失败时保持现有分组（中文在 # 组）
-      });
-    }
-  }, [activeTab, hasChineseArtists, pinyinLoaded, pinyinLoadError, artistLetterMap]);
-
-  const loadLinkedFolder = useCallback(async (folderName: string, linkUrl: string) => {
-    if (loadedLinks.has(linkUrl)) {
-      return;
-    }
-
-    try {
-      setLoadingFolders(prev => new Set(prev).add(folderName));
-      setFolderLoading({name: folderName, progress: 0});
-      
-      const res = await fetch(linkUrl);
-      if (!res.ok) throw new Error(`Failed to load linked folder: ${linkUrl}`);
-      
-      setFolderLoading({name: folderName, progress: 50});
-      
-      const data = await res.json();
-      
-      setPlaylistFolders(prev => {
-        const newFolders = { ...prev };
-        const folderData = prev[folderName];
-        
-        if (folderData && typeof folderData === 'object' && 'link' in folderData) {
-          const newFolderData: any = { ...folderData };
-          
-          if (Array.isArray(data)) {
-            newFolderData.tracks = data;
-          } else if (typeof data === 'object' && data !== null) {
-            const emptyKeyData = data[""];
-            if (Array.isArray(emptyKeyData)) {
-              newFolderData.tracks = emptyKeyData;
-              newFolderData.children = {};
-              for (const [key, value] of Object.entries(data)) {
-                if (key !== "" && Array.isArray(value)) {
-                  newFolderData.children[key] = value;
-                } else if (key !== "" && value && typeof value === 'object' && 'link' in value) {
-                  newFolderData.children[key] = value;
-                }
-              }
-            } else {
-              newFolderData.children = {};
-              for (const [key, value] of Object.entries(data)) {
-                if (Array.isArray(value)) {
-                  newFolderData.children[key] = value;
-                } else if (value && typeof value === 'object' && 'link' in value) {
-                  newFolderData.children[key] = value;
-                }
-              }
-            }
-          }
-          
-          newFolders[folderName] = newFolderData;
-        }
-        
-        return newFolders;
-      });
-      
-      setLoadedLinks(prev => new Set(prev).add(linkUrl));
-      
-      setPlaylist(prev => {
-        const existingUrls = new Set(prev.map(t => t.url));
-        const newTracks: PlaylistItem[] = [];
-        
-        if (Array.isArray(data)) {
-          for (const track of data) {
-            if (!existingUrls.has(track.url)) {
-              newTracks.push(track);
-              existingUrls.add(track.url);
-            }
-          }
-        } else if (typeof data === 'object' && data !== null) {
-          for (const value of Object.values(data)) {
-            if (Array.isArray(value)) {
-              for (const track of value) {
-                if (!existingUrls.has(track.url)) {
-                  newTracks.push(track);
-                  existingUrls.add(track.url);
-                }
-              }
-            }
-          }
-        }
-        
-        return [...prev, ...newTracks];
-      });
-      
-      setFolderLoading({name: folderName, progress: 100});
-      setTimeout(() => {
-        setFolderLoading(null);
-        setLoadingFolders(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(folderName);
-          return newSet;
-        });
-      }, 300);
-    } catch (error) {
-      console.error("Failed to load linked folder:", error);
-      setErrorMessage(`Failed to load linked folder: ${folderName}`);
-      setFolderLoading(null);
-      setLoadingFolders(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(folderName);
-        return newSet;
-      });
-    }
-  }, [loadedLinks]);
-
-  /**
-   * 处理歌手点击事件：收起播放页并触发自动搜索
-   */
-  const handleArtistClick = useCallback(async (artistName: string) => {
-    // 1. 收起播放页
-    setShowFullPlayer(false);
+  const handleNext = useCallback(() => {
+    const isPlayingNetease = !!player.track?.neteaseId;
     
-    // 2. 切换到网易云标签页
-    setActiveTab('netease');
-    
-    // 3. 延迟一小段时间等待界面切换完成，然后触发搜索
-    setTimeout(() => {
-      if (neteasePanelRef.current) {
-        neteasePanelRef.current.openSearch();
-        neteasePanelRef.current.triggerSearch(artistName, false);
+    if (player.playbackMode === 'shuffle') {
+      if (isPlayingNetease && playlist.neteasePlaylist.length > 0) {
+        let randomIndex;
+        do {
+          randomIndex = Math.floor(Math.random() * playlist.neteasePlaylist.length);
+        } while (playlist.neteasePlaylist.length > 1 && randomIndex === playlist.neteaseLikedCurrentIndex);
+        loadNeteaseMusic(playlist.neteasePlaylist[randomIndex], randomIndex);
+      } else if (playlist.playlist.length > 0) {
+        let randomIndex;
+        do {
+          randomIndex = Math.floor(Math.random() * playlist.playlist.length);
+        } while (playlist.playlist.length > 1 && randomIndex === playlist.currentIndex);
+        loadMusicFromUrl(playlist.playlist[randomIndex], randomIndex);
       }
-    }, 300);
-  }, []);
-
-  const loadMusicFromUrl = useCallback(async (item: PlaylistItem, index: number) => {
-    setErrorMessage(null);
-    setLyricsLoading(true);
-    setLoadingTrackUrl(item.url);
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
-
-    setLoadingProgress(0);
-    setCurrentIndex(index);
-    setIsPlaying(false);
-    
-    if (!item.url) {
-      setErrorMessage('无效的歌曲链接');
-      return;
-    }
-
-    const isNeteaseSong = !!item.neteaseId;
-    const shouldUseStreaming = isNeteaseSong || streamingMode;
-
-    try {
-      let file: File | undefined;
-      let objectUrl: string;
-      
-      if (shouldUseStreaming) {
-        objectUrl = item.url;
-        setLoadingProgress(100);
-        file = undefined;
-      } else if (item.file) {
-        file = item.file;
-        objectUrl = item.url;
-        setLoadingProgress(100);
-      } else if (item.url.startsWith('blob:')) {
-        const response = await fetch(item.url);
-        const blob = await response.blob();
-        file = new File([blob], item.name, { type: blob.type || 'audio/mpeg' });
-        objectUrl = item.url;
-        setLoadingProgress(100);
+    } else if (isPlayingNetease && playlist.neteasePlaylist.length > 0) {
+      // 使用"我喜欢"列表索引进行切换
+      let nextIndex;
+      if (playlist.neteaseLikedCurrentIndex === -1) {
+        nextIndex = 0;
       } else {
-        const encodedUrl = item.url.startsWith('http://') || item.url.startsWith('https://') 
-          ? item.url 
-          : encodeURI(item.url);
-        
-        const blob = await fetchInChunks(encodedUrl, {
-          maxParallelRequests: chunkCount,
-          progressCallback: (downloaded, total) => {
-            if (total > 0) {
-              setLoadingProgress(Math.round((downloaded / total) * 100));
-            }
-          },
-          signal
-        });
-
-        if (signal.aborted) return;
-
-        file = new File([blob], item.name, { type: 'audio/mpeg' });
-        objectUrl = URL.createObjectURL(blob);
+        // 列表循环：到达末尾时回到开头
+        nextIndex = (playlist.neteaseLikedCurrentIndex + 1) % playlist.neteasePlaylist.length;
       }
-      
-      const metadata = file ? await extractMetadata(file) : {
-        title: item.name,
-        artist: item.artist,
-        album: item.album || '',
-        coverUrl: null,
-        lyrics: null,
-        parsedLyrics: [],
-        lyricArtist: null,
-        lyricAlbum: null,
-      };
-
-      if (!metadata.coverUrl && item.coverUrl) {
-        metadata.coverUrl = item.coverUrl;
-      }
-
-      if (!metadata.lyrics && item.lyrics) {
-        metadata.lyrics = item.lyrics;
-        const parsedResult = parseLyrics(item.lyrics);
-        metadata.parsedLyrics = parsedResult.lines;
-        if (parsedResult.lyricArtist) {
-          metadata.lyricArtist = parsedResult.lyricArtist;
+      loadNeteaseMusic(playlist.neteasePlaylist[nextIndex], nextIndex);
+    } else if (playlist.currentFolder && playlist.playlistFolders[playlist.currentFolder]) {
+      const folderTracks = playlist.playlistFolders[playlist.currentFolder];
+      const currentTrack = playlist.playlist[playlist.currentIndex];
+      if (Array.isArray(folderTracks)) {
+        let currentFolderIndex;
+        if (currentTrack) {
+          currentFolderIndex = folderTracks.findIndex((t: PlaylistItem) => t.url === currentTrack.url);
+        } else {
+          currentFolderIndex = -1;
         }
-        if (parsedResult.lyricAlbum) {
-          metadata.lyricAlbum = parsedResult.lyricAlbum;
+
+        if (currentFolderIndex !== -1) {
+          const nextFolderIndex = (currentFolderIndex + 1) % folderTracks.length;
+          const nextTrack = folderTracks[nextFolderIndex];
+          const nextGlobalIndex = playlist.playlist.findIndex(p => p.url === nextTrack.url);
+          loadMusicFromUrl(nextTrack, nextGlobalIndex);
+        } else if (folderTracks.length > 0) {
+          loadMusicFromUrl(folderTracks[0], 0);
         }
       }
-      
-      const oldUrl = track?.objectUrl;
-      
-      setTrack({ 
-        file, 
-        objectUrl, 
-        metadata,
-        neteaseId: item.neteaseId,
-        artistIds: item.artistIds,
-        sourceType: shouldUseStreaming ? 'streaming' : 'local'
-      });
-      setLoadingProgress(null);
-      setLoadingTrackUrl(null);
-      setLyricsLoading(false);
-      
-      setTimeout(async () => {
-        if (audioRef.current) {
-          audioRef.current.src = objectUrl;
-          audioRef.current.load();
-          try {
-            await audioRef.current.play();
-            setIsPlaying(true);
-          } catch (e) {
-            console.warn("Autoplay was prevented.", e);
-          }
-        }
-      }, 100);
-
-      if (oldUrl && !oldUrl.startsWith('blob:') && !shouldUseStreaming) {
-        setTimeout(() => {
-          URL.revokeObjectURL(oldUrl);
-        }, 1000);
-      }
-    } catch (error: any) {
-      if (error.name === 'AbortError') return;
-      console.error("Error loading music:", error);
-      setLoadingProgress(null);
-      setLoadingTrackUrl(null);
-      setLyricsLoading(false);
-      setErrorMessage(error.message || "An error occurred while loading the track.");
-      setIsPlaying(false);
-    }
-  }, [chunkCount, track?.objectUrl, streamingMode]);
-
-  const loadNeteaseMusic = useCallback(async (item: PlaylistItem, index: number) => {
-    setNeteaseCurrentIndex(index);
-    loadMusicFromUrl(item, index);
-  }, [loadMusicFromUrl]);
-
-  /**
-   * 根据 neteaseId 获取歌曲并播放
-   * 用于"一起听"功能中接收端根据主机同步的 neteaseId 自动获取歌曲
-   * @param neteaseId - 网易云音乐歌曲ID
-   */
-  const playNeteaseById = useCallback(async (neteaseId: number) => {
-    setErrorMessage(null);
-    setLyricsLoading(true);
-    setLoadingProgress(0);
-
-    try {
-      const songDetails = await getSongDetail(neteaseId);
-      if (!songDetails || songDetails.length === 0) {
-        setErrorMessage('无法获取歌曲详情');
-        setLyricsLoading(false);
-        return;
-      }
-
-      const songDetail = songDetails[0];
-      setLoadingProgress(30);
-
-      const songUrl = await getSongUrl(neteaseId);
-      if (!songUrl) {
-        setErrorMessage('无法获取歌曲播放链接');
-        setLyricsLoading(false);
-        return;
-      }
-
-      setLoadingProgress(60);
-
-      let lyrics: string | undefined;
-      try {
-        const lyricData = await getSongLyric(neteaseId);
-        if (lyricData && lyricData.lyric) {
-          lyrics = lyricData.lyric;
-        }
-      } catch (e) {
-        console.warn('获取歌词失败:', e);
-      }
-
-      setLoadingProgress(80);
-
-      const coverUrl = songDetail.album.picUrl 
-        ? getAlbumCoverUrl(songDetail.album.picUrl, 800, true) 
-        : undefined;
-
-      const playlistItem: PlaylistItem = {
-        name: songDetail.name,
-        artist: songDetail.artists.map(a => a.name).join(', '),
-        url: songUrl,
-        themeColor: '#C20C0C',
-        neteaseId: neteaseId,
-        artistIds: songDetail.artists.map(a => a.id),
-        coverUrl: coverUrl,
-        lyrics: lyrics,
-        album: songDetail.album.name,
-      };
-
-      const existingIndex = neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
-      let index: number;
-
-      if (existingIndex === -1) {
-        const newPlaylist = [...neteasePlaylist, playlistItem];
-        setNeteasePlaylist(newPlaylist);
-        index = newPlaylist.length - 1;
+    } else {
+      if (playlist.playlist.length === 0) return;
+      let nextIndex;
+      if (playlist.currentIndex === -1) {
+        nextIndex = 0;
       } else {
-        index = existingIndex;
+        nextIndex = (playlist.currentIndex + 1) % playlist.playlist.length;
       }
-
-      setNeteaseCurrentIndex(index);
-      setLoadingProgress(100);
-
-      loadMusicFromUrl(playlistItem, index);
-    } catch (error: any) {
-      console.error('根据ID播放歌曲失败:', error);
-      setErrorMessage(error.message || '播放歌曲失败');
-      setLyricsLoading(false);
-      setLoadingProgress(null);
+      loadMusicFromUrl(playlist.playlist[nextIndex], nextIndex);
     }
-  }, [loadMusicFromUrl, neteasePlaylist, setNeteasePlaylist]);
+  }, [player.playbackMode, player.track, playlist, loadNeteaseMusic, loadMusicFromUrl]);
 
-  //region URL 参数处理 Hook
-  const { processPendingParams, hasPendingParams } = useQueryParams({
+  const handlePrev = useCallback(() => {
+    const isPlayingNetease = !!player.track?.neteaseId;
+    
+    if (player.playbackMode === 'shuffle') {
+      handleNext();
+    } else if (isPlayingNetease && playlist.neteasePlaylist.length > 0) {
+      // 使用"我喜欢"列表索引进行切换
+      if (playlist.neteaseLikedCurrentIndex === -1) return;
+      const prevIndex = (playlist.neteaseLikedCurrentIndex - 1 + playlist.neteasePlaylist.length) % playlist.neteasePlaylist.length;
+      loadNeteaseMusic(playlist.neteasePlaylist[prevIndex], prevIndex);
+    } else if (playlist.currentFolder && playlist.playlistFolders[playlist.currentFolder]) {
+      const folderTracks = playlist.playlistFolders[playlist.currentFolder];
+      const currentTrack = playlist.playlist[playlist.currentIndex];
+      if (Array.isArray(folderTracks)) {
+        const currentFolderIndex = folderTracks.findIndex((t: PlaylistItem) => t.url === currentTrack?.url);
+
+        if (currentFolderIndex !== -1) {
+          const prevFolderIndex = (currentFolderIndex - 1 + folderTracks.length) % folderTracks.length;
+          const prevTrack = folderTracks[prevFolderIndex];
+          const prevGlobalIndex = playlist.playlist.findIndex(p => p.url === prevTrack.url);
+          loadMusicFromUrl(prevTrack, prevGlobalIndex);
+        }
+      }
+    } else {
+      if (playlist.playlist.length === 0) return;
+      const prevIndex = (playlist.currentIndex - 1 + playlist.playlist.length) % playlist.playlist.length;
+      loadMusicFromUrl(playlist.playlist[prevIndex], prevIndex);
+    }
+  }, [player.playbackMode, player.track, playlist, handleNext, loadNeteaseMusic, loadMusicFromUrl]);
+
+  useQueryParams({
     onPlayNeteaseMusic: (item, index) => {
-      setPlaylist(prev => {
-        const existingIndex = prev.findIndex(p => p.url === item.url);
-        if (existingIndex === -1) {
-          return [...prev, item];
-        }
-        return prev;
-      });
+      playlist.addToPlaylist(item);
       loadMusicFromUrl(item, index);
     },
     onPlayLocalMusic: (item, index) => {
@@ -822,718 +246,196 @@ const App: React.FC = () => {
       }
       return success;
     },
-    getPlaylist: () => playlist,
+    getPlaylist: () => playlist.playlist,
     setShouldAutoPlay,
     onSeekTo: (timeInSeconds: number) => {
-      if (audioRef.current) {
-        audioRef.current.currentTime = timeInSeconds;
-        setCurrentTime(timeInSeconds);
-      }
+      player.handleSeek(timeInSeconds);
     },
   });
 
-  //region 当播放列表准备好后处理待处理的本地音乐参数
   useEffect(() => {
-    if (playlistReady && hasPendingParams) {
-      processPendingParams();
+    if (playlistReady) {
+      setLocalSongsLoaded(true);
     }
-  }, [playlistReady, hasPendingParams, processPendingParams]);
+  }, [playlistReady]);
 
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setErrorMessage(null);
-      setLoadingProgress(100);
-      try {
-        const metadata = await extractMetadata(file);
-        const objectUrl = URL.createObjectURL(file);
-        
-        setLoadingProgress(null);
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.src = objectUrl;
-          audioRef.current.load();
-          audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-        }
-        
-        setTrack({ file, objectUrl, metadata });
-      } catch (err) {
-        setErrorMessage("Failed to process the uploaded file.");
-        setLoadingProgress(null);
-      }
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      const connected = togetherListenRef.current?.isConnected() ?? false;
+      setIsTogetherListenConnected(connected);
+    }, 1000);
+    return () => clearInterval(checkInterval);
+  }, []);
+
+  useEffect(() => {
+    if ((window as any).hideAppLoader) {
+      (window as any).hideAppLoader();
     }
   }, []);
 
-  const supportedAudioFormats = useMemo(() => ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma', '.ape', '.opus'], []);
-
-  const isAudioFile = useCallback((filename: string): boolean => {
-    const lowerName = filename.toLowerCase();
-    return supportedAudioFormats.some(ext => lowerName.endsWith(ext));
-  }, [supportedAudioFormats]);
-
-  const handleFolderUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setErrorMessage(null);
-    const audioFiles: File[] = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (isAudioFile(file.name)) {
-        audioFiles.push(file);
-      }
-    }
-
-    if (audioFiles.length === 0) {
-      setErrorMessage("No supported audio files found in the selected folder.");
-      if (folderInputRef.current) {
-        folderInputRef.current.value = '';
-      }
-      return;
-    }
-
-    audioFiles.sort((a, b) => a.name.localeCompare(b.name));
-
-    const newTracks: PlaylistItem[] = [];
-
-    for (const file of audioFiles) {
-      try {
-        const metadata = await extractMetadata(file);
-        newTracks.push({
-          name: metadata.title || file.name.replace(/\.[^/.]+$/, ''),
-          url: URL.createObjectURL(file),
-          artist: metadata.artist || 'Unknown Artist',
-          file: file
-        });
-      } catch (err) {
-        console.error('Failed to extract metadata for file:', file.name, err);
-        newTracks.push({
-          name: file.name.replace(/\.[^/.]+$/, ''),
-          url: URL.createObjectURL(file),
-          artist: 'Unknown Artist',
-          file: file
-        });
-      }
-    }
-
-    setPlaylist(prev => [...prev, ...newTracks]);
-
-    const folderName = `Local Folder ${new Date().toLocaleTimeString()}`;
-    setPlaylistFolders(prev => ({
-      ...prev,
-      [folderName]: newTracks
-    }));
-
-    if (newTracks.length > 0) {
-      const file = audioFiles[0];
-      setLoadingProgress(100);
-      try {
-        const metadata = await extractMetadata(file);
-        const objectUrl = URL.createObjectURL(file);
-        
-        setLoadingProgress(null);
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.src = objectUrl;
-          audioRef.current.load();
-          audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-        }
-        
-        setTrack({ file, objectUrl, metadata });
-        setCurrentIndex(prev => prev + newTracks.length);
-      } catch (err) {
-        setErrorMessage("Failed to process the uploaded file.");
-        setLoadingProgress(null);
-      }
-    }
-
-    if (folderInputRef.current) {
-      folderInputRef.current.value = '';
-    }
-  }, [isAudioFile]);
+  usePageTitle(player.track);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (uploadMenuRef.current && !uploadMenuRef.current.contains(event.target as Node)) {
-        setIsUploadMenuOpen(false);
+    const audio = player.audioRef.current;
+    if (!audio) return;
+
+    const handleEnded = () => {
+      console.log('===== Ended event triggered =====');
+      console.log('Current playback mode:', player.playbackMode);
+      console.log('Current track:', player.track?.metadata.title);
+      console.log('Is playing netease:', !!player.track?.neteaseId);
+      
+      if (player.playbackMode === 'single') {
+        console.log('Single mode: restarting current track');
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } else {
+        console.log('List/shuffle mode: calling handleNext');
+        handleNext();
       }
     };
 
-    if (isUploadMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    audio.addEventListener('ended', handleEnded);
+    return () => audio.removeEventListener('ended', handleEnded);
+  }, [player, handleNext]);
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isUploadMenuOpen]);
-
-  const handleNext = useCallback(() => {
-    if (playbackMode === 'shuffle') {
-      if (neteasePlaylist.length > 0 && activeTab === 'netease') {
-        let randomIndex;
-        do {
-          randomIndex = Math.floor(Math.random() * neteasePlaylist.length);
-        } while (neteasePlaylist.length > 1 && randomIndex === neteaseCurrentIndex);
-        loadNeteaseMusic(neteasePlaylist[randomIndex], randomIndex);
-      } else if (playlist.length === 0) return;
-      else {
-        let randomIndex;
-        do {
-          randomIndex = Math.floor(Math.random() * playlist.length);
-        } while (playlist.length > 1 && randomIndex === currentIndex);
-        loadMusicFromUrl(playlist[randomIndex], randomIndex);
+  const handleArtistClick = useCallback(async (artistName: string) => {
+    setShowFullPlayer(false);
+    setActiveTab('netease');
+    setTimeout(() => {
+      if (neteasePanelRef.current) {
+        neteasePanelRef.current.openSearch();
+        neteasePanelRef.current.triggerSearch(artistName, false);
       }
-    } else if (neteasePlaylist.length > 0 && activeTab === 'netease') {
-      if (neteaseCurrentIndex === -1) return;
-      const nextIndex = (neteaseCurrentIndex + 1) % neteasePlaylist.length;
-      loadNeteaseMusic(neteasePlaylist[nextIndex], nextIndex);
-    } else if (currentFolder && playlistFolders[currentFolder]) {
-      const folderTracks = playlistFolders[currentFolder];
-      const currentTrack = playlist[currentIndex];
-      const currentFolderIndex = folderTracks.findIndex(t => t.url === currentTrack?.url);
-      
-      if (currentFolderIndex !== -1) {
-        const nextFolderIndex = (currentFolderIndex + 1) % folderTracks.length;
-        const nextTrack = folderTracks[nextFolderIndex];
-        const nextGlobalIndex = playlist.findIndex(p => p.url === nextTrack.url);
-        loadMusicFromUrl(nextTrack, nextGlobalIndex);
-      }
-    } else {
-      if (playlist.length === 0) return;
-      const nextIndex = (currentIndex + 1) % playlist.length;
-      loadMusicFromUrl(playlist[nextIndex], nextIndex);
-    }
-  }, [playbackMode, playlist, currentIndex, currentFolder, playlistFolders, loadMusicFromUrl, neteasePlaylist, neteaseCurrentIndex, activeTab]);
-
-  const handlePrev = useCallback(() => {
-    if (playbackMode === 'shuffle') {
-      handleNext();
-    } else if (neteasePlaylist.length > 0 && activeTab === 'netease') {
-      if (neteaseCurrentIndex === -1) return;
-      const prevIndex = (neteaseCurrentIndex - 1 + neteasePlaylist.length) % neteasePlaylist.length;
-      loadNeteaseMusic(neteasePlaylist[prevIndex], prevIndex);
-    } else if (currentFolder && playlistFolders[currentFolder]) {
-      const folderTracks = playlistFolders[currentFolder];
-      const currentTrack = playlist[currentIndex];
-      const currentFolderIndex = folderTracks.findIndex(t => t.url === currentTrack?.url);
-      
-      if (currentFolderIndex !== -1) {
-        const prevFolderIndex = (currentFolderIndex - 1 + folderTracks.length) % folderTracks.length;
-        const prevTrack = folderTracks[prevFolderIndex];
-        const prevGlobalIndex = playlist.findIndex(p => p.url === prevTrack.url);
-        loadMusicFromUrl(prevTrack, prevGlobalIndex);
-      }
-    } else {
-      if (playlist.length === 0) return;
-      const prevIndex = (currentIndex - 1 + playlist.length) % playlist.length;
-      loadMusicFromUrl(playlist[prevIndex], prevIndex);
-    }
-  }, [playbackMode, playlist, currentIndex, currentFolder, playlistFolders, loadMusicFromUrl, handleNext, neteasePlaylist, neteaseCurrentIndex, activeTab]);
-
-  const togglePlay = useCallback(() => {
-    if (!audioRef.current || !track) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play().then(() => setIsPlaying(true)).catch((e) => {
-        console.error("Playback error:", e);
-      });
-    }
-  }, [isPlaying, track]);
+    }, 300);
+  }, []);
 
   const handleSeek = useCallback((time: number) => {
-    if (audioRef.current && time >= 0) {
-      audioRef.current.currentTime = time;
-      setCurrentTime(time);
+    if (player.audioRef.current && time >= 0) {
+      player.audioRef.current.currentTime = time;
+      player.setCurrentTime(time);
     }
-  }, []);
-
-  //region Custom Source handlers
-  const handleOpenCustomSource = useCallback(() => {
-    setSourceInputValue(customSourceUrl);
-    setIsCustomSourceOpen(true);
-  }, [customSourceUrl]);
-
-  const handleCloseCustomSource = useCallback(() => {
-    setIsCustomSourceOpen(false);
-  }, []);
-
-  const handleSaveCustomSource = useCallback(() => {
-    const url = sourceInputValue.trim();
-    if (url) {
-      localStorage.setItem('customMusicSource', url);
-      setCustomSourceUrl(url);
-    } else {
-      localStorage.removeItem('customMusicSource');
-      setCustomSourceUrl('');
-    }
-    setIsCustomSourceOpen(false);
-  }, [sourceInputValue]);
-
-  const handleResetToDefault = useCallback(() => {
-    localStorage.removeItem('customMusicSource');
-    setCustomSourceUrl('');
-    setSourceInputValue('');
-    setIsCustomSourceOpen(false);
-  }, []);
-
-  const formatTime = useCallback((time: number) => {
-    if (time < 0) return "--:--";
-    const mins = Math.floor(time / 60);
-    const secs = Math.floor(time % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }, []);
-
-
-
-  const onEnded = useCallback(() => {
-    if (playbackMode === 'single') {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      }
-    } else {
-      handleNext();
-    }
-  }, [playbackMode, handleNext]);
+  }, [player]);
 
   const cyclePlaybackMode = useCallback(() => {
-    setPlaybackMode(prev => {
-      if (prev === 'single') return 'list';
-      if (prev === 'list') return 'shuffle';
-      return 'single';
-    });
-  }, []);
+    player.cyclePlaybackMode();
+  }, [player.cyclePlaybackMode]);
 
-  const getPlaybackModeIcon = useCallback(() => {
-    if (playbackMode === 'single') return <Repeat1 size={18} />;
-    if (playbackMode === 'list') return <Repeat size={18} />;
-    return <Shuffle size={18} />;
-  }, [playbackMode]);
-
-  //region 渲染侧边栏
-  const artistsCount = useMemo(() => Object.values(artistsByLetter).flat().length, [artistsByLetter]);
-
-  const renderSidebar = useCallback(() => (
-    <aside className="w-64 bg-transparent flex flex-col">
-      {/* Logo */}
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
-          <Music size={20} className="text-white drop-shadow-md" />
-        </div>
-        <div>
-          <h1 className="text-lg font-bold text-white drop-shadow-md">Serene</h1>
-          <p className="text-xs text-white/40 drop-shadow-sm">Music Player</p>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        <SidebarItem
-          icon={NeteaseIcon}
-          label="网易云"
-          isActive={activeTab === 'netease'}
-          onClick={() => handleTabChange('netease')}
-        />
-        <SidebarItem
-          icon={Users}
-          label={<>
-            一起听<span className="bg-white/10 text-white px-2 rounded-full text-xs">Beta</span></>
-          }
-          isActive={activeTab === 'together'}
-          onClick={() => handleTabChange('together')}
-        />
-        <SidebarItem
-          icon={ListMusic}
-          label="本地歌曲"
-          isActive={activeTab === 'songs'}
-          onClick={() => handleTabChange('songs')}
-          badge={playlist.length}
-        />
-        <SidebarItem
-          icon={User}
-          label="艺术家"
-          isActive={activeTab === 'artists'}
-          onClick={() => handleTabChange('artists')}
-          badge={artistsCount}
-        />
-        <SidebarItem
-          icon={Settings}
-          label="设置"
-          isActive={activeTab === 'settings'}
-          onClick={() => handleTabChange('settings')}
-        />
-        <img
-          src="https://visitor-badge.laobi.icu/badge?page_id=domdkw.Serene-Player"
-          alt="visitor badge"
-          className="backdrop-blur-sm p-2"
-        />
-      </nav>
-
-    </aside>
-  ), [activeTab, handleTabChange, playlist.length, artistsCount, isUploadMenuOpen]);
-
-  const renderArtistsView = useCallback(() => {
-    return (
-      <ArtistsView
-        selectedArtist={selectedArtist}
-        setSelectedArtist={setSelectedArtist}
-        playlist={playlist}
-        currentIndex={currentIndex}
-        isPlaying={isPlaying}
-        loadMusicFromUrl={loadMusicFromUrl}
-        loadingTrackUrl={loadingTrackUrl}
-        artistsByLetter={artistsByLetter}
-        pinyinLoadError={pinyinLoadError}
-      />
-    );
-  }, [selectedArtist, setSelectedArtist, playlist, currentIndex, isPlaying, loadMusicFromUrl, loadingTrackUrl, artistsByLetter, pinyinLoadError]);
-
-  // 渲染歌曲视图（使用MusicLibrary组件）
-  const renderSongsView = useCallback(() => (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-white/[0.05]">
-        <div>
-          <h2 className="text-2xl font-bold text-white drop-shadow-md">歌曲</h2>
-          <p className="text-sm text-white/40 mt-1 drop-shadow-sm">
-            {currentFolder ? currentFolder : `${Object.keys(playlistFolders).length} 个文件夹, ${playlist.length} 首歌曲`}
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <button
-            onClick={cyclePlaybackMode}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white transition-all duration-200 text-sm"
-          >
-            {getPlaybackModeIcon()}
-            <span>
-              {playbackMode === 'single' ? '单曲循环' : playbackMode === 'list' ? '列表循环' : '随机播放'}
-            </span>
-          </button>
-          
-          <button
-            onClick={handleOpenCustomSource}
-            className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 ${customSourceUrl ? 'bg-white/20 text-white' : 'bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white'}`}
-            title="设置自定义音乐源"
-          >
-            <Plus size={18} />
-          </button>
-          
-          <button
-            onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 ${isSearchOpen ? 'bg-white/20 text-white' : 'bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white'}`}
-            title="搜索"
-          >
-            <Search size={18} />
-          </button>
-          
-          <div className="relative" ref={uploadMenuRef}>
-            <button
-              onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
-              className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white transition-all duration-200"
-              title="导入音乐"
-            >
-              <Upload size={18} />
-            </button>
-            
-            {isUploadMenuOpen && (
-              <div className="absolute top-full right-0 mt-2 w-40 bg-[#1a1a1f] rounded-xl border border-white/[0.05] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-                <button
-                  onClick={() => {
-                    fileInputRef.current?.click();
-                    setIsUploadMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
-                >
-                  <FileAudio size={16} />
-                  导入文件
-                </button>
-                <button
-                  onClick={() => {
-                    folderInputRef.current?.click();
-                    setIsUploadMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
-                >
-                  <FolderOpen size={16} />
-                  导入文件夹
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      
-      {/* Folder Loading Indicator */}
-      {folderLoading && (
-        <div className="px-6 pt-4">
-          <FolderLoadingIndicator name={folderLoading.name} progress={folderLoading.progress} />
-        </div>
-      )}
-      
-      {/* Music Library */}
-      <div className="flex-1 overflow-hidden p-6 pt-4">
-        <MusicLibrary
-          playlistFolders={playlistFolders}
-          currentFolder={currentFolder}
-          setCurrentFolder={setCurrentFolder}
-          playlist={playlist}
-          currentIndex={currentIndex}
-          isPlaying={isPlaying}
-          onTrackSelect={loadMusicFromUrl}
-          loadingFolders={loadingFolders}
-          onLoadLinkedFolder={loadLinkedFolder}
-          loadingTrackUrl={loadingTrackUrl}
-        />
-      </div>
-      
-      <SearchPanel
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        playlist={playlist}
-        currentIndex={currentIndex}
-        isPlaying={isPlaying}
-        onTrackSelect={loadMusicFromUrl}
-      />
-      
-      {/* Custom Source Modal */}
-      {isCustomSourceOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md mx-4 bg-[#1a1a1f] rounded-2xl border border-white/[0.08] shadow-2xl animate-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.05]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                  <Link2 size={20} className="text-white/80" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">自定义音乐源</h3>
-                  <p className="text-xs text-white/40">设置自定义播放列表 JSON 文件地址</p>
-                </div>
-              </div>
-              <button
-                onClick={handleCloseCustomSource}
-                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
-              >
-                <X size={18} className="text-white/60" />
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm text-white/60 mb-2">音乐源 URL</label>
-                <input
-                  type="text"
-                  value={sourceInputValue}
-                  onChange={(e) => setSourceInputValue(e.target.value)}
-                  placeholder="https://example.com/playlist.json"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/[0.08] rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/[0.08]"
-                />
-                <p className="text-xs text-white/40 mt-2">
-                  留空则使用默认源 (./discList.json)
-                </p>
-              </div>
-              
-              {customSourceUrl && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-lg">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-xs text-white/60 truncate flex-1">
-                    当前: {customSourceUrl}
-                  </span>
-                </div>
-              )}
-            </div>
-            
-            {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-white/[0.05]">
-              <button
-                onClick={handleResetToDefault}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm"
-              >
-                <RotateCcw size={16} />
-                还原默认
-              </button>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCloseCustomSource}
-                  className="px-4 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleSaveCustomSource}
-                  className="px-5 py-2 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all text-sm"
-                >
-                  保存
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  ), [currentFolder, playlistFolders, playlist, playbackMode, cyclePlaybackMode, getPlaybackModeIcon, folderLoading, currentIndex, isPlaying, loadingFolders, loadLinkedFolder, loadingTrackUrl, loadMusicFromUrl, isUploadMenuOpen, uploadMenuRef, fileInputRef, folderInputRef, isSearchOpen, customSourceUrl, handleOpenCustomSource, isCustomSourceOpen, sourceInputValue, handleCloseCustomSource, handleSaveCustomSource, handleResetToDefault]);
-
-  //region 渲染网易云视图
-  const renderNeteaseView = useCallback(() => (
-    <div className="h-full flex flex-col">
-      <NeteasePanel
-        ref={neteasePanelRef}
-        onTrackSelect={(item, index) => {
-          loadNeteaseMusic(item, index);
-        }}
-        currentTrackUrl={track?.objectUrl || null}
-        isPlaying={isPlaying}
-        onAddToPlaylist={(item) => {
-          setNeteasePlaylist(prev => {
-            if (prev.some(p => p.url === item.url)) {
-              return prev;
-            }
-            return [...prev, item];
-          });
-        }}
-        neteasePlaylist={neteasePlaylist}
-        neteaseCurrentIndex={neteaseCurrentIndex}
-        setNeteasePlaylist={setNeteasePlaylist}
-        setNeteaseCurrentIndex={setNeteaseCurrentIndex}
-      />
-    </div>
-  ), [track?.objectUrl, isPlaying, loadNeteaseMusic, setNeteasePlaylist, neteasePlaylist, neteaseCurrentIndex]);
-
-  //region 渲染设置视图
-  const renderSettingsView = useCallback(() => (
-    <div className="h-full flex flex-col">
-      <div className="p-6 border-b border-white/[0.05]">
-        <h2 className="text-2xl font-bold text-white drop-shadow-md">设置</h2>
-        <p className="text-sm text-white/40 mt-1 drop-shadow-sm">自定义您的播放器</p>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
-        <SettingsPanel
-          chunkCount={chunkCount}
-          setChunkCount={setChunkCount}
-          fontWeight={fontWeight}
-          setFontWeight={setFontWeight}
-          letterSpacing={letterSpacing}
-          setLetterSpacing={setLetterSpacing}
-          lineHeight={lineHeight}
-          setLineHeight={setLineHeight}
-          selectedFont={selectedFont}
-          setSelectedFont={setSelectedFont}
-          showTranslation={showTranslation}
-          setShowTranslation={setShowTranslation}
-          streamingMode={streamingMode}
-          setStreamingMode={setStreamingMode}
-          backgroundRotate={backgroundRotate}
-          setBackgroundRotate={setBackgroundRotate}
-        />
-      </div>
-    </div>
-  ), [chunkCount, fontWeight, letterSpacing, lineHeight, selectedFont, showTranslation, streamingMode, setStreamingMode, backgroundRotate, setBackgroundRotate]);
-
-  //region 渲染主内容
-  const renderMainContent = useCallback(() => {
-    let content;
-    switch (activeTab) {
-      case 'artists':
-        content = renderArtistsView();
-        break;
-      case 'netease':
-        content = renderNeteaseView();
-        break;
-      case 'settings':
-        content = renderSettingsView();
-        break;
-      case 'songs':
-      default:
-        content = renderSongsView();
-        break;
-    }
-
-    return (
-      <div className="h-full overflow-hidden">
-        {content}
-      </div>
-    );
-  }, [activeTab, isTransitioning, renderArtistsView, renderNeteaseView, renderSettingsView, renderSongsView]);
-
-  //region 一起听面板 - 始终保持挂载，通过 CSS 控制显示/隐藏
-  const currentTrackItem: PlaylistItem | null = track ? {
-    name: track.metadata.title,
-    artist: track.metadata.artist,
-    neteaseId: track.neteaseId,
-    coverUrl: track.metadata.coverUrl || undefined,
-    url: track.objectUrl,
-    artistIds: track.artistIds,
+  const currentTrackItem: PlaylistItem | null = player.track ? {
+    name: player.track.metadata.title,
+    artist: player.track.metadata.artist,
+    neteaseId: player.track.neteaseId,
+    coverUrl: player.track.metadata.coverUrl || undefined,
+    url: player.track.objectUrl,
+    artistIds: player.track.artistIds,
   } : null;
 
-  const togetherListenPanel = (
-    <div 
-      className={`absolute inset-0 z-10 transition-all duration-300 ease-out ${
-        activeTab === 'together' && !showFullPlayer && !isTransitioning
-          ? 'opacity-100 translate-y-0 pointer-events-auto' 
-          : 'opacity-0 translate-y-4 pointer-events-none'
-      }`}
-    >
-      <div className="h-full flex flex-col">
-        <div className="p-6 border-b border-white/[0.05]">
-          <h2 className="text-2xl font-bold text-white drop-shadow-md">一起听</h2>
-          <p className="text-sm text-white/40 mt-1 drop-shadow-sm">邀请好友一起听歌</p>
-        </div>
-        
-        <div className="flex-1 overflow-hidden">
-          <TogetherListenPanel
-            ref={togetherListenRef}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            currentTrack={currentTrackItem}
-            onPlayPause={togglePlay}
-            onSeek={handleSeek}
-            onTrackChange={(neteaseId) => {
-              const index = neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
-              if (index !== -1) {
-                loadNeteaseMusic(neteasePlaylist[index], index);
-              } else {
-                playNeteaseById(neteaseId);
-              }
-            }}
-            formatTime={formatTime}
+  const artistsCount = useMemo(() => Object.values(artistsByLetter).flat().length, [artistsByLetter]);
+
+  const renderMainContent = useCallback(() => {
+    switch (activeTab) {
+      case 'artists':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <ArtistsView
+              selectedArtist={selectedArtist}
+              setSelectedArtist={setSelectedArtist}
+              playlist={playlist.playlist}
+              currentIndex={playlist.currentIndex}
+              isPlaying={player.isPlaying}
+              loadMusicFromUrl={loadMusicFromUrl}
+              loadingTrackUrl={player.loadingTrackUrl}
+              artistsByLetter={artistsByLetter}
+              pinyinLoadError={pinyinLoadError}
+            />
+          </Suspense>
+        );
+      case 'netease':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <NeteasePanel
+              ref={neteasePanelRef}
+              onTrackSelect={loadNeteaseMusic}
+              currentTrackUrl={player.track?.objectUrl || null}
+              isPlaying={player.isPlaying}
+              onAddToPlaylist={() => {}}
+              neteasePlaylist={playlist.neteasePlaylist}
+              neteaseCurrentIndex={playlist.neteaseCurrentIndex}
+              setNeteasePlaylist={playlist.setNeteasePlaylist}
+              setNeteaseCurrentIndex={playlist.setNeteaseCurrentIndex}
+            />
+          </Suspense>
+        );
+      case 'settings':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <div className="h-full flex flex-col">
+              <div className="p-6 border-b border-white/[0.05]">
+                <h2 className="text-2xl font-bold text-white drop-shadow-md">设置</h2>
+                <p className="text-sm text-white/40 mt-1 drop-shadow-sm">自定义您的播放器</p>
+              </div>
+              <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
+                <SettingsPanel
+                  chunkCount={settings.chunkCount}
+                  setChunkCount={settings.setChunkCount}
+                  fontWeight={settings.fontWeight}
+                  setFontWeight={settings.setFontWeight}
+                  letterSpacing={settings.letterSpacing}
+                  setLetterSpacing={settings.setLetterSpacing}
+                  lineHeight={settings.lineHeight}
+                  setLineHeight={settings.setLineHeight}
+                  selectedFont={settings.selectedFont}
+                  setSelectedFont={settings.setSelectedFont}
+                  showTranslation={settings.showTranslation}
+                  setShowTranslation={settings.setShowTranslation}
+                  streamingMode={settings.streamingMode}
+                  setStreamingMode={settings.setStreamingMode}
+                  backgroundRotate={settings.backgroundRotate}
+                  setBackgroundRotate={settings.setBackgroundRotate}
+                />
+              </div>
+            </div>
+          </Suspense>
+        );
+      case 'songs':
+      default:
+        return (
+          <SongsView
+            currentFolder={playlist.currentFolder}
+            playlistFolders={playlist.playlistFolders}
+            playlist={playlist.playlist}
+            currentIndex={playlist.currentIndex}
+            isPlaying={player.isPlaying}
+            loadingFolders={playlist.loadingFolders}
+            folderLoading={playlist.folderLoading}
+            loadingTrackUrl={player.loadingTrackUrl}
+            customSourceUrl={settings.customSourceUrl}
+            onSetCurrentFolder={playlist.setCurrentFolder}
+            onLoadLinkedFolder={playlist.loadLinkedFolder}
+            onTrackSelect={loadMusicFromUrl}
+            onFileUpload={triggerFileUpload}
+            onFolderUpload={triggerFolderUpload}
+            onSetCustomSourceUrl={settings.setCustomSourceUrl}
           />
-        </div>
-      </div>
-    </div>
-  );
+        );
+    }
+  }, [activeTab, selectedArtist, playlist, player, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, triggerFileUpload, triggerFolderUpload]);
 
   return (
-    <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(selectedFont) }}>
-      {/* Global Background - always visible */}
-      <GlobalBackground coverUrl={track?.metadata.coverUrl} rotate={backgroundRotate} />
+    <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(settings.selectedFont) }}>
+      <GlobalBackground coverUrl={player.track?.metadata.coverUrl} rotate={settings.backgroundRotate} />
 
-      {/* Audio element - always present */}
-      <audio 
-        ref={audioRef}
-        //crossOrigin="anonymous"
-        //不能加crossorigin不然网易云会阻止跨域请求，同时禁止频谱图
-        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-        onEnded={onEnded}
-        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+      <audio
+        ref={player.audioRef}
+        onLoadedMetadata={() => player.setDuration(player.audioRef.current?.duration || 0)}
+        onTimeUpdate={() => player.setCurrentTime(player.audioRef.current?.currentTime || 0)}
       />
 
-      {/* Main library view - conditional visibility based on player state */}
-      <div 
+      <div
         className={`h-[calc(100vh-80px)] bg-transparent text-white flex overflow-hidden transition-opacity duration-300 ${
           showFullPlayer ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
       >
-        {/* Hidden inputs */}
         <input
           type="file"
           accept="audio/*"
@@ -1551,23 +453,59 @@ const App: React.FC = () => {
           directory=""
         />
 
-        {/* Top loading bar with shimmer effect */}
-        {loadingProgress !== null && <ShimmerLoadingBar progress={loadingProgress} />}
+        {player.loadingProgress !== null && <ShimmerLoadingBar progress={player.loadingProgress} />}
 
-        {/* Sidebar */}
-        {renderSidebar()}
+        <Sidebar
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          playlistCount={playlist.playlist.length}
+          artistsCount={artistsCount}
+        />
 
-        {/* Main Content */}
         <div className="flex-1 relative overflow-hidden">
           <div className={`absolute inset-0 transition-all duration-300 ease-out ${
             isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
           } ${activeTab === 'together' ? 'pointer-events-none' : 'pointer-events-auto'}`}>
             {activeTab !== 'together' && renderMainContent()}
           </div>
-          {togetherListenPanel}
+
+          <div
+            className={`absolute inset-0 z-10 transition-all duration-300 ease-out ${
+              activeTab === 'together' && !showFullPlayer && !isTransitioning
+                ? 'opacity-100 translate-y-0 pointer-events-auto'
+                : 'opacity-0 translate-y-4 pointer-events-none'
+            }`}
+          >
+            <div className="h-full flex flex-col">
+              <div className="p-6 border-b border-white/[0.05]">
+                <h2 className="text-2xl font-bold text-white drop-shadow-md">一起听</h2>
+                <p className="text-sm text-white/40 mt-1 drop-shadow-sm">邀请好友一起听歌</p>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <Suspense fallback={<LoadingFallback />}>
+                  <TogetherListenPanel
+                    ref={togetherListenRef}
+                    isPlaying={player.isPlaying}
+                    currentTime={player.currentTime}
+                    currentTrack={currentTrackItem}
+                    onPlayPause={player.togglePlay}
+                    onSeek={handleSeek}
+                    onTrackChange={(neteaseId) => {
+                      const index = playlist.neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
+                      if (index !== -1) {
+                        loadNeteaseMusic(playlist.neteasePlaylist[index], index);
+                      } else {
+                        playNeteaseById(neteaseId);
+                      }
+                    }}
+                    formatTime={player.formatTime}
+                  />
+                </Suspense>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Error Toast */}
         {errorMessage && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
             <AlertCircle size={18} />
@@ -1576,55 +514,69 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Mini Player Bar - always visible */}
       <MiniPlayerBar
-        track={track}
-        isPlaying={isPlaying}
-        currentTime={currentTime}
-        duration={duration}
-        playbackMode={playbackMode}
-        audioRef={audioRef}
-        onTogglePlay={togglePlay}
+        track={player.track}
+        isPlaying={player.isPlaying}
+        currentTime={player.currentTime}
+        duration={player.duration}
+        playbackMode={player.playbackMode}
+        audioRef={player.audioRef}
+        onTogglePlay={player.togglePlay}
         onPrev={handlePrev}
         onNext={handleNext}
-        onCyclePlaybackMode={cyclePlaybackMode}
+        onCyclePlaybackMode={player.cyclePlaybackMode}
         onSeek={handleSeek}
         onOpenPlayer={() => setShowFullPlayer(!showFullPlayer)}
         isFullPlayerOpen={showFullPlayer}
-        formatTime={formatTime}
+        formatTime={player.formatTime}
         isTogetherListenConnected={isTogetherListenConnected}
       />
 
-      {/* Full Player - overlay when showFullPlayer is true */}
-      {track && (
-        <div 
+      {player.track && (
+        <div
           className={`fixed inset-0 z-[60] transition-all duration-500 ease-in-out ${
-            showFullPlayer 
-              ? 'opacity-100 translate-y-0 pointer-events-auto' 
+            showFullPlayer
+              ? 'opacity-100 translate-y-0 pointer-events-auto'
               : 'opacity-0 translate-y-[100%] pointer-events-none'
           }`}
         >
-          <MusicPlayer
-            track={track}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            showTranslation={showTranslation}
-            setShowTranslation={setShowTranslation}
-            onBack={() => setShowFullPlayer(false)}
-            loadingProgress={loadingProgress}
-            fontWeight={fontWeight}
-            letterSpacing={letterSpacing}
-            lineHeight={lineHeight}
-            selectedFont={selectedFont}
-            onSeek={handleSeek}
-            formatTime={formatTime}
-            onArtistClick={handleArtistClick}
-            isTogetherListenConnected={isTogetherListenConnected}
-          />
+          <Suspense fallback={<LoadingFallback />}>
+            <MusicPlayer
+              track={player.track}
+              isPlaying={player.isPlaying}
+              currentTime={player.currentTime}
+              duration={player.duration}
+              showTranslation={settings.showTranslation}
+              setShowTranslation={settings.setShowTranslation}
+              onBack={() => setShowFullPlayer(false)}
+              loadingProgress={player.loadingProgress}
+              fontWeight={settings.fontWeight}
+              letterSpacing={settings.letterSpacing}
+              lineHeight={settings.lineHeight}
+              selectedFont={settings.selectedFont}
+              onSeek={handleSeek}
+              formatTime={player.formatTime}
+              onArtistClick={handleArtistClick}
+              isTogetherListenConnected={isTogetherListenConnected}
+            />
+          </Suspense>
         </div>
       )}
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <SettingsProvider>
+        <PlaylistProvider>
+          <PlayerProvider>
+            <AppContent />
+          </PlayerProvider>
+        </PlaylistProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
   );
 };
 
