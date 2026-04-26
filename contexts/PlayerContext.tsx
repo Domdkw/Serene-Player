@@ -3,6 +3,7 @@ import { Track, PlaybackMode } from '../types';
 import { extractMetadata, parseLyrics } from '../utils/metadata';
 import fetchInChunks from 'fetch-in-chunks';
 import { ErrorService } from '../utils/errorService';
+import { getLyricsType } from '../utils/lyricsUtils';
 
 interface PlayerState {
   track: Track | null;
@@ -81,8 +82,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
 
   const lyricsType = useMemo(() => {
     const parsedLyrics = track?.metadata?.parsedLyrics;
-    if (!parsedLyrics || parsedLyrics.length === 0) return 'none';
-    return 'line';
+    return getLyricsType(parsedLyrics || []);
   }, [track?.metadata?.parsedLyrics]);
 
   useEffect(() => {
@@ -273,8 +273,6 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
             try {
               await audioRef.current!.play();
               setIsPlaying(true);
-              pendingPlayRef.current = false;
-              setPendingPlayback(false);
             } catch (e) {
               console.error('自动播放失败:', e);
               ErrorService.handleError(e, 'Autoplay');
