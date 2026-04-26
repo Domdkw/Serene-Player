@@ -13,8 +13,8 @@ import { Track } from '../types';
 export const usePageTitle = (track: Track | null, appName: string = 'Serene Player') => {
   useEffect(() => {
     if (track) {
-      // 格式：歌曲名称 - 艺术家 | 应用名称
-      const title = `${track.metadata.title} - ${track.metadata.artist} | ${appName}`;
+      // 格式：歌曲名称 | 应用名称
+      const title = `${track.metadata.title} | ${appName}`;
       document.title = title;
     } else {
       // 没有播放音乐时，显示应用名称

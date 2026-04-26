@@ -573,13 +573,13 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
           <div
             key={song.id}
             onClick={() => handlePlaySong(song)}
-            className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer relative ${
+            className={`group flex items-center gap-2 md:gap-4 p-1 md:p-2 transition-all cursor-pointer relative${
               isCurrentTrack
-                ? 'bg-white/10 border border-white/20'
-                : 'bg-white/5 border border-white/[0.05] hover:bg-white/[0.08]'
+                ? 'bg-white/20 hover:bg-white/10'
+                : 'bg-transparent hover:bg-white/10'
             }`}
           >
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
               {coverUrl ? (
                 <LazyImage
                   src={coverUrl}
@@ -592,12 +592,12 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
               )}
             </div>
 
-            <div className="flex-1 min-w-0">
-              <p className={`font-medium truncate text-sm md:text-base ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <p className={`font-medium truncate text-sm md:text-base flex-1 min-w-0 ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
                 {song.name}
               </p>
-              <p className="text-xs md:text-sm text-white/50 truncate">
-                {song.artists.map(a => a.name).join(', ')} · {song.album.name}
+              <p className="text-xs md:text-sm text-white/50 truncate flex-1 min-w-0">
+                {song.artists.map(a => a.name).join(', ')}
               </p>
             </div>
 
@@ -651,10 +651,10 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
             <div
               key={favorite.id}
               onClick={() => handlePlayFavorite(favorite)}
-              className={`group flex items-center gap-2 md:gap-4 p-2 md:p-4 rounded-xl transition-all cursor-pointer ${
+              className={`group flex items-center gap-2 md:gap-4 p-1 md:p-2 transition-all cursor-pointer relative${
                 isCurrentTrack
-                  ? 'bg-white/10 border border-white/20'
-                  : 'bg-white/5 border border-white/[0.05] hover:bg-white/[0.08]'
+                  ? 'bg-white/20 hover:bg-white/10'
+                  : 'bg-transparent hover:bg-white/10'
               }`}
             >
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -670,12 +670,12 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                 )}
               </div>
 
-              <div className="flex-1 min-w-0">
-                <p className={`font-medium truncate text-sm md:text-base ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <p className={`font-medium truncate text-sm md:text-base flex-1 min-w-0 ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
                   {favorite.name}
                 </p>
-                <p className="text-xs md:text-sm text-white/50 truncate">
-                  {favorite.artist} · {favorite.album}
+                <p className="text-xs md:text-sm text-white/50 truncate flex-1 min-w-0">
+                  {favorite.artist}
                 </p>
               </div>
 
