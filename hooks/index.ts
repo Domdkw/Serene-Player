@@ -8,3 +8,4 @@ export { usePageNavigation } from './usePageNavigation';
 export { useMobileMenu } from './useMobileMenu';
 export { useLyricsScrolling } from './useLyricsScrolling';
 export { usePageTitle } from './usePageTitle';
+export { useSharePanel } from './useSharePanel';

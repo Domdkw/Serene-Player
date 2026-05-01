@@ -1,9 +1,9 @@
 import React, { memo } from 'react';
 import {
-  Music, Settings, User, ListMusic, Cable
+  Music, Settings, User, ListMusic, Cable, Share2
 } from 'lucide-react';
 
-type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings';
+type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share';
 
 interface SidebarItemProps {
   icon: React.ElementType | (() => React.ReactNode);
@@ -113,6 +113,12 @@ export const Sidebar: React.FC<SidebarProps> = memo(({
           label="设置"
           isActive={activeTab === 'settings'}
           onClick={() => onTabChange('settings')}
+        />
+        <SidebarItem
+          icon={Share2}
+          label="分享"
+          isActive={activeTab === 'share'}
+          onClick={() => onTabChange('share')}
         />
         <img
           src="https://visitor-badge.laobi.icu/badge?page_id=domdkw.Serene-Player"

@@ -31,11 +31,10 @@ export interface QueryParamsHandlers {
  * 处理 URL 查询参数，支持以下功能：
  * - netease_music_id: 播放网易云音乐歌曲
  * - open_player: 打开播放器界面
- * - local_music: 匹配并播放本地音乐
  * - auto_play: 自动播放
  * - playlist_origin: 加载指定来源的播放列表
- * - seek_to: 歌曲空降时间点，支持秒数(60)或时间格式(1:30, 1:30:45)
- * - track_index: 歌曲在播放列表中的索引位置
+ * - seek_to: 歌曲空降时间点，支持秒数(120)或时间格式(1:30, 1:30:45)
+ * - track_index: 播放在播放列表中的索引位置歌曲
  * - keep_params: 是否保留URL参数（默认自动清除）
  * 
  * 注意：URL参数在处理完成后会自动清除，除非设置了keep_params=true

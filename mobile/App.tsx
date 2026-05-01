@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useMemo, lazy, Suspense, useEffect, useRef } from 'react';
 import {
-  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi
+  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi, Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider, usePlayer } from '../contexts/PlayerContext';
 import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
 import { SettingsProvider, useSettings } from '../contexts/SettingsContext';
-import { useQueryParams, useArtists, useFileUpload, useNetease, useSwipeGesture, useMobileMenu, usePageTitle } from '../hooks';
+import { useQueryParams, useArtists, useFileUpload, useNetease, useSwipeGesture, useMobileMenu, usePageTitle, useSharePanel } from '../hooks';
 import { getFontFamily } from '../utils/fontUtils';
 import { MusicLibrary } from '../components/MusicLibrary';
 import { ArtistsView } from '../components/ArtistsView';
@@ -15,6 +15,8 @@ import { PlaybackControls, ProgressBar, CoverArt, LyricsDisplay } from '../compo
 import SettingsPanel from '../components/SettingsPanel';
 import LyricLine from '../components/LyricLine';
 import TogetherListenPanel from '../components/TogetherListenPanel';
+import SharePanel from '../components/SharePanel';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const NeteasePanel = lazy(() => import('../components/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
 
@@ -65,6 +67,9 @@ const MobileAppContent: React.FC = () => {
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSharePanelOpen, setIsSharePanelOpen] = useState(false);
+
+  const sharePanel = useSharePanel();
 
   const togetherListenRef = useRef<any>(null);
   const page0VisitedRef = useRef(page0Visited);
@@ -348,6 +353,25 @@ const MobileAppContent: React.FC = () => {
   const cyclePlaybackMode = useCallback(() => {
     player.cyclePlaybackMode();
   }, [player.cyclePlaybackMode]);
+
+  const handleShareClick = useCallback(() => {
+    if (!player.track) return;
+
+    if (player.track.neteaseId) {
+      sharePanel.updateConfig('enableNeteaseMusicId', true);
+      sharePanel.updateConfig('neteaseMusicId', player.track.neteaseId.toString());
+      sharePanel.updateConfig('enableTrackIndex', false);
+      sharePanel.updateConfig('playlistOrigin', '');
+    } else {
+      sharePanel.updateConfig('enableTrackIndex', true);
+      sharePanel.updateConfig('trackIndex', playlist.currentIndex.toString());
+      sharePanel.updateConfig('enableNeteaseMusicId', false);
+      sharePanel.updateConfig('playlistOrigin', settings.customSourceUrl || './discList.json');
+    }
+
+    sharePanel.updateConfig('seekTo', '');
+    setIsSharePanelOpen(true);
+  }, [player.track, playlist.currentIndex, sharePanel, settings.customSourceUrl]);
 
   const handleSeek = useCallback((time: number) => {
     player.handleSeek(time);
@@ -759,6 +783,13 @@ const MobileAppContent: React.FC = () => {
                       <Shuffle size={18} />
                     )}
                   </button>
+                  <button
+                    onClick={handleShareClick}
+                    className="p-2 text-white/40"
+                    title="分享"
+                  >
+                    <Share2 size={18} />
+                  </button>
                 </div>
               </div>
 
@@ -966,6 +997,22 @@ const MobileAppContent: React.FC = () => {
             onClose={() => setIsSettingsOpen(false)}
           />
         )}
+
+        <SharePanel
+          isOpen={isSharePanelOpen}
+          onClose={() => setIsSharePanelOpen(false)}
+          config={sharePanel.config}
+          updateConfig={sharePanel.updateConfig}
+          shareUrl={sharePanel.shareUrl}
+          resetConfig={sharePanel.resetConfig}
+          onReadCurrentTime={() => sharePanel.readCurrentTime(player.currentTime)}
+          onReadCurrentUrl={() => sharePanel.readCurrentUrl(settings.customSourceUrl || './discList.json')}
+          onReadCurrentTrack={handleShareClick}
+          onCopy={sharePanel.copyToClipboard}
+          onValidate={sharePanel.validateConfig}
+          currentTime={player.currentTime}
+          isMobile={true}
+        />
       </main>
 
       <audio
@@ -993,13 +1040,15 @@ const MobileAppContent: React.FC = () => {
  */
 const MobileApp: React.FC = () => {
   return (
-    <SettingsProvider>
-      <PlaylistProvider>
-        <PlayerProvider>
-          <MobileAppContent />
-        </PlayerProvider>
-      </PlaylistProvider>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <PlaylistProvider>
+          <PlayerProvider>
+            <MobileAppContent />
+          </PlayerProvider>
+        </PlaylistProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
   );
 };
 
