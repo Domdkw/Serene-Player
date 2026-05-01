@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+import { getFontUrl } from '../utils/fontUtils';
 
 interface SettingsState {
   chunkCount: number;
@@ -148,7 +149,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     existingFontLinks.forEach(link => link.remove());
 
     if (selectedFont !== 'default') {
-      const { getFontUrl } = require('../utils/fontUtils');
       const fontUrl = getFontUrl(selectedFont);
       if (fontUrl) {
         const fontLink = document.createElement('link');
