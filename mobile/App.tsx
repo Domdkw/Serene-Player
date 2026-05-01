@@ -176,6 +176,7 @@ const MobileAppContent: React.FC = () => {
 
   const {
     loadNeteaseMusic,
+    playNeteaseById,
   } = useNetease({
     onLoadTrack: loadMusicFromUrl,
     neteasePlaylist: playlist.neteasePlaylist,
@@ -613,6 +614,8 @@ const MobileAppContent: React.FC = () => {
                             const index = playlist.neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
                             if (index !== -1) {
                               loadNeteaseMusic(playlist.neteasePlaylist[index], index);
+                            } else {
+                              playNeteaseById(neteaseId);
                             }
                           }}
                           formatTime={player.formatTime}
