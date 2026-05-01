@@ -42,6 +42,7 @@ export interface PlaylistItem {
   artistIds?: number[];
   coverUrl?: string;
   lyrics?: string;
+  translatedLyrics?: string;
   album?: string;
 }
 

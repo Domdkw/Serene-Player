@@ -76,6 +76,7 @@ const AppContent: React.FC = () => {
         album: item.album,
         coverUrl: item.coverUrl,
         lyrics: item.lyrics,
+        translatedLyrics: item.translatedLyrics,
         neteaseId: item.neteaseId,
         artistIds: item.artistIds,
         file: item.file

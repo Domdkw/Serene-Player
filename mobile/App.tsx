@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, lazy, Suspense, useEffect, useRef } from 'react';
 import {
-  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi, Share2
+  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi, Share2, Languages
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider, usePlayer } from '../contexts/PlayerContext';
@@ -167,6 +167,7 @@ const MobileAppContent: React.FC = () => {
         album: item.album,
         coverUrl: item.coverUrl,
         lyrics: item.lyrics,
+        translatedLyrics: item.translatedLyrics,
         neteaseId: item.neteaseId,
         artistIds: item.artistIds,
         file: item.file,
@@ -820,18 +821,6 @@ const MobileAppContent: React.FC = () => {
                       )}
                     </>
                   )}
-                  {player.track.metadata.parsedLyrics.some(line => line.translation) && (
-                    <button
-                      onClick={() => settings.setShowTranslation(!settings.showTranslation)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-sm border transition-all ${
-                        settings.showTranslation
-                          ? 'bg-white/20 text-white border-white/30'
-                          : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      <span className="text-xs font-medium">{settings.showTranslation ? '译' : '原'}</span>
-                    </button>
-                  )}
                 </div>
 
                 <LyricsDisplay
@@ -849,6 +838,20 @@ const MobileAppContent: React.FC = () => {
 
                 <div className="absolute top-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-b from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
                 <div className="absolute bottom-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-t from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
+
+                {player.track.metadata.parsedLyrics.some(line => line.translation) && (
+                  <button
+                    onClick={() => settings.setShowTranslation(!settings.showTranslation)}
+                    className={`absolute bottom-6 right-4 p-2 rounded-full backdrop-blur-md border transition-all z-20 ${
+                      settings.showTranslation
+                        ? 'bg-white/20 text-white border-white/30'
+                        : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'
+                    }`}
+                    title={settings.showTranslation ? '显示原文' : '显示翻译'}
+                  >
+                    <Languages size={16} />
+                  </button>
+                )}
               </>
             )}
           </section>

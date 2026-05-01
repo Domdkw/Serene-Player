@@ -164,7 +164,7 @@ const SharePanel: React.FC<SharePanelProps> = memo(({
 
         <div className="space-y-2">
           <CheckboxField
-            label="指定播放列表中的歌曲索引"
+            label="指定本地音乐列表中的歌曲"
             checked={config.enableTrackIndex}
             onChange={(checked) => updateConfig('enableTrackIndex', checked)}
           />
