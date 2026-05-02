@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useMemo, lazy, Suspense, useEffect, useRef } from 'react';
 import {
-  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi
+  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi, Share2, Languages
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider, usePlayer } from '../contexts/PlayerContext';
 import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
 import { SettingsProvider, useSettings } from '../contexts/SettingsContext';
-import { useQueryParams, useArtists, useFileUpload, useNetease, useSwipeGesture, useMobileMenu, usePageTitle } from '../hooks';
+import { useQueryParams, useArtists, useFileUpload, useNetease, useSwipeGesture, useMobileMenu, usePageTitle, useSharePanel } from '../hooks';
 import { getFontFamily } from '../utils/fontUtils';
 import { MusicLibrary } from '../components/MusicLibrary';
 import { ArtistsView } from '../components/ArtistsView';
@@ -15,6 +15,8 @@ import { PlaybackControls, ProgressBar, CoverArt, LyricsDisplay } from '../compo
 import SettingsPanel from '../components/SettingsPanel';
 import LyricLine from '../components/LyricLine';
 import TogetherListenPanel from '../components/TogetherListenPanel';
+import SharePanel from '../components/SharePanel';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const NeteasePanel = lazy(() => import('../components/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
 
@@ -65,6 +67,9 @@ const MobileAppContent: React.FC = () => {
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSharePanelOpen, setIsSharePanelOpen] = useState(false);
+
+  const sharePanel = useSharePanel();
 
   const togetherListenRef = useRef<any>(null);
   const page0VisitedRef = useRef(page0Visited);
@@ -162,6 +167,7 @@ const MobileAppContent: React.FC = () => {
         album: item.album,
         coverUrl: item.coverUrl,
         lyrics: item.lyrics,
+        translatedLyrics: item.translatedLyrics,
         neteaseId: item.neteaseId,
         artistIds: item.artistIds,
         file: item.file,
@@ -348,6 +354,25 @@ const MobileAppContent: React.FC = () => {
   const cyclePlaybackMode = useCallback(() => {
     player.cyclePlaybackMode();
   }, [player.cyclePlaybackMode]);
+
+  const handleShareClick = useCallback(() => {
+    if (!player.track) return;
+
+    if (player.track.neteaseId) {
+      sharePanel.updateConfig('enableNeteaseMusicId', true);
+      sharePanel.updateConfig('neteaseMusicId', player.track.neteaseId.toString());
+      sharePanel.updateConfig('enableTrackIndex', false);
+      sharePanel.updateConfig('playlistOrigin', '');
+    } else {
+      sharePanel.updateConfig('enableTrackIndex', true);
+      sharePanel.updateConfig('trackIndex', playlist.currentIndex.toString());
+      sharePanel.updateConfig('enableNeteaseMusicId', false);
+      sharePanel.updateConfig('playlistOrigin', settings.customSourceUrl || './discList.json');
+    }
+
+    sharePanel.updateConfig('seekTo', '');
+    setIsSharePanelOpen(true);
+  }, [player.track, playlist.currentIndex, sharePanel, settings.customSourceUrl]);
 
   const handleSeek = useCallback((time: number) => {
     player.handleSeek(time);
@@ -759,6 +784,18 @@ const MobileAppContent: React.FC = () => {
                       <Shuffle size={18} />
                     )}
                   </button>
+                  <button
+                    onClick={handleShareClick}
+                    className="p-2 text-white/40"
+                    title="分享"
+                  >
+                    <Share2 size={18} />
+                  </button>
+                  <img
+                    src="https://visitor-badge.laobi.icu/badge?page_id=domdkw.Serene-Player"
+                    alt="visitor badge"
+                    className="backdrop-blur-sm p-2"
+                  />
                 </div>
               </div>
 
@@ -789,18 +826,6 @@ const MobileAppContent: React.FC = () => {
                       )}
                     </>
                   )}
-                  {player.track.metadata.parsedLyrics.some(line => line.translation) && (
-                    <button
-                      onClick={() => settings.setShowTranslation(!settings.showTranslation)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-sm border transition-all ${
-                        settings.showTranslation
-                          ? 'bg-white/20 text-white border-white/30'
-                          : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      <span className="text-xs font-medium">{settings.showTranslation ? '译' : '原'}</span>
-                    </button>
-                  )}
                 </div>
 
                 <LyricsDisplay
@@ -818,6 +843,20 @@ const MobileAppContent: React.FC = () => {
 
                 <div className="absolute top-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-b from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
                 <div className="absolute bottom-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-t from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
+
+                {player.track.metadata.parsedLyrics.some(line => line.translation) && (
+                  <button
+                    onClick={() => settings.setShowTranslation(!settings.showTranslation)}
+                    className={`absolute bottom-6 right-4 p-2 rounded-full backdrop-blur-md border transition-all z-20 ${
+                      settings.showTranslation
+                        ? 'bg-white/20 text-white border-white/30'
+                        : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'
+                    }`}
+                    title={settings.showTranslation ? '显示原文' : '显示翻译'}
+                  >
+                    <Languages size={16} />
+                  </button>
+                )}
               </>
             )}
           </section>
@@ -966,6 +1005,22 @@ const MobileAppContent: React.FC = () => {
             onClose={() => setIsSettingsOpen(false)}
           />
         )}
+
+        <SharePanel
+          isOpen={isSharePanelOpen}
+          onClose={() => setIsSharePanelOpen(false)}
+          config={sharePanel.config}
+          updateConfig={sharePanel.updateConfig}
+          shareUrl={sharePanel.shareUrl}
+          resetConfig={sharePanel.resetConfig}
+          onReadCurrentTime={() => sharePanel.readCurrentTime(player.currentTime)}
+          onReadCurrentUrl={() => sharePanel.readCurrentUrl(settings.customSourceUrl || './discList.json')}
+          onReadCurrentTrack={handleShareClick}
+          onCopy={sharePanel.copyToClipboard}
+          onValidate={sharePanel.validateConfig}
+          currentTime={player.currentTime}
+          isMobile={true}
+        />
       </main>
 
       <audio
@@ -993,13 +1048,15 @@ const MobileAppContent: React.FC = () => {
  */
 const MobileApp: React.FC = () => {
   return (
-    <SettingsProvider>
-      <PlaylistProvider>
-        <PlayerProvider>
-          <MobileAppContent />
-        </PlayerProvider>
-      </PlaylistProvider>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <PlaylistProvider>
+          <PlayerProvider>
+            <MobileAppContent />
+          </PlayerProvider>
+        </PlaylistProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
   );
 };
 

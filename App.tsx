@@ -9,6 +9,7 @@ import { useArtists } from './hooks/useArtists';
 import { useFileUpload } from './hooks/useFileUpload';
 import { useNetease } from './hooks/useNetease';
 import { usePageTitle } from './hooks/usePageTitle';
+import { useSharePanel } from './hooks/useSharePanel';
 import { getFontFamily } from './utils/fontUtils';
 import { ErrorService } from './utils/errorService';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -19,13 +20,14 @@ import GlobalBackground from './components/GlobalBackground';
 import MiniPlayerBar from './components/MiniPlayerBar';
 import { getSongDetail, getSongUrl, getSongLyric, getAlbumCoverUrl } from './apis/netease';
 
-type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings';
+type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share';
 
 const ArtistsView = lazy(() => import('./components/ArtistsView').then(m => ({ default: m.ArtistsView })));
 const NeteasePanel = lazy(() => import('./components/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
 const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
 const MusicPlayer = lazy(() => import('./components/MusicPlayer'));
 const TogetherListenPanel = lazy(() => import('./components/TogetherListenPanel'));
+const SharePanel = lazy(() => import('./components/SharePanel'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-full">
@@ -61,6 +63,8 @@ const AppContent: React.FC = () => {
     activeTab
   });
 
+  const sharePanel = useSharePanel();
+
   const loadMusicFromUrl = useCallback(async (item: PlaylistItem, index: number) => {
     setErrorMessage(null);
     playlist.setCurrentIndex(index);
@@ -72,6 +76,7 @@ const AppContent: React.FC = () => {
         album: item.album,
         coverUrl: item.coverUrl,
         lyrics: item.lyrics,
+        translatedLyrics: item.translatedLyrics,
         neteaseId: item.neteaseId,
         artistIds: item.artistIds,
         file: item.file
@@ -279,18 +284,11 @@ const AppContent: React.FC = () => {
     const audio = player.audioRef.current;
     if (!audio) return;
 
-    const handleEnded = () => {
-      console.log('===== Ended event triggered =====');
-      console.log('Current playback mode:', player.playbackMode);
-      console.log('Current track:', player.track?.metadata.title);
-      console.log('Is playing netease:', !!player.track?.neteaseId);
-      
+    const handleEnded = () => {      
       if (player.playbackMode === 'single') {
-        console.log('Single mode: restarting current track');
         audio.currentTime = 0;
         audio.play().catch(() => {});
       } else {
-        console.log('List/shuffle mode: calling handleNext');
         handleNext();
       }
     };
@@ -309,6 +307,26 @@ const AppContent: React.FC = () => {
       }
     }, 300);
   }, []);
+
+  const handleShareClick = useCallback(() => {
+    if (!player.track) return;
+
+    if (player.track.neteaseId) {
+      sharePanel.updateConfig('enableNeteaseMusicId', true);
+      sharePanel.updateConfig('neteaseMusicId', player.track.neteaseId.toString());
+      sharePanel.updateConfig('enableTrackIndex', false);
+      sharePanel.updateConfig('playlistOrigin', '');
+    } else {
+      sharePanel.updateConfig('enableTrackIndex', true);
+      sharePanel.updateConfig('trackIndex', playlist.currentIndex.toString());
+      sharePanel.updateConfig('enableNeteaseMusicId', false);
+      sharePanel.updateConfig('playlistOrigin', settings.customSourceUrl || defaultSourceUrl);
+    }
+
+    sharePanel.updateConfig('seekTo', '');
+    setShowFullPlayer(false);
+    setActiveTab('share');
+  }, [player.track, playlist.currentIndex, sharePanel, settings.customSourceUrl]);
 
   const handleSeek = useCallback((time: number) => {
     if (player.audioRef.current && time >= 0) {
@@ -397,6 +415,34 @@ const AppContent: React.FC = () => {
             </div>
           </Suspense>
         );
+      case 'share':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <div className="h-full flex flex-col">
+              <div className="p-6 border-b border-white/[0.05]">
+                <h2 className="text-2xl font-bold text-white drop-shadow-md">分享</h2>
+                <p className="text-sm text-white/40 mt-1 drop-shadow-sm">生成分享链接</p>
+              </div>
+              <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
+                <SharePanel
+                  isOpen={true}
+                  onClose={() => {}}
+                  config={sharePanel.config}
+                  updateConfig={sharePanel.updateConfig}
+                  shareUrl={sharePanel.shareUrl}
+                  resetConfig={sharePanel.resetConfig}
+                  onReadCurrentTime={() => sharePanel.readCurrentTime(player.currentTime)}
+                  onReadCurrentUrl={() => sharePanel.readCurrentUrl(settings.customSourceUrl || defaultSourceUrl)}
+                  onReadCurrentTrack={handleShareClick}
+                  onCopy={sharePanel.copyToClipboard}
+                  onValidate={sharePanel.validateConfig}
+                  currentTime={player.currentTime}
+                  isMobile={false}
+                />
+              </div>
+            </div>
+          </Suspense>
+        );
       case 'songs':
       default:
         return (
@@ -419,7 +465,7 @@ const AppContent: React.FC = () => {
           />
         );
     }
-  }, [activeTab, selectedArtist, playlist, player, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, triggerFileUpload, triggerFolderUpload]);
+  }, [activeTab, selectedArtist, playlist, player, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, triggerFileUpload, triggerFolderUpload, sharePanel]);
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(settings.selectedFont) }}>
@@ -558,6 +604,7 @@ const AppContent: React.FC = () => {
               formatTime={player.formatTime}
               onArtistClick={handleArtistClick}
               isTogetherListenConnected={isTogetherListenConnected}
+              onShareClick={handleShareClick}
             />
           </Suspense>
         </div>

@@ -9,7 +9,8 @@ import {
   Download,
   FileText,
   MoreHorizontal,
-  Users
+  Users,
+  Share2
 } from 'lucide-react';
 import { Track, LyricLine as ParsedLyric } from '../types';
 import { getFontFamily } from '../utils/fontUtils';
@@ -46,6 +47,7 @@ interface MusicPlayerProps {
   formatTime: (time: number) => string;
   onArtistClick?: (artistName: string) => void;
   isTogetherListenConnected?: boolean;
+  onShareClick?: () => void;
 }
 
 // 流光加载条组件
@@ -77,6 +79,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   formatTime,
   onArtistClick,
   isTogetherListenConnected = false,
+  onShareClick,
 }) => {
   const coverRef = useRef<HTMLDivElement>(null);
   
@@ -338,6 +341,18 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                   <Languages size={16} />
                 </button>
               </div>
+              {/* 分享按钮 */}
+              {onShareClick && (
+                <div className="relative group">
+                  <button
+                    onClick={onShareClick}
+                    className="flex items-center justify-center w-9 h-9 rounded-full text-white/70 hover:bg-white/20 hover:text-white transition-all"
+                    title="分享"
+                  >
+                    <Share2 size={16} />
+                  </button>
+                </div>
+              )}
             </div>
             {/* Lyric Tags - AR & AL */}
             {(track.metadata.lyricArtist || track.metadata.lyricAlbum || track.sourceType === 'streaming') && (

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Track, PlaybackMode } from '../types';
-import { extractMetadata, parseLyrics } from '../utils/metadata';
+import { extractMetadata, parseLyrics, parseLyricsWithTranslation } from '../utils/metadata';
 import fetchInChunks from 'fetch-in-chunks';
 import { ErrorService } from '../utils/errorService';
 import { getLyricsType } from '../utils/lyricsUtils';
@@ -31,6 +31,7 @@ interface PlayerContextType extends PlayerState {
     album?: string;
     coverUrl?: string;
     lyrics?: string;
+    translatedLyrics?: string;
     neteaseId?: number;
     artistIds?: number[];
     file?: File;
@@ -151,6 +152,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
       album?: string;
       coverUrl?: string;
       lyrics?: string;
+      translatedLyrics?: string;
       neteaseId?: number;
       artistIds?: number[];
       file?: File;
@@ -239,13 +241,25 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
 
       if (!metadata.lyrics && item.lyrics) {
         metadata.lyrics = item.lyrics;
-        const parsedResult = parseLyrics(item.lyrics);
-        metadata.parsedLyrics = parsedResult.lines;
-        if (parsedResult.lyricArtist) {
-          metadata.lyricArtist = parsedResult.lyricArtist;
-        }
-        if (parsedResult.lyricAlbum) {
-          metadata.lyricAlbum = parsedResult.lyricAlbum;
+        
+        if (item.neteaseId) {
+          const parsedResult = parseLyricsWithTranslation(item.lyrics, item.translatedLyrics || null);
+          metadata.parsedLyrics = parsedResult.lines;
+          if (parsedResult.lyricArtist) {
+            metadata.lyricArtist = parsedResult.lyricArtist;
+          }
+          if (parsedResult.lyricAlbum) {
+            metadata.lyricAlbum = parsedResult.lyricAlbum;
+          }
+        } else {
+          const parsedResult = parseLyrics(item.lyrics);
+          metadata.parsedLyrics = parsedResult.lines;
+          if (parsedResult.lyricArtist) {
+            metadata.lyricArtist = parsedResult.lyricArtist;
+          }
+          if (parsedResult.lyricAlbum) {
+            metadata.lyricAlbum = parsedResult.lyricAlbum;
+          }
         }
       }
 

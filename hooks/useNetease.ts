@@ -7,7 +7,7 @@ interface UseNeteaseOptions {
   onLoadTrack: (item: PlaylistItem, index: number) => void;
   neteasePlaylist: PlaylistItem[];
   setNeteaseCurrentIndex: (index: number) => void;
-  updateNeteaseLikedIndexById: (neteaseId: number) => void; // 新增：根据 ID 更新"我喜欢"列表索引
+  updateNeteaseLikedIndexById: (neteaseId: number) => void;
 }
 
 interface UseNeteaseReturn {
@@ -33,6 +33,26 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
   const loadingRef = useRef(false);
 
   /**
+   * 只获取歌词信息（用于已有歌曲信息的情况）
+   * @param neteaseId 歌曲ID
+   * @returns 歌词和翻译歌词
+   */
+  const fetchLyricsOnly = useCallback(async (neteaseId: number): Promise<{ lyrics?: string; translatedLyrics?: string }> => {
+    try {
+      const lyricData = await getSongLyric(neteaseId);
+      if (lyricData) {
+        return {
+          lyrics: lyricData.lyric || undefined,
+          translatedLyrics: lyricData.tlyric || undefined
+        };
+      }
+    } catch (e) {
+      // 歌词获取失败不影响播放
+    }
+    return {};
+  }, []);
+
+  /**
    * 通过歌曲ID获取完整的歌曲信息
    * 包括：播放链接、封面、歌词等
    */
@@ -54,15 +74,7 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
       }
 
       // 3. 获取歌词（可选，失败不影响播放）
-      let lyrics: string | undefined;
-      try {
-        const lyricData = await getSongLyric(neteaseId);
-        if (lyricData && lyricData.lyric) {
-          lyrics = lyricData.lyric;
-        }
-      } catch (e) {
-        // 歌词获取失败不影响播放
-      }
+      const lyricData = await fetchLyricsOnly(neteaseId);
 
       // 4. 获取封面
       const coverUrl = songDetail.album.picUrl
@@ -77,14 +89,15 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
         neteaseId: neteaseId,
         artistIds: songDetail.artists.map(a => a.id),
         coverUrl: coverUrl,
-        lyrics: lyrics,
+        lyrics: lyricData.lyrics,
+        translatedLyrics: lyricData.translatedLyrics,
         album: songDetail.album.name,
       };
     } catch (error) {
       ErrorService.handleError(error as Error, 'Fetch Song Details');
       return null;
     }
-  }, []);
+  }, [fetchLyricsOnly]);
 
   /**
    * 加载并播放网易云音乐
@@ -107,21 +120,34 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
     try {
       let trackToPlay: PlaylistItem;
 
-      // 如果歌曲已经有完整的 URL，直接播放
-      if (item.url) {
+      // 如果歌曲已经有完整的 URL 和歌词，直接播放
+      if (item.url && item.lyrics && item.translatedLyrics !== undefined) {
         trackToPlay = item;
         setLoadingProgress(100);
       } else if (item.neteaseId) {
-        // 通过 ID 获取完整信息
-        const fullDetails = await fetchSongDetailsById(item.neteaseId);
-        if (fullDetails) {
-          trackToPlay = fullDetails;
-          setLoadingProgress(100);
+        // 如果已有 URL 和封面，只获取歌词
+        if (item.url && item.coverUrl) {
+          const lyricData = await fetchLyricsOnly(item.neteaseId);
+          trackToPlay = {
+            ...item,
+            lyrics: lyricData.lyrics,
+            translatedLyrics: lyricData.translatedLyrics
+          };
         } else {
-          setLoadingProgress(null);
-          loadingRef.current = false;
-          return;
+          // 通过 ID 获取完整信息
+          const fullDetails = await fetchSongDetailsById(item.neteaseId);
+          if (fullDetails) {
+            trackToPlay = {
+              ...fullDetails,
+              url: item.url || fullDetails.url
+            };
+          } else {
+            setLoadingProgress(null);
+            loadingRef.current = false;
+            return;
+          }
         }
+        setLoadingProgress(100);
       } else {
         ErrorService.handleError(new Error('歌曲信息不完整，无法播放'), 'Load Netease Music');
         setLoadingProgress(null);
@@ -138,7 +164,7 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
     } finally {
       loadingRef.current = false;
     }
-  }, [fetchSongDetailsById, onLoadTrack, setNeteaseCurrentIndex, updateNeteaseLikedIndexById]);
+  }, [fetchLyricsOnly, fetchSongDetailsById, onLoadTrack, setNeteaseCurrentIndex, updateNeteaseLikedIndexById]);
 
   /**
    * 通过网易云ID播放歌曲

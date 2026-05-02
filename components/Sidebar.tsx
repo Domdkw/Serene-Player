@@ -1,9 +1,9 @@
 import React, { memo } from 'react';
 import {
-  Music, Settings, User, ListMusic, Cable
+  Music, Settings, User, ListMusic, Cable, Share2
 } from 'lucide-react';
 
-type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings';
+type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share';
 
 interface SidebarItemProps {
   icon: React.ElementType | (() => React.ReactNode);
@@ -107,6 +107,12 @@ export const Sidebar: React.FC<SidebarProps> = memo(({
           isActive={activeTab === 'artists'}
           onClick={() => onTabChange('artists')}
           badge={artistsCount}
+        />
+        <SidebarItem
+          icon={Share2}
+          label="分享"
+          isActive={activeTab === 'share'}
+          onClick={() => onTabChange('share')}
         />
         <SidebarItem
           icon={Settings}
