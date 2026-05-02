@@ -276,7 +276,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                           </div>
                           {/* 简介 */}
                           {artist.briefDesc && (
-                            <p className="mt-2 text-xs text-white/50 text-center">
+                            <p className="mt-2 text-xs text-white/50 text-center max-h-64 overflow-y-auto playlist-scrollbar">
                               {artist.briefDesc}
                             </p>
                           )}
