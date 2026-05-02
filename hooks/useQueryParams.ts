@@ -79,10 +79,12 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
       const coverUrl = detail.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800, true) : null;
 
       let lyrics: string | undefined;
+      let translatedLyrics: string | undefined;
       try {
         const lyricData = await getSongLyric(id);
-        if (lyricData && lyricData.lyric) {
-          lyrics = lyricData.lyric;
+        if (lyricData) {
+          lyrics = lyricData.lyric || undefined;
+          translatedLyrics = lyricData.tlyric;
         }
       } catch (e) {
         console.warn('[QueryParams] 获取歌词失败:', e);
@@ -96,6 +98,7 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
         neteaseId: id,
         coverUrl: coverUrl || undefined,
         lyrics: lyrics,
+        translatedLyrics: translatedLyrics,
         album: detail.album.name,
       };
 

@@ -93,7 +93,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const artistIds = React.useMemo(() => {
     const ids = track.artistIds;
     if (!ids || !Array.isArray(ids)) return [];
-    return ids.filter(id => !isNaN(id));
+    return ids.filter(id => !isNaN(id) && id > 0);
   }, [track.artistIds]);
 
   useEffect(() => {

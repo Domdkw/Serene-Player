@@ -87,7 +87,7 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
         url: songUrl,
         themeColor: '#C20C0C',
         neteaseId: neteaseId,
-        artistIds: songDetail.artists.map(a => a.id),
+        artistIds: songDetail.artists.map(a => a.id).filter(id => id > 0),
         coverUrl: coverUrl,
         lyrics: lyricData.lyrics,
         translatedLyrics: lyricData.translatedLyrics,
@@ -120,8 +120,8 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
     try {
       let trackToPlay: PlaylistItem;
 
-      // 如果歌曲已经有完整的 URL 和歌词，直接播放
-      if (item.url && item.lyrics && item.translatedLyrics !== undefined) {
+      // 如果歌曲已经有完整的 URL 和歌词信息（translatedLyrics 不为 undefined 表示已获取过歌词）
+      if (item.url && item.translatedLyrics !== undefined) {
         trackToPlay = item;
         setLoadingProgress(100);
       } else if (item.neteaseId) {

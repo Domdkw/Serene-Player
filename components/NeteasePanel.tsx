@@ -237,7 +237,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
         id: songId,
         name: song.name,
         artist: song.artists.map(a => a.name).join(', '),
-        artistIds: song.artists.map(a => a.id),
+        artistIds: song.artists.map(a => a.id).filter(id => id > 0),
         album: song.album.name,
         coverUrl,
         duration: song.duration,
@@ -383,10 +383,12 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       }
 
       let lyrics: string | undefined;
+      let translatedLyrics: string | undefined;
       try {
         const lyricData = await getSongLyric(songId);
-        if (lyricData && lyricData.lyric) {
-          lyrics = lyricData.lyric;
+        if (lyricData) {
+          lyrics = lyricData.lyric || undefined;
+          translatedLyrics = lyricData.tlyric;
         }
       } catch (e) {
         console.warn('获取歌词失败:', e);
@@ -401,6 +403,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
         artistIds: artistIds,
         coverUrl: coverUrl,
         lyrics: lyrics,
+        translatedLyrics: translatedLyrics,
         album: albumName,
       };
 
