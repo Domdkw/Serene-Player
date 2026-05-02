@@ -109,16 +109,16 @@ export const Sidebar: React.FC<SidebarProps> = memo(({
           badge={artistsCount}
         />
         <SidebarItem
-          icon={Settings}
-          label="设置"
-          isActive={activeTab === 'settings'}
-          onClick={() => onTabChange('settings')}
-        />
-        <SidebarItem
           icon={Share2}
           label="分享"
           isActive={activeTab === 'share'}
           onClick={() => onTabChange('share')}
+        />
+        <SidebarItem
+          icon={Settings}
+          label="设置"
+          isActive={activeTab === 'settings'}
+          onClick={() => onTabChange('settings')}
         />
         <img
           src="https://visitor-badge.laobi.icu/badge?page_id=domdkw.Serene-Player"

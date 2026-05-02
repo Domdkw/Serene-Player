@@ -791,6 +791,11 @@ const MobileAppContent: React.FC = () => {
                   >
                     <Share2 size={18} />
                   </button>
+                  <img
+                    src="https://visitor-badge.laobi.icu/badge?page_id=domdkw.Serene-Player"
+                    alt="visitor badge"
+                    className="backdrop-blur-sm p-2"
+                  />
                 </div>
               </div>
 

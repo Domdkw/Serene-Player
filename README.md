@@ -1,7 +1,19 @@
 # Serene Player - 宁静播放器
 
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="./屏幕截图 2026-01-02 003355.png" />
+
+<details>
+<summary>应用截图</summary>
+
+<div style="display: flex; overflow-x: auto; justify-content: center; align-items: center; gap: 10px; padding: 10px 0;">
+<img height="285" alt="移动端竖屏" src="https://raw.githubusercontent.com/Domdkw/warehouse/2e8b8d64d27e0fc242c5500b2e3f63789aa84407/Serene-Player/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE_2-5-2026_103338_localhost.jpeg" />
+<img height="285" alt="桌面端横屏1" src="https://raw.githubusercontent.com/Domdkw/warehouse/2e8b8d64d27e0fc242c5500b2e3f63789aa84407/Serene-Player/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE_2-5-2026_10380_localhost.jpeg">
+<img height="285" alt="桌面端横屏2" src="https://raw.githubusercontent.com/Domdkw/warehouse/2e8b8d64d27e0fc242c5500b2e3f63789aa84407/Serene-Player/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE_2-5-2026_103450_localhost.jpeg" />
+
+</div>
+
+</details>
+
 </div>
 
 基于 React 和 TypeScript 构建的现代化优雅音乐播放器。由 Gemini 3 Flash + TRAE + Hand 开发
@@ -15,28 +27,14 @@
 
 ## 功能特性
 
-- 🎵 美观简约的用户界面，支持 3D 封面效果
-- 🎨 流畅的动画过渡效果
-- 🎧 完整播放控制（播放/暂停、切歌、音量调节、进度拖拽）
-- 📋 播放列表管理，支持文件夹嵌套
-- 🔗 支持外链歌单导入
-- 🔄 多种播放模式（单曲、列表、重复、随机）
-- 📊 实时进度追踪
-- 🎼 歌词自动滚动显示，支持逐字高亮和逐行高亮
-- 📝 歌词翻译显示（可开关）
-- 🎨 音频可视化频谱效果
-- 🎭 全局动态背景效果
-- 👤 艺术家视图，按首字母排序
-- 🔤 拼音首字母排序支持（中文艺术家）
-- 📱 移动端适配，支持手势切换页面
-- ⚙️ 可自定义设置（分块加载、字体、字体粗细、字间距、行高）
-- 🪞 镜像源支持，加速音乐文件加载
-- 💾 本地存储记住用户设置
-- 🔍 本地音乐搜索功能，支持按歌曲名和艺术家搜索
-- 🎵 网易云音乐集成，支持在线搜索和播放
-- ❤️ 收藏功能，保存喜欢的歌曲
-- 📄 网易云歌曲详情和封面显示
-- 🎤 网易云歌词自动获取和显示
+- 完整播放控制（播放/暂停、切歌、进度拖拽）
+- 多种播放模式（单曲、列表、重复、随机）
+- 歌词翻译显示（可开关）
+- 移动端适配，支持手势切换页面
+- 本地音乐搜索功能，支持按歌曲名和艺术家搜索
+- 网易云音乐集成，支持在线搜索和播放
+- 当前播放曲目下载功能
+- 媒体会话 API 支持，实现系统媒体控制
 
 ## 本地运行
 
@@ -105,7 +103,7 @@ npm run build
 
 ### 添加音乐方法
 1. 手动上传，临时
-2. 自定义音乐源，参考 [useMusicSource](./hooks/useMusicSource.md)
+2. 自定义音乐源，参考 [queryParams](./hooks/QueryParams.md)
 3. - [Fork](https://github.com/Domdkw/Serene-Player/fork)
   - 将音乐文件添加到 `public/music/` 目录
   - 更新 `public/discList.json` 配置播放列表
@@ -118,7 +116,7 @@ npm run build
 
 #### 歌词显示
 
-- 网易云歌曲会自动获取歌词
+- 网易云歌曲会自动获取歌词，翻译
 - 歌词支持自动滚动和高亮显示
 - 可在设置中开启或关闭歌词翻译
 
@@ -147,17 +145,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## 技术栈
-
-- React 19
-- TypeScript 5.8
-- Vite 6
-- Lucide React Icons
-- HTML5 Audio API
-- fetch-in-chunks（分块加载）
-- Tailwind CSS
-- jsmediatags（元数据提取）
-
 ## 移动端特性
 
 - 左右滑动手势切换页面（播放器/歌词/列表）
@@ -165,33 +152,15 @@ python main.py
 - 响应式布局适配
 - 底部迷你播放栏
 
-## 自定义设置
-
-点击设置按钮可调整：
-
-- **分块拉取片数**：1/4/8/16（数值越大加载越快）
-- **字体选择**：多种中文字体可选
-- **歌词字体粗细**：细体/常规/粗体
-- **歌词字间距**：可调节
-- **歌词行高**：可调节
-- **翻译显示**：开启/关闭歌词翻译
-
-## 浏览器支持
-
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-
 ## 开发计划
 
-- [ ] 支持更多音频格式（FLAC、WAV、OGG）
+- [ ] 移动端显示作曲家信息
 - [x] 支持网易云音乐播放 灵感源于[maomao1996/Vue-mmPlayer](https://github.com/maomao1996/Vue-mmPlayer)和issue [#1]
-- [ ] 歌单分享功能
+- [x] 歌单分享功能
 - [ ] 深色/浅色主题切换
-- [ ] 音乐均衡器调节
-- [ ] 播放历史记录
-- [ ] 歌曲评分功能
+- [ ] 支持更多音乐平台
+- [x] 历史记录
+- [ ] 添加更多发现插件
 - [ ] 播放列表导出/导入
 
 ## 贡献指南
@@ -203,8 +172,9 @@ python main.py
 
 本项目基于 MIT 许可证开源 - 查看 [LICENSE](LICENSE) 文件了解详情
 
-## 致谢
+## 使用的库
 
-- [jsmediatags](https://github.com/aadsm/jsmediatags) 提供元数据提取功能
-- [pinyin-pro](https://github.com/zh-lx/pinyin-pro) 提供拼音支持
-- [fetch-in-chunks](https://github.com/AnthumChris/fetch-in-chunks) 提供分块加载支持
+- [jsmediatags](https://github.com/aadsm/jsmediatags) 元数据提取功能
+- [pinyin-pro](https://github.com/zh-lx/pinyin-pro) 拼音支持
+- [fetch-in-chunks](https://github.com/AnthumChris/fetch-in-chunks) 分块加载支持
+- [Peerjs](https://github.com/peerjs/peerjs) P2P 播放支持
