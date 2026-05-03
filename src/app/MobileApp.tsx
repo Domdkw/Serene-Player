@@ -11,6 +11,7 @@ import { SearchPanel, SettingsPanel, TogetherListenPanel, SharePanel } from '../
 import { PlaybackControls, ProgressBar, CoverArt, LyricsDisplay, LyricLine } from '../components/player';
 import { ErrorBoundary } from '../components/common';
 import { ErrorService } from '../utils/errorService';
+import { SharedSong } from '../utils/songEncodingUtils';
 
 const NeteasePanel = lazy(() => import('../components/panels/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
 
@@ -65,6 +66,8 @@ const MobileAppContent: React.FC = () => {
   const [isSharePanelOpen, setIsSharePanelOpen] = useState(false);
 
   const sharePanel = useSharePanel();
+
+  const [sharedSongs, setSharedSongs] = useState<SharedSong[]>([]);
 
   const togetherListenRef = useRef<any>(null);
   const page0VisitedRef = useRef(page0Visited);
@@ -268,6 +271,10 @@ const MobileAppContent: React.FC = () => {
     setShouldAutoPlay,
     onSeekTo: (timeInSeconds: number) => {
       handleSeek(timeInSeconds);
+    },
+    onSharedSongs: (songs: SharedSong[]) => {
+      setSharedSongs(songs);
+      setIsSharePanelOpen(true);
     },
   });
 
@@ -1038,6 +1045,8 @@ const MobileAppContent: React.FC = () => {
           onValidate={sharePanel.validateConfig}
           currentTime={playerTime.currentTime}
           isMobile={true}
+          sharedSongs={sharedSongs}
+          onReadLikedSongs={sharePanel.readLikedSongs}
         />
       </main>
 

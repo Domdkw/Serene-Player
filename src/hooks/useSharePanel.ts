@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { QueryParams, buildUrlWithParams } from '../utils/queryParams';
+import { compressSongsToBase64, decompressBase64ToSongs, SharedSong } from '../utils/songEncodingUtils';
 
 /**
  * 分享参数配置接口
@@ -24,6 +25,8 @@ export interface ShareConfig {
   seekTo: string;
   /** 是否保留URL参数 */
   keepParams: boolean;
+  /** 是否分享我喜欢歌单 */
+  enableLikedSongs: boolean;
 }
 
 /**
@@ -54,6 +57,14 @@ export interface UseSharePanelReturn {
   copyToClipboard: () => Promise<boolean>;
   /** 验证配置是否有效 */
   validateConfig: () => { isValid: boolean; errors: string[] };
+  /** 读取"我喜欢"歌单 */
+  readLikedSongs: (songs: SharedSong[]) => void;
+  /** 分享过来的歌曲列表 */
+  sharedSongs: SharedSong[];
+  /** 设置分享过来的歌曲列表 */
+  setSharedSongs: (songs: SharedSong[]) => void;
+  /** 从URL解析分享的歌曲列表 */
+  parseSharedSongsFromUrl: () => SharedSong[];
 }
 
 /**
@@ -69,6 +80,7 @@ const DEFAULT_CONFIG: ShareConfig = {
   playlistOrigin: '',
   seekTo: '',
   keepParams: false,
+  enableLikedSongs: false,
 };
 
 /**
@@ -86,6 +98,8 @@ const DEFAULT_CONFIG: ShareConfig = {
 export function useSharePanel(): UseSharePanelReturn {
   const [config, setConfig] = useState<ShareConfig>(DEFAULT_CONFIG);
   const [isOpen, setIsOpen] = useState(false);
+  const [sharedSongs, setSharedSongs] = useState<SharedSong[]>([]);
+  const [likedSongsData, setLikedSongsData] = useState<string>('');
 
   /**
    * 更新单个配置项
@@ -146,9 +160,13 @@ export function useSharePanel(): UseSharePanelReturn {
       params.keep_params = true;
     }
 
+    if (config.enableLikedSongs && likedSongsData) {
+      params.liked_songs = likedSongsData;
+    }
+
     const baseUrl = window.location.origin + window.location.pathname;
     return buildUrlWithParams(baseUrl, params);
-  }, [config]);
+  }, [config, likedSongsData]);
 
   /**
    * 打开面板
@@ -176,6 +194,7 @@ export function useSharePanel(): UseSharePanelReturn {
    */
   const resetConfig = useCallback(() => {
     setConfig(DEFAULT_CONFIG);
+    setLikedSongsData('');
   }, []);
 
   /**
@@ -196,6 +215,33 @@ export function useSharePanel(): UseSharePanelReturn {
     const url = originUrl || './discList.json';
     updateConfig('playlistOrigin', url);
   }, [updateConfig]);
+
+  /**
+   * 读取"我喜欢"歌单并压缩为base64
+   * @param songs - 歌曲列表
+   */
+  const readLikedSongs = useCallback((songs: SharedSong[]) => {
+    if (songs.length === 0) {
+      setLikedSongsData('');
+      return;
+    }
+    const compressed = compressSongsToBase64(songs);
+    setLikedSongsData(compressed);
+  }, []);
+
+  /**
+   * 从URL解析分享的歌曲列表
+   */
+  const parseSharedSongsFromUrl = useCallback((): SharedSong[] => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const likedSongsParam = urlParams.get('liked_songs');
+    if (likedSongsParam) {
+      const songs = decompressBase64ToSongs(likedSongsParam);
+      setSharedSongs(songs);
+      return songs;
+    }
+    return [];
+  }, []);
 
   /**
    * 复制分享URL到剪贴板
@@ -248,11 +294,15 @@ export function useSharePanel(): UseSharePanelReturn {
       }
     }
 
+    if (config.enableLikedSongs && !likedSongsData) {
+      errors.push('没有可分享的喜欢歌曲');
+    }
+
     return {
       isValid: errors.length === 0,
       errors
     };
-  }, [config]);
+  }, [config, likedSongsData]);
 
   return {
     config,
@@ -267,6 +317,10 @@ export function useSharePanel(): UseSharePanelReturn {
     readCurrentUrl,
     copyToClipboard,
     validateConfig,
+    readLikedSongs,
+    sharedSongs,
+    setSharedSongs,
+    parseSharedSongsFromUrl,
   };
 }
 

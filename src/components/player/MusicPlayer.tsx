@@ -229,7 +229,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                       title={`搜索歌手：${artist.name}`}
                     >
                       <img
-                        src={artist.picUrl}
+                        src={artist.picUrl + '?param=100y100'}
                         alt={artist.name}
                         className="w-6 h-6 rounded-full object-cover border border-white/20"
                       />
@@ -240,7 +240,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                           {/* 歌手头像 */}
                           <div className="flex justify-center mb-2">
                             <img
-                              src={artist.picUrl}
+                              src={artist.picUrl + '?param=100y100'}
                               alt={artist.name}
                               className="w-16 h-16 rounded-full object-cover border-2 border-white/20"
                             />

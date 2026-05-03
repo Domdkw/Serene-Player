@@ -2,18 +2,8 @@ import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, f
 import { Search, Loader2, Play, Pause, Music, Heart, Trash2, Flame, TrendingUp, ChevronLeft } from 'lucide-react';
 import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, getHotSearchDetail, getSearchSuggestion, NeteaseSong, NeteaseSongDetail, NeteaseHotSearch, formatDuration } from '../../apis/netease';
 import { PlaylistItem } from '../../types';
-import { LazyImage } from '../common';
-
-interface FavoriteSong {
-  id: number;
-  name: string;
-  artist: string;
-  artistIds: number[];
-  album: string;
-  coverUrl: string;
-  duration: number;
-  addedAt: number;
-}
+import { LazyImage, SongCard, SongCardData } from '../common';
+import { FavoriteSong, loadFavorites, saveFavorites, isSongFavorite, addFavorite, removeFavorite, dispatchFavoritesUpdate } from '../../utils/NEfavorites';
 
 export interface NeteasePanelRef {
   triggerSearch: (keyword: string, addToHistory?: boolean) => Promise<void>;
@@ -38,28 +28,10 @@ interface LoadingStatus {
   songId: number | null;
 }
 
-const FAVORITES_STORAGE_KEY = 'netease_favorites';
 const SEARCH_HISTORY_KEY = 'netease_search_history';
 const HOT_SEARCH_KEY = 'netease_hot_search';
 const HOT_SEARCH_CACHE_DURATION = 5 * 60 * 1000; // 5 分钟
 const SEARCH_HISTORY_LIMIT = 5;
-
-const loadFavorites = (): FavoriteSong[] => {
-  try {
-    const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
-    const parsed = stored ? JSON.parse(stored) : [];
-    return parsed.map((fav: any) => ({
-      ...fav,
-      artistIds: fav.artistIds || [],
-    }));
-  } catch {
-    return [];
-  }
-};
-
-const saveFavorites = (favorites: FavoriteSong[]) => {
-  localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
-};
 
 const loadSearchHistory = (): string[] => {
   try {
@@ -216,7 +188,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   }, [searchQuery]);
 
   const isFavorite = useCallback((songId: number) => {
-    return favorites.some(f => f.id === songId);
+    return isSongFavorite(favorites, songId);
   }, [favorites]);
 
   const toggleFavorite = useCallback(async (song: NeteaseSong) => {
@@ -225,7 +197,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
 
     if (isAlreadyFavorite) {
       setFavorites(prev => {
-        const newFavorites = prev.filter(f => f.id !== songId);
+        const newFavorites = removeFavorite(prev, songId);
         saveFavorites(newFavorites);
         return newFavorites;
       });
@@ -245,10 +217,11 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       };
 
       setFavorites(prev => {
-        const newFavorites = [newFavorite, ...prev];
+        const newFavorites = addFavorite(prev, newFavorite);
         saveFavorites(newFavorites);
         return newFavorites;
       });
+      dispatchFavoritesUpdate();
     }
   }, [favorites, isFavorite, songDetails]);
 
@@ -567,65 +540,28 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
         const isCurrentTrack = currentTrackUrl && neteasePlaylist.some(
           p => p.url === currentTrackUrl && p.name === song.name
         );
-        const isLoading = loadingSongId === song.id;
         const detail = songDetails[song.id];
-        const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 200) : null;
-        const isLiked = isFavorite(song.id);
+        const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 200) : undefined;
+
+        const songCardData: SongCardData = {
+          id: song.id,
+          name: song.name,
+          artist: song.artists.map(a => a.name).join(', '),
+          coverUrl,
+          duration: song.duration
+        };
 
         return (
-          <div
+          <SongCard
             key={song.id}
+            song={songCardData}
+            isPlaying={isCurrentTrack && isPlaying}
+            isLiked={isFavorite(song.id)}
+            isLoading={loadingSongId === song.id}
             onClick={() => handlePlaySong(song)}
-            className={`group flex items-center gap-2 md:gap-4 p-1 md:p-2 transition-all cursor-pointer relative${
-              isCurrentTrack
-                ? 'bg-white/20 hover:bg-white/10'
-                : 'bg-transparent hover:bg-white/10'
-            }`}
-          >
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {coverUrl ? (
-                <LazyImage
-                  src={coverUrl}
-                  alt={song.name}
-                  className="w-full h-full object-cover"
-                  placeholder={<Music size={16} className="text-white/40" />}
-                />
-              ) : (
-                <Music size={16} className="text-white/40" />
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0 flex items-center gap-2">
-              <p className={`font-medium truncate text-sm md:text-base flex-1 min-w-0 ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
-                {song.name}
-              </p>
-              <p className="text-xs md:text-sm text-white/50 truncate flex-1 min-w-0">
-                {song.artists.map(a => a.name).join(', ')}
-              </p>
-            </div>
-
-            <div className="hidden md:block text-sm text-white/40 flex-shrink-0">
-              {formatDuration(song.duration)}
-            </div>
-
-            <div className="flex items-center gap-1 md:gap-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleFavorite(song);
-                }}
-                disabled={isLoading}
-                className={`w-4 h-4 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${
-                  isLiked 
-                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' 
-                    : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
-                }`}
-                title={isLiked ? '从喜欢中移除' : '添加到喜欢'}
-              >
-                <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
-              </button>
-            </div>
-          </div>
+            onToggleLike={() => toggleFavorite(song)}
+            showDuration={true}
+          />
         );
       })}
     </div>
@@ -648,58 +584,26 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
           const isCurrentTrack = currentTrackUrl && neteasePlaylist.some(
             p => p.url === currentTrackUrl && p.name === favorite.name
           );
-          const isLoading = loadingSongId === favorite.id;
+
+          const songCardData: SongCardData = {
+            id: favorite.id,
+            name: favorite.name,
+            artist: favorite.artist,
+            coverUrl: favorite.coverUrl,
+            duration: favorite.duration
+          };
 
           return (
-            <div
+            <SongCard
               key={favorite.id}
+              song={songCardData}
+              isPlaying={isCurrentTrack && isPlaying}
+              isLiked={true}
+              isLoading={loadingSongId === favorite.id}
               onClick={() => handlePlayFavorite(favorite)}
-              className={`group flex items-center gap-2 md:gap-4 p-1 md:p-2 transition-all cursor-pointer relative${
-                isCurrentTrack
-                  ? 'bg-white/20 hover:bg-white/10'
-                  : 'bg-transparent hover:bg-white/10'
-              }`}
-            >
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                {favorite.coverUrl ? (
-                  <LazyImage
-                    src={favorite.coverUrl}
-                    alt={favorite.name}
-                    className="w-full h-full object-cover"
-                    placeholder={<Music size={16} className="text-white/40" />}
-                  />
-                ) : (
-                  <Music size={16} className="text-white/40" />
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0 flex items-center gap-2">
-                <p className={`font-medium truncate text-sm md:text-base flex-1 min-w-0 ${isCurrentTrack ? 'text-white' : 'text-white/90'}`}>
-                  {favorite.name}
-                </p>
-                <p className="text-xs md:text-sm text-white/50 truncate flex-1 min-w-0">
-                  {favorite.artist}
-                </p>
-              </div>
-
-              <div className="hidden md:block text-sm text-white/40 flex-shrink-0">
-                {formatDuration(favorite.duration)}
-              </div>
-
-              <div className="flex items-center gap-1 md:gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite({ id: favorite.id } as NeteaseSong);
-                  }}
-                  disabled={isLoading}
-                  className="w-4 h-4 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                  title="从喜欢中移除"
-                >
-                  <Heart size={18} fill="currentColor" />
-                </button>
-              </div>
-            </div>
+              onToggleLike={() => toggleFavorite({ id: favorite.id } as NeteaseSong)}
+              showDuration={true}
+            />
           );
         })}
       </div>

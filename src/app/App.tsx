@@ -9,7 +9,7 @@ import { ErrorBoundary, ShimmerLoadingBar } from '../components/common';
 import { Sidebar, GlobalBackground } from '../components/layout';
 import { SongsView } from '../components/library';
 import { MiniPlayerBar } from '../components/player';
-import { getSongDetail, getSongUrl, getSongLyric, getAlbumCoverUrl } from '../apis/netease';
+import { SharedSong } from '../utils/songEncodingUtils';
 
 type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share';
 
@@ -43,6 +43,7 @@ const AppContent: React.FC = () => {
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const [playlistReady, setPlaylistReady] = useState(false);
   const [isTogetherListenConnected, setIsTogetherListenConnected] = useState(false);
+  const [sharedSongs, setSharedSongs] = useState<SharedSong[]>([]);
 
   const neteasePanelRef = useRef<any>(null);
   const togetherListenRef = useRef<any>(null);
@@ -281,6 +282,10 @@ const AppContent: React.FC = () => {
     onSeekTo: (timeInSeconds: number) => {
       handleSeek(timeInSeconds);
     },
+    onSharedSongs: (songs: SharedSong[]) => {
+      setSharedSongs(songs);
+      setActiveTab('share');
+    },
   });
 
   useEffect(() => {
@@ -456,6 +461,8 @@ const AppContent: React.FC = () => {
                   onValidate={sharePanel.validateConfig}
                   currentTime={playerTime.currentTime}
                   isMobile={false}
+                  sharedSongs={sharedSongs}
+                  onReadLikedSongs={sharePanel.readLikedSongs}
                 />
               </div>
             </div>

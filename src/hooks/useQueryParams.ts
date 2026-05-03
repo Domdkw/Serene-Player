@@ -3,6 +3,7 @@ import { PlaylistItem } from '../types';
 import { QueryParams } from '../utils/queryParams';
 import { parseQueryParams, getMusicByIndex, clearQueryParams } from '../utils/queryParams';
 import { getSongUrl, getSongDetail, getSongLyric, getAlbumCoverUrl } from '../apis/netease';
+import { decompressBase64ToSongs, SharedSong } from '../utils/songEncodingUtils';
 
 /**
  * URL 参数处理的回调函数接口
@@ -24,6 +25,8 @@ export interface QueryParamsHandlers {
   onSeekTo?: (timeInSeconds: number) => void;
   /** 根据索引播放歌曲 */
   onPlayByIndex?: (index: number) => void;
+  /** 处理分享的歌曲列表 */
+  onSharedSongs?: (songs: SharedSong[]) => void;
 }
 
 /**
@@ -190,6 +193,14 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
         shouldKeepParamsRef.current = params.keep_params || false;
         setHasPendingParams(true);
         return;
+      }
+    }
+
+    if (params.liked_songs && handlers.onSharedSongs) {
+      console.log('[QueryParams] 处理分享的歌曲列表');
+      const songs = decompressBase64ToSongs(params.liked_songs);
+      if (songs.length > 0) {
+        handlers.onSharedSongs(songs);
       }
     }
 
