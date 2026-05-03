@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspens
 import { AlertCircle } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from './types';
 import { PlayerProvider, usePlayer } from './contexts/PlayerContext';
+import { PlayerTimeProvider, usePlayerTime } from './contexts/PlayerTimeContext';
 import { PlaylistProvider, usePlaylist } from './contexts/PlaylistContext';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useQueryParams } from './hooks/useQueryParams';
@@ -39,6 +40,7 @@ const defaultSourceUrl = './discList.json';
 
 const AppContent: React.FC = () => {
   const player = usePlayer();
+  const playerTime = usePlayerTime();
   const playlist = usePlaylist();
   const settings = useSettings();
 
@@ -69,6 +71,7 @@ const AppContent: React.FC = () => {
     setErrorMessage(null);
     playlist.setCurrentIndex(index);
     await player.loadTrackFromItem(
+      playerTime.audioRef,
       {
         url: item.url,
         name: item.name,
@@ -85,9 +88,14 @@ const AppContent: React.FC = () => {
       {
         streamingMode: settings.streamingMode,
         chunkCount: settings.chunkCount
+      },
+      {
+        setIsPlaying: playerTime.setIsPlaying,
+        setCurrentTime: playerTime.setCurrentTime,
+        setDuration: playerTime.setDuration,
       }
     );
-  }, [player, playlist, settings.streamingMode, settings.chunkCount]);
+  }, [player, playerTime, playlist, settings.streamingMode, settings.chunkCount]);
 
   const {
     loadNeteaseMusic,
@@ -162,12 +170,10 @@ const AppContent: React.FC = () => {
         loadMusicFromUrl(playlist.playlist[randomIndex], randomIndex);
       }
     } else if (isPlayingNetease && playlist.neteasePlaylist.length > 0) {
-      // 使用"我喜欢"列表索引进行切换
       let nextIndex;
       if (playlist.neteaseLikedCurrentIndex === -1) {
         nextIndex = 0;
       } else {
-        // 列表循环：到达末尾时回到开头
         nextIndex = (playlist.neteaseLikedCurrentIndex + 1) % playlist.neteasePlaylist.length;
       }
       loadNeteaseMusic(playlist.neteasePlaylist[nextIndex], nextIndex);
@@ -193,7 +199,7 @@ const AppContent: React.FC = () => {
       }
     } else {
       if (playlist.playlist.length === 0) return;
-      let nextIndex;
+      let nextIndex: number;
       if (playlist.currentIndex === -1) {
         nextIndex = 0;
       } else {
@@ -209,7 +215,6 @@ const AppContent: React.FC = () => {
     if (player.playbackMode === 'shuffle') {
       handleNext();
     } else if (isPlayingNetease && playlist.neteasePlaylist.length > 0) {
-      // 使用"我喜欢"列表索引进行切换
       if (playlist.neteaseLikedCurrentIndex === -1) return;
       const prevIndex = (playlist.neteaseLikedCurrentIndex - 1 + playlist.neteasePlaylist.length) % playlist.neteasePlaylist.length;
       loadNeteaseMusic(playlist.neteasePlaylist[prevIndex], prevIndex);
@@ -233,6 +238,36 @@ const AppContent: React.FC = () => {
     }
   }, [player.playbackMode, player.track, playlist, handleNext, loadNeteaseMusic, loadMusicFromUrl]);
 
+  const togglePlay = useCallback(() => {
+    if (!playerTime.audioRef.current || !player.track) return;
+    if (playerTime.isPlaying) {
+      playerTime.audioRef.current.pause();
+      playerTime.setIsPlaying(false);
+    } else {
+      const playPromise = playerTime.audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            playerTime.setIsPlaying(true);
+          })
+          .catch((error) => {
+            console.error('播放失败:', error);
+            ErrorService.handleError(error, 'Playback');
+            if (error.name === 'NotAllowedError') {
+              console.warn('浏览器阻止了自动播放，需要用户交互');
+            }
+          });
+      }
+    }
+  }, [playerTime, player.track]);
+
+  const handleSeek = useCallback((time: number) => {
+    if (playerTime.audioRef.current && time >= 0) {
+      playerTime.audioRef.current.currentTime = time;
+      playerTime.setCurrentTime(time);
+    }
+  }, [playerTime]);
+
   useQueryParams({
     onPlayNeteaseMusic: (item, index) => {
       playlist.addToPlaylist(item);
@@ -254,7 +289,7 @@ const AppContent: React.FC = () => {
     getPlaylist: () => playlist.playlist,
     setShouldAutoPlay,
     onSeekTo: (timeInSeconds: number) => {
-      player.handleSeek(timeInSeconds);
+      handleSeek(timeInSeconds);
     },
   });
 
@@ -281,7 +316,7 @@ const AppContent: React.FC = () => {
   usePageTitle(player.track);
 
   useEffect(() => {
-    const audio = player.audioRef.current;
+    const audio = playerTime.audioRef.current;
     if (!audio) return;
 
     const handleEnded = () => {      
@@ -295,7 +330,7 @@ const AppContent: React.FC = () => {
 
     audio.addEventListener('ended', handleEnded);
     return () => audio.removeEventListener('ended', handleEnded);
-  }, [player, handleNext]);
+  }, [player, playerTime, handleNext]);
 
   const handleArtistClick = useCallback(async (artistName: string) => {
     setShowFullPlayer(false);
@@ -328,13 +363,6 @@ const AppContent: React.FC = () => {
     setActiveTab('share');
   }, [player.track, playlist.currentIndex, sharePanel, settings.customSourceUrl]);
 
-  const handleSeek = useCallback((time: number) => {
-    if (player.audioRef.current && time >= 0) {
-      player.audioRef.current.currentTime = time;
-      player.setCurrentTime(time);
-    }
-  }, [player]);
-
   const cyclePlaybackMode = useCallback(() => {
     player.cyclePlaybackMode();
   }, [player.cyclePlaybackMode]);
@@ -360,7 +388,7 @@ const AppContent: React.FC = () => {
               setSelectedArtist={setSelectedArtist}
               playlist={playlist.playlist}
               currentIndex={playlist.currentIndex}
-              isPlaying={player.isPlaying}
+              isPlaying={playerTime.isPlaying}
               loadMusicFromUrl={loadMusicFromUrl}
               loadingTrackUrl={player.loadingTrackUrl}
               artistsByLetter={artistsByLetter}
@@ -375,7 +403,7 @@ const AppContent: React.FC = () => {
               ref={neteasePanelRef}
               onTrackSelect={loadNeteaseMusic}
               currentTrackUrl={player.track?.objectUrl || null}
-              isPlaying={player.isPlaying}
+              isPlaying={playerTime.isPlaying}
               onAddToPlaylist={() => {}}
               neteasePlaylist={playlist.neteasePlaylist}
               neteaseCurrentIndex={playlist.neteaseCurrentIndex}
@@ -431,12 +459,12 @@ const AppContent: React.FC = () => {
                   updateConfig={sharePanel.updateConfig}
                   shareUrl={sharePanel.shareUrl}
                   resetConfig={sharePanel.resetConfig}
-                  onReadCurrentTime={() => sharePanel.readCurrentTime(player.currentTime)}
+                  onReadCurrentTime={() => sharePanel.readCurrentTime(playerTime.currentTime)}
                   onReadCurrentUrl={() => sharePanel.readCurrentUrl(settings.customSourceUrl || defaultSourceUrl)}
                   onReadCurrentTrack={handleShareClick}
                   onCopy={sharePanel.copyToClipboard}
                   onValidate={sharePanel.validateConfig}
-                  currentTime={player.currentTime}
+                  currentTime={playerTime.currentTime}
                   isMobile={false}
                 />
               </div>
@@ -451,7 +479,7 @@ const AppContent: React.FC = () => {
             playlistFolders={playlist.playlistFolders}
             playlist={playlist.playlist}
             currentIndex={playlist.currentIndex}
-            isPlaying={player.isPlaying}
+            isPlaying={playerTime.isPlaying}
             loadingFolders={playlist.loadingFolders}
             folderLoading={playlist.folderLoading}
             loadingTrackUrl={player.loadingTrackUrl}
@@ -465,16 +493,16 @@ const AppContent: React.FC = () => {
           />
         );
     }
-  }, [activeTab, selectedArtist, playlist, player, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, triggerFileUpload, triggerFolderUpload, sharePanel]);
+  }, [activeTab, selectedArtist, playlist, player, playerTime.isPlaying, player.loadingTrackUrl, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, triggerFileUpload, triggerFolderUpload, sharePanel]);
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(settings.selectedFont) }}>
       <GlobalBackground coverUrl={player.track?.metadata.coverUrl} rotate={settings.backgroundRotate} />
 
       <audio
-        ref={player.audioRef}
-        onLoadedMetadata={() => player.setDuration(player.audioRef.current?.duration || 0)}
-        onTimeUpdate={() => player.setCurrentTime(player.audioRef.current?.currentTime || 0)}
+        ref={playerTime.audioRef}
+        onLoadedMetadata={() => playerTime.setDuration(playerTime.audioRef.current?.duration || 0)}
+        onTimeUpdate={() => playerTime.setCurrentTime(playerTime.audioRef.current?.currentTime || 0)}
       />
 
       <div
@@ -531,10 +559,10 @@ const AppContent: React.FC = () => {
                 <Suspense fallback={<LoadingFallback />}>
                   <TogetherListenPanel
                     ref={togetherListenRef}
-                    isPlaying={player.isPlaying}
-                    currentTime={player.currentTime}
+                    isPlaying={playerTime.isPlaying}
+                    currentTime={playerTime.currentTime}
                     currentTrack={currentTrackItem}
-                    onPlayPause={player.togglePlay}
+                    onPlayPause={togglePlay}
                     onSeek={handleSeek}
                     onTrackChange={(neteaseId) => {
                       const index = playlist.neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
@@ -544,7 +572,7 @@ const AppContent: React.FC = () => {
                         playNeteaseById(neteaseId);
                       }
                     }}
-                    formatTime={player.formatTime}
+                    formatTime={playerTime.formatTime}
                   />
                 </Suspense>
               </div>
@@ -562,19 +590,19 @@ const AppContent: React.FC = () => {
 
       <MiniPlayerBar
         track={player.track}
-        isPlaying={player.isPlaying}
-        currentTime={player.currentTime}
-        duration={player.duration}
+        isPlaying={playerTime.isPlaying}
+        currentTime={playerTime.currentTime}
+        duration={playerTime.duration}
         playbackMode={player.playbackMode}
-        audioRef={player.audioRef}
-        onTogglePlay={player.togglePlay}
+        audioRef={playerTime.audioRef}
+        onTogglePlay={togglePlay}
         onPrev={handlePrev}
         onNext={handleNext}
         onCyclePlaybackMode={player.cyclePlaybackMode}
         onSeek={handleSeek}
         onOpenPlayer={() => setShowFullPlayer(!showFullPlayer)}
         isFullPlayerOpen={showFullPlayer}
-        formatTime={player.formatTime}
+        formatTime={playerTime.formatTime}
         isTogetherListenConnected={isTogetherListenConnected}
       />
 
@@ -589,9 +617,9 @@ const AppContent: React.FC = () => {
           <Suspense fallback={<LoadingFallback />}>
             <MusicPlayer
               track={player.track}
-              isPlaying={player.isPlaying}
-              currentTime={player.currentTime}
-              duration={player.duration}
+              isPlaying={playerTime.isPlaying}
+              currentTime={playerTime.currentTime}
+              duration={playerTime.duration}
               showTranslation={settings.showTranslation}
               setShowTranslation={settings.setShowTranslation}
               onBack={() => setShowFullPlayer(false)}
@@ -601,7 +629,7 @@ const AppContent: React.FC = () => {
               lineHeight={settings.lineHeight}
               selectedFont={settings.selectedFont}
               onSeek={handleSeek}
-              formatTime={player.formatTime}
+              formatTime={playerTime.formatTime}
               onArtistClick={handleArtistClick}
               isTogetherListenConnected={isTogetherListenConnected}
               onShareClick={handleShareClick}
@@ -618,9 +646,11 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <SettingsProvider>
         <PlaylistProvider>
-          <PlayerProvider>
-            <AppContent />
-          </PlayerProvider>
+          <PlayerTimeProvider>
+            <PlayerProvider>
+              <AppContent />
+            </PlayerProvider>
+          </PlayerTimeProvider>
         </PlaylistProvider>
       </SettingsProvider>
     </ErrorBoundary>

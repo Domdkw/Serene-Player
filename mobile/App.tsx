@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider, usePlayer } from '../contexts/PlayerContext';
+import { PlayerTimeProvider, usePlayerTime } from '../contexts/PlayerTimeContext';
 import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
 import { SettingsProvider, useSettings } from '../contexts/SettingsContext';
 import { useQueryParams, useArtists, useFileUpload, useNetease, useSwipeGesture, useMobileMenu, usePageTitle, useSharePanel } from '../hooks';
@@ -17,6 +18,7 @@ import LyricLine from '../components/LyricLine';
 import TogetherListenPanel from '../components/TogetherListenPanel';
 import SharePanel from '../components/SharePanel';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { ErrorService } from '../utils/errorService';
 
 const NeteasePanel = lazy(() => import('../components/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
 
@@ -43,6 +45,7 @@ type LibraryView = 'songs' | 'artists' | 'netease' | 'together';
  */
 const MobileAppContent: React.FC = () => {
   const player = usePlayer();
+  const playerTime = usePlayerTime();
   const playlist = usePlaylist();
   const settings = useSettings();
 
@@ -90,12 +93,10 @@ const MobileAppContent: React.FC = () => {
     onPageChange: handlePageChange,
   });
 
-  // 后台一起听连接管理器（保持连接不随页面切换而断开）
   const [togetherListenConnected, setTogetherListenConnected] = useState(false);
   const togetherListenManagerRef = useRef<any>(null);
 
   useEffect(() => {
-    // 当用户切换到其他页面时，检查是否有一起听连接
     if (currentPage !== 0 && togetherListenRef.current) {
       const isConnected = togetherListenRef.current.isConnected();
       setTogetherListenConnected(isConnected);
@@ -160,6 +161,7 @@ const MobileAppContent: React.FC = () => {
 
   const loadMusicFromUrl = useCallback(async (item: any, index: number) => {
     await player.loadTrackFromItem(
+      playerTime.audioRef,
       {
         url: item.url,
         name: item.name,
@@ -176,9 +178,14 @@ const MobileAppContent: React.FC = () => {
       {
         streamingMode: settings.streamingMode,
         chunkCount: settings.chunkCount,
+      },
+      {
+        setIsPlaying: playerTime.setIsPlaying,
+        setCurrentTime: playerTime.setCurrentTime,
+        setDuration: playerTime.setDuration,
       }
     );
-  }, [player, settings.streamingMode, settings.chunkCount]);
+  }, [player, playerTime, settings.streamingMode, settings.chunkCount]);
 
   const {
     loadNeteaseMusic,
@@ -217,6 +224,36 @@ const MobileAppContent: React.FC = () => {
     return success;
   }, [playlist]);
 
+  const togglePlay = useCallback(() => {
+    if (!playerTime.audioRef.current || !player.track) return;
+    if (playerTime.isPlaying) {
+      playerTime.audioRef.current.pause();
+      playerTime.setIsPlaying(false);
+    } else {
+      const playPromise = playerTime.audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            playerTime.setIsPlaying(true);
+          })
+          .catch((error) => {
+            console.error('播放失败:', error);
+            ErrorService.handleError(error, 'Playback');
+            if (error.name === 'NotAllowedError') {
+              console.warn('浏览器阻止了自动播放，需要用户交互');
+            }
+          });
+      }
+    }
+  }, [playerTime, player.track]);
+
+  const handleSeek = useCallback((time: number) => {
+    if (playerTime.audioRef.current && time >= 0) {
+      playerTime.audioRef.current.currentTime = time;
+      playerTime.setCurrentTime(time);
+    }
+  }, [playerTime]);
+
   useQueryParams({
     onPlayNeteaseMusic: (item, index) => {
       playlist.addToPlaylist(item);
@@ -238,7 +275,7 @@ const MobileAppContent: React.FC = () => {
     getPlaylist: () => playlist.playlist,
     setShouldAutoPlay,
     onSeekTo: (timeInSeconds: number) => {
-      player.handleSeek(timeInSeconds);
+      handleSeek(timeInSeconds);
     },
   });
 
@@ -291,13 +328,10 @@ const MobileAppContent: React.FC = () => {
         loadMusicFromUrl(playlist.playlist[randomIndex], randomIndex);
       }
     } else if (playlist.neteasePlaylist.length > 0 && libraryView === 'netease') {
-      // 网易云音乐模式 - 只使用内存中的"我喜欢"列表索引
       let nextIndex;
       if (playlist.neteaseLikedCurrentIndex === -1) {
-        // 如果当前索引为 -1，从第一个开始
         nextIndex = 0;
       } else {
-        // 列表循环：到达末尾时回到开头
         nextIndex = (playlist.neteaseLikedCurrentIndex + 1) % playlist.neteasePlaylist.length;
       }
       loadNeteaseMusic(playlist.neteasePlaylist[nextIndex], nextIndex);
@@ -324,9 +358,7 @@ const MobileAppContent: React.FC = () => {
     if (player.playbackMode === 'shuffle') {
       handleNext();
     } else if (playlist.neteasePlaylist.length > 0 && libraryView === 'netease') {
-      // 网易云音乐模式 - 只使用内存中的"我喜欢"列表索引
       if (playlist.neteaseLikedCurrentIndex === -1) {
-        // 如果当前索引为 -1，从第一个开始
         loadNeteaseMusic(playlist.neteasePlaylist[0], 0);
       } else {
         const prevIndex = (playlist.neteaseLikedCurrentIndex - 1 + playlist.neteasePlaylist.length) % playlist.neteasePlaylist.length;
@@ -374,22 +406,18 @@ const MobileAppContent: React.FC = () => {
     setIsSharePanelOpen(true);
   }, [player.track, playlist.currentIndex, sharePanel, settings.customSourceUrl]);
 
-  const handleSeek = useCallback((time: number) => {
-    player.handleSeek(time);
-  }, [player]);
-
   const activeIndex = useMemo(() => {
     if (!player.track?.metadata.parsedLyrics.length) return -1;
     let index = -1;
     for (let i = 0; i < player.track.metadata.parsedLyrics.length; i++) {
-      if (player.track.metadata.parsedLyrics[i].time <= player.currentTime) {
+      if (player.track.metadata.parsedLyrics[i].time <= playerTime.currentTime) {
         index = i;
       } else {
         break;
       }
     }
     return index;
-  }, [player.track, player.currentTime]);
+  }, [player.track, playerTime.currentTime]);
 
   const lyricsType = useMemo(() => {
     if (!player.track?.metadata.parsedLyrics.length) return 'none';
@@ -403,7 +431,7 @@ const MobileAppContent: React.FC = () => {
           ref={neteasePanelRef}
           onTrackSelect={loadNeteaseMusic}
           currentTrackUrl={player.track?.objectUrl || null}
-          isPlaying={player.isPlaying}
+          isPlaying={playerTime.isPlaying}
           onAddToPlaylist={() => {}}
           neteasePlaylist={playlist.neteasePlaylist}
           neteaseCurrentIndex={playlist.neteaseCurrentIndex}
@@ -412,7 +440,7 @@ const MobileAppContent: React.FC = () => {
         />
       </Suspense>
     );
-  }, [loadNeteaseMusic, player.track, player.isPlaying, playlist]);
+  }, [loadNeteaseMusic, player.track, playerTime.isPlaying, playlist]);
 
   return (
     <div className="h-dvh w-full flex flex-col bg-black text-slate-200 relative overflow-hidden font-sans" style={{ fontFamily: getFontFamily(settings.selectedFont) }}>
@@ -503,7 +531,7 @@ const MobileAppContent: React.FC = () => {
                 </button>
               </div>
 
-              {libraryView === 'songs' && (// 本地歌曲模式下的操作按钮
+              {libraryView === 'songs' && (
                 <>
                   <button
                     onClick={() => {
@@ -598,7 +626,7 @@ const MobileAppContent: React.FC = () => {
                         setCurrentFolder={playlist.setCurrentFolder}
                         playlist={playlist.playlist}
                         currentIndex={playlist.currentIndex}
-                        isPlaying={player.isPlaying}
+                        isPlaying={playerTime.isPlaying}
                         onTrackSelect={loadMusicFromUrl}
                         isSidebar={false}
                         isLoading={player.lyricsLoading}
@@ -616,7 +644,7 @@ const MobileAppContent: React.FC = () => {
                           setSelectedArtist={setSelectedArtist}
                           playlist={playlist.playlist}
                           currentIndex={playlist.currentIndex}
-                          isPlaying={player.isPlaying}
+                          isPlaying={playerTime.isPlaying}
                           loadMusicFromUrl={loadMusicFromUrl}
                           loadingTrackUrl={player.loadingTrackUrl}
                           artistsByLetter={artistsByLetter}
@@ -630,11 +658,11 @@ const MobileAppContent: React.FC = () => {
                       <Suspense fallback={<LoadingFallback />}>
                         <TogetherListenPanel
                           ref={togetherListenRef}
-                          isPlaying={player.isPlaying}
-                          currentTime={player.currentTime}
+                          isPlaying={playerTime.isPlaying}
+                          currentTime={playerTime.currentTime}
                           currentTrack={currentTrackItem}
-                          onPlayPause={player.togglePlay}
-                          onSeek={(time) => player.handleSeek(time)}
+                          onPlayPause={togglePlay}
+                          onSeek={handleSeek}
                           onTrackChange={(neteaseId) => {
                             const index = playlist.neteasePlaylist.findIndex(p => p.neteaseId === neteaseId);
                             if (index !== -1) {
@@ -643,7 +671,7 @@ const MobileAppContent: React.FC = () => {
                               playNeteaseById(neteaseId);
                             }
                           }}
-                          formatTime={player.formatTime}
+                          formatTime={playerTime.formatTime}
                         />
                         {togetherListenConnected && currentPage !== 0 && (
                           <div className="absolute top-4 right-4 z-10">
@@ -675,7 +703,7 @@ const MobileAppContent: React.FC = () => {
                 onClose={() => setIsSearchOpen(false)}
                 playlist={playlist.playlist}
                 currentIndex={playlist.currentIndex}
-                isPlaying={player.isPlaying}
+                isPlaying={playerTime.isPlaying}
                 onTrackSelect={loadMusicFromUrl}
                 isMobile={true}
               />
@@ -704,7 +732,7 @@ const MobileAppContent: React.FC = () => {
                   <CoverArt
                     coverUrl={player.track.metadata.coverUrl}
                     title={player.track.metadata.title}
-                    isPlaying={player.isPlaying}
+                    isPlaying={playerTime.isPlaying}
                     enable3DEffect={true}
                     size="md"
                   />
@@ -736,21 +764,21 @@ const MobileAppContent: React.FC = () => {
 
             <div className="mt-auto pt-4 md:pt-6 space-y-4 md:space-y-6 shrink-0 pb-4">
               <ProgressBar
-                currentTime={player.currentTime}
-                duration={player.duration}
+                currentTime={playerTime.currentTime}
+                duration={playerTime.duration}
                 disabled={!player.track}
                 onSeek={handleSeek}
-                formatTime={player.formatTime}
+                formatTime={playerTime.formatTime}
                 showTime={true}
               />
 
               <div className="space-y-4">
                 <PlaybackControls
-                  isPlaying={player.isPlaying}
+                  isPlaying={playerTime.isPlaying}
                   hasTrack={!!player.track}
                   hasPlaylist={playlist.neteasePlaylist.length > 0 || playlist.playlist.length > 0}
                   playbackMode={player.playbackMode}
-                  onTogglePlay={player.togglePlay}
+                  onTogglePlay={togglePlay}
                   onPrev={handlePrev}
                   onNext={handleNext}
                   size="sm"
@@ -830,15 +858,15 @@ const MobileAppContent: React.FC = () => {
 
                 <LyricsDisplay
                   lyrics={player.track.metadata.parsedLyrics}
-                  currentTime={player.currentTime}
+                  currentTime={playerTime.currentTime}
                   showTranslation={settings.showTranslation}
                   fontWeight={settings.fontWeight}
                   letterSpacing={settings.letterSpacing}
                   lineHeight={settings.lineHeight}
                   selectedFont={settings.selectedFont}
-                  isPlaying={player.isPlaying}
+                  isPlaying={playerTime.isPlaying}
                   onSeek={handleSeek}
-                  formatTime={player.formatTime}
+                  formatTime={playerTime.formatTime}
                 />
 
                 <div className="absolute top-0 left-0 right-0 h-24 md:h-64 bg-gradient-to-b from-black/40 via-black/20 to-transparent pointer-events-none z-10" />
@@ -982,29 +1010,27 @@ const MobileAppContent: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {isSettingsOpen && (
-          <SettingsPanel
-            chunkCount={settings.chunkCount}
-            setChunkCount={settings.setChunkCount}
-            fontWeight={settings.fontWeight}
-            setFontWeight={settings.setFontWeight}
-            letterSpacing={settings.letterSpacing}
-            setLetterSpacing={settings.setLetterSpacing}
-            lineHeight={settings.lineHeight}
-            setLineHeight={settings.setLineHeight}
-            selectedFont={settings.selectedFont}
-            setSelectedFont={settings.setSelectedFont}
-            showTranslation={settings.showTranslation}
-            setShowTranslation={settings.setShowTranslation}
-            streamingMode={settings.streamingMode}
-            setStreamingMode={settings.setStreamingMode}
-            backgroundRotate={settings.backgroundRotate}
-            setBackgroundRotate={settings.setBackgroundRotate}
-            isMobile={true}
-            isOpen={isSettingsOpen}
-            onClose={() => setIsSettingsOpen(false)}
-          />
-        )}
+        <SettingsPanel
+          chunkCount={settings.chunkCount}
+          setChunkCount={settings.setChunkCount}
+          fontWeight={settings.fontWeight}
+          setFontWeight={settings.setFontWeight}
+          letterSpacing={settings.letterSpacing}
+          setLetterSpacing={settings.setLetterSpacing}
+          lineHeight={settings.lineHeight}
+          setLineHeight={settings.setLineHeight}
+          selectedFont={settings.selectedFont}
+          setSelectedFont={settings.setSelectedFont}
+          showTranslation={settings.showTranslation}
+          setShowTranslation={settings.setShowTranslation}
+          streamingMode={settings.streamingMode}
+          setStreamingMode={settings.setStreamingMode}
+          backgroundRotate={settings.backgroundRotate}
+          setBackgroundRotate={settings.setBackgroundRotate}
+          isMobile={true}
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
 
         <SharePanel
           isOpen={isSharePanelOpen}
@@ -1013,25 +1039,25 @@ const MobileAppContent: React.FC = () => {
           updateConfig={sharePanel.updateConfig}
           shareUrl={sharePanel.shareUrl}
           resetConfig={sharePanel.resetConfig}
-          onReadCurrentTime={() => sharePanel.readCurrentTime(player.currentTime)}
+          onReadCurrentTime={() => sharePanel.readCurrentTime(playerTime.currentTime)}
           onReadCurrentUrl={() => sharePanel.readCurrentUrl(settings.customSourceUrl || './discList.json')}
           onReadCurrentTrack={handleShareClick}
           onCopy={sharePanel.copyToClipboard}
           onValidate={sharePanel.validateConfig}
-          currentTime={player.currentTime}
+          currentTime={playerTime.currentTime}
           isMobile={true}
         />
       </main>
 
       <audio
-        ref={player.audioRef}
-        onLoadedMetadata={() => player.setDuration(player.audioRef.current?.duration || 0)}
-        onTimeUpdate={() => player.setCurrentTime(player.audioRef.current?.currentTime || 0)}
+        ref={playerTime.audioRef}
+        onLoadedMetadata={() => playerTime.setDuration(playerTime.audioRef.current?.duration || 0)}
+        onTimeUpdate={() => playerTime.setCurrentTime(playerTime.audioRef.current?.currentTime || 0)}
         onEnded={() => {
           if (player.playbackMode === 'single') {
-            if (player.audioRef.current) {
-              player.audioRef.current.currentTime = 0;
-              player.audioRef.current.play().catch(() => {});
+            if (playerTime.audioRef.current) {
+              playerTime.audioRef.current.currentTime = 0;
+              playerTime.audioRef.current.play().catch(() => {});
             }
           } else {
             handleNext();
@@ -1051,9 +1077,11 @@ const MobileApp: React.FC = () => {
     <ErrorBoundary>
       <SettingsProvider>
         <PlaylistProvider>
-          <PlayerProvider>
-            <MobileAppContent />
-          </PlayerProvider>
+          <PlayerTimeProvider>
+            <PlayerProvider>
+              <MobileAppContent />
+            </PlayerProvider>
+          </PlayerTimeProvider>
         </PlaylistProvider>
       </SettingsProvider>
     </ErrorBoundary>

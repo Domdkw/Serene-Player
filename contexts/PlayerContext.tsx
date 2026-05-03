@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 import { Track, PlaybackMode } from '../types';
 import { extractMetadata, parseLyrics, parseLyricsWithTranslation } from '../utils/metadata';
 import fetchInChunks from 'fetch-in-chunks';
@@ -7,9 +7,6 @@ import { getLyricsType } from '../utils/lyricsUtils';
 
 interface PlayerState {
   track: Track | null;
-  isPlaying: boolean;
-  currentTime: number;
-  duration: number;
   playbackMode: PlaybackMode;
   loadingProgress: number | null;
   lyricsLoading: boolean;
@@ -17,31 +14,34 @@ interface PlayerState {
 }
 
 interface PlayerContextType extends PlayerState {
-  audioRef: React.RefObject<HTMLAudioElement | null>;
-  setIsPlaying: (isPlaying: boolean) => void;
-  setCurrentTime: (time: number) => void;
-  setDuration: (duration: number) => void;
-  togglePlay: () => void;
-  handleSeek: (time: number) => void;
   cyclePlaybackMode: () => void;
-  loadTrackFromItem: (item: {
-    url: string;
-    name: string;
-    artist?: string;
-    album?: string;
-    coverUrl?: string;
-    lyrics?: string;
-    translatedLyrics?: string;
-    neteaseId?: number;
-    artistIds?: number[];
-    file?: File;
-  }, index: number, options?: {
-    streamingMode?: boolean;
-    chunkCount?: number;
-    isRemoteControl?: boolean;
-  }) => Promise<void>;
+  loadTrackFromItem: (
+    audioRef: React.RefObject<HTMLAudioElement | null>,
+    item: {
+      url: string;
+      name: string;
+      artist?: string;
+      album?: string;
+      coverUrl?: string;
+      lyrics?: string;
+      translatedLyrics?: string;
+      neteaseId?: number;
+      artistIds?: number[];
+      file?: File;
+    },
+    index: number,
+    options?: {
+      streamingMode?: boolean;
+      chunkCount?: number;
+      isRemoteControl?: boolean;
+    },
+    callbacks?: {
+      setIsPlaying: (isPlaying: boolean) => void;
+      setCurrentTime: (time: number) => void;
+      setDuration: (duration: number) => void;
+    }
+  ) => Promise<void>;
   abortLoad: () => void;
-  formatTime: (time: number) => string;
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -56,14 +56,10 @@ export const usePlayer = () => {
 
 interface PlayerProviderProps {
   children: React.ReactNode;
-  onTrackEnd?: () => void;
 }
 
-export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrackEnd }) => {
+export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children }) => {
   const [track, setTrack] = useState<Track | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   
   const getSavedPlaybackMode = (): PlaybackMode => {
     const saved = localStorage.getItem('playbackMode');
@@ -78,54 +74,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [loadingTrackUrl, setLoadingTrackUrl] = useState<string | null>(null);
   
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  const lyricsType = useMemo(() => {
-    const parsedLyrics = track?.metadata?.parsedLyrics;
-    return getLyricsType(parsedLyrics || []);
-  }, [track?.metadata?.parsedLyrics]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (audioRef.current && !audioRef.current.paused) {
-        setCurrentTime(audioRef.current.currentTime);
-      }
-    }, 250);
-    return () => clearInterval(interval);
-  }, []);
-
-  const togglePlay = useCallback(() => {
-    if (!audioRef.current || !track) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      // 移动端浏览器需要用户交互才能播放
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setIsPlaying(true);
-          })
-          .catch((error) => {
-            console.error('播放失败:', error);
-            ErrorService.handleError(error, 'Playback');
-            // 如果是自动播放策略限制，显示提示信息
-            if (error.name === 'NotAllowedError') {
-              console.warn('浏览器阻止了自动播放，需要用户交互');
-            }
-          });
-      }
-    }
-  }, [isPlaying, track]);
-
-  const handleSeek = useCallback((time: number) => {
-    if (audioRef.current && time >= 0) {
-      audioRef.current.currentTime = time;
-      setCurrentTime(time);
-    }
-  }, []);
 
   const cyclePlaybackMode = useCallback(() => {
     setPlaybackMode(prev => {
@@ -145,6 +94,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
   }, []);
 
   const loadTrackFromItem = useCallback(async (
+    audioRef: React.RefObject<HTMLAudioElement | null>,
     item: {
       url: string;
       name: string;
@@ -162,6 +112,11 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
       streamingMode?: boolean;
       chunkCount?: number;
       isRemoteControl?: boolean;
+    },
+    callbacks?: {
+      setIsPlaying: (isPlaying: boolean) => void;
+      setCurrentTime: (time: number) => void;
+      setDuration: (duration: number) => void;
     }
   ) => {
     setLyricsLoading(true);
@@ -174,7 +129,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
     const signal = abortControllerRef.current.signal;
 
     setLoadingProgress(0);
-    setIsPlaying(false);
+    callbacks?.setIsPlaying(false);
 
     if (!item.url) {
       ErrorService.handleError(new Error('Invalid track URL'), 'Load Track');
@@ -282,18 +237,17 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
           audioRef.current.src = objectUrl;
           audioRef.current.load();
           
-          // 等待音频加载完成后再播放
           audioRef.current.oncanplay = async () => {
             try {
+              callbacks?.setDuration(audioRef.current?.duration || 0);
               await audioRef.current!.play();
-              setIsPlaying(true);
-            } catch (e) {
+              callbacks?.setIsPlaying(true);
+            } catch (e: any) {
               console.error('自动播放失败:', e);
               ErrorService.handleError(e, 'Autoplay');
-              // 如果是自动播放策略限制，保持暂停状态，等待用户点击播放
               if (e.name === 'NotAllowedError') {
                 console.warn('浏览器阻止了自动播放，等待用户交互');
-                setIsPlaying(false);
+                callbacks?.setIsPlaying(false);
               }
             }
           };
@@ -311,51 +265,28 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children, onTrac
       setLoadingProgress(null);
       setLoadingTrackUrl(null);
       setLyricsLoading(false);
-      setIsPlaying(false);
+      callbacks?.setIsPlaying(false);
     }
   }, [track?.objectUrl]);
 
-  const formatTime = useCallback((time: number) => {
-    if (time < 0) return "--:--";
-    const mins = Math.floor(time / 60);
-    const secs = Math.floor(time % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }, []);
-
   const value = useMemo(() => ({
     track,
-    isPlaying,
-    currentTime,
-    duration,
     playbackMode,
     loadingProgress,
     lyricsLoading,
     loadingTrackUrl,
-    audioRef,
-    setIsPlaying,
-    setCurrentTime,
-    setDuration,
-    togglePlay,
-    handleSeek,
     cyclePlaybackMode,
     loadTrackFromItem,
     abortLoad,
-    formatTime,
   }), [
     track,
-    isPlaying,
-    currentTime,
-    duration,
     playbackMode,
     loadingProgress,
     lyricsLoading,
     loadingTrackUrl,
-    togglePlay,
-    handleSeek,
     cyclePlaybackMode,
     loadTrackFromItem,
     abortLoad,
-    formatTime,
   ]);
 
   return (
