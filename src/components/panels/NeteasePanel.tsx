@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Search, Loader2, Play, Pause, Music, Heart, Trash2, Flame, TrendingUp, ChevronLeft } from 'lucide-react';
-import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, getHotSearchDetail, getSearchSuggestion, NeteaseSong, NeteaseSongDetail, NeteaseHotSearch, formatDuration } from '../apis/netease';
-import { PlaylistItem } from '../types';
-import LazyImage from './LazyImage';
+import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, getHotSearchDetail, getSearchSuggestion, NeteaseSong, NeteaseSongDetail, NeteaseHotSearch, formatDuration } from '../../apis/netease';
+import { PlaylistItem } from '../../types';
+import { LazyImage } from '../common';
 
 interface FavoriteSong {
   id: number;

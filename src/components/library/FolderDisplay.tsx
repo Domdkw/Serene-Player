@@ -1,6 +1,6 @@
 import React from 'react';
 import { Folder, ExternalLink, Link } from 'lucide-react';
-import { PlaylistItem } from '../types';
+import { PlaylistItem } from '../../types';
 
 interface FolderDisplayProps {
   playlistFolders: Record<string, PlaylistItem[] | { link?: string }>;

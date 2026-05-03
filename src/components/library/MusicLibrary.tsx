@@ -1,6 +1,6 @@
 import React from 'react';
 import { Music, ChevronLeft } from 'lucide-react';
-import { PlaylistItem } from '../types';
+import { PlaylistItem } from '../../types';
 import { FolderDisplay } from './FolderDisplay';
 
 interface MusicLibraryProps {

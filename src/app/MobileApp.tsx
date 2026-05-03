@@ -3,24 +3,16 @@ import {
   Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi, Share2, Languages
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlayerProvider, usePlayer } from '../contexts/PlayerContext';
-import { PlayerTimeProvider, usePlayerTime } from '../contexts/PlayerTimeContext';
-import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext';
-import { SettingsProvider, useSettings } from '../contexts/SettingsContext';
+import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '../contexts';
 import { useQueryParams, useArtists, useFileUpload, useNetease, useSwipeGesture, useMobileMenu, usePageTitle, useSharePanel } from '../hooks';
 import { getFontFamily } from '../utils/fontUtils';
-import { MusicLibrary } from '../components/MusicLibrary';
-import { ArtistsView } from '../components/ArtistsView';
-import { SearchPanel } from '../components/SearchPanel';
-import { PlaybackControls, ProgressBar, CoverArt, LyricsDisplay } from '../components/shared';
-import SettingsPanel from '../components/SettingsPanel';
-import LyricLine from '../components/LyricLine';
-import TogetherListenPanel from '../components/TogetherListenPanel';
-import SharePanel from '../components/SharePanel';
-import ErrorBoundary from '../components/ErrorBoundary';
+import { MusicLibrary, ArtistsView } from '../components/library';
+import { SearchPanel, SettingsPanel, TogetherListenPanel, SharePanel } from '../components/panels';
+import { PlaybackControls, ProgressBar, CoverArt, LyricsDisplay, LyricLine } from '../components/player';
+import { ErrorBoundary } from '../components/common';
 import { ErrorService } from '../utils/errorService';
 
-const NeteasePanel = lazy(() => import('../components/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
+const NeteasePanel = lazy(() => import('../components/panels/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-full">

@@ -1,7 +1,7 @@
 import React, { memo, useState, useCallback } from 'react';
 import { X, Copy, Check, RefreshCw, Clock, Link, AlertCircle, Music } from 'lucide-react';
-import { ShareConfig } from '../hooks/useSharePanel';
-import { MobileBottomSheet } from './shared';
+import { ShareConfig } from '../../hooks/useSharePanel';
+import { MobileBottomSheet } from '../layout';
 
 /**
  * SharePanel组件的Props接口

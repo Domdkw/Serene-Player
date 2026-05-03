@@ -1,34 +1,24 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { Track, PlaylistItem, PlaybackMode } from './types';
-import { PlayerProvider, usePlayer } from './contexts/PlayerContext';
-import { PlayerTimeProvider, usePlayerTime } from './contexts/PlayerTimeContext';
-import { PlaylistProvider, usePlaylist } from './contexts/PlaylistContext';
-import { SettingsProvider, useSettings } from './contexts/SettingsContext';
-import { useQueryParams } from './hooks/useQueryParams';
-import { useArtists } from './hooks/useArtists';
-import { useFileUpload } from './hooks/useFileUpload';
-import { useNetease } from './hooks/useNetease';
-import { usePageTitle } from './hooks/usePageTitle';
-import { useSharePanel } from './hooks/useSharePanel';
-import { getFontFamily } from './utils/fontUtils';
-import { ErrorService } from './utils/errorService';
-import ErrorBoundary from './components/ErrorBoundary';
-import { Sidebar } from './components/Sidebar';
-import { SongsView } from './components/SongsView';
-import { ShimmerLoadingBar } from './components/LoadingComponents';
-import GlobalBackground from './components/GlobalBackground';
-import MiniPlayerBar from './components/MiniPlayerBar';
-import { getSongDetail, getSongUrl, getSongLyric, getAlbumCoverUrl } from './apis/netease';
+import { Track, PlaylistItem, PlaybackMode } from '../types';
+import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '../contexts';
+import { useQueryParams, useArtists, useFileUpload, useNetease, usePageTitle, useSharePanel } from '../hooks';
+import { getFontFamily } from '../utils/fontUtils';
+import { ErrorService } from '../utils/errorService';
+import { ErrorBoundary, ShimmerLoadingBar } from '../components/common';
+import { Sidebar, GlobalBackground } from '../components/layout';
+import { SongsView } from '../components/library';
+import { MiniPlayerBar } from '../components/player';
+import { getSongDetail, getSongUrl, getSongLyric, getAlbumCoverUrl } from '../apis/netease';
 
 type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share';
 
-const ArtistsView = lazy(() => import('./components/ArtistsView').then(m => ({ default: m.ArtistsView })));
-const NeteasePanel = lazy(() => import('./components/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
-const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
-const MusicPlayer = lazy(() => import('./components/MusicPlayer'));
-const TogetherListenPanel = lazy(() => import('./components/TogetherListenPanel'));
-const SharePanel = lazy(() => import('./components/SharePanel'));
+const ArtistsView = lazy(() => import('../components/library/ArtistsView').then(m => ({ default: m.ArtistsView })));
+const NeteasePanel = lazy(() => import('../components/panels/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
+const SettingsPanel = lazy(() => import('../components/panels/SettingsPanel'));
+const MusicPlayer = lazy(() => import('../components/player/MusicPlayer'));
+const TogetherListenPanel = lazy(() => import('../components/panels/TogetherListenPanel'));
+const SharePanel = lazy(() => import('../components/panels/SharePanel'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-full">

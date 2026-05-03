@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Music, Repeat, Repeat1, Shuffle, AlertCircle, AlertTriangle, Disc, Cloud, HardDrive, Users } from 'lucide-react';
-import { Track, PlaybackMode } from '../types';
+import { Track, PlaybackMode } from '../../types';
 
 interface MiniPlayerBarProps {
   track: Track | null;
