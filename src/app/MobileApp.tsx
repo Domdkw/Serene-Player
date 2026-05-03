@@ -380,18 +380,18 @@ const MobileAppContent: React.FC = () => {
   }, [player.cyclePlaybackMode]);
 
   const handleShareClick = useCallback(() => {
-    if (!player.track) return;
-
-    if (player.track.neteaseId) {
-      sharePanel.updateConfig('enableNeteaseMusicId', true);
-      sharePanel.updateConfig('neteaseMusicId', player.track.neteaseId.toString());
-      sharePanel.updateConfig('enableTrackIndex', false);
-      sharePanel.updateConfig('playlistOrigin', '');
-    } else {
-      sharePanel.updateConfig('enableTrackIndex', true);
-      sharePanel.updateConfig('trackIndex', playlist.currentIndex.toString());
-      sharePanel.updateConfig('enableNeteaseMusicId', false);
-      sharePanel.updateConfig('playlistOrigin', settings.customSourceUrl || './discList.json');
+    if (player.track) {
+      if (player.track.neteaseId) {
+        sharePanel.updateConfig('enableNeteaseMusicId', true);
+        sharePanel.updateConfig('neteaseMusicId', player.track.neteaseId.toString());
+        sharePanel.updateConfig('enableTrackIndex', false);
+        sharePanel.updateConfig('playlistOrigin', '');
+      } else {
+        sharePanel.updateConfig('enableTrackIndex', true);
+        sharePanel.updateConfig('trackIndex', playlist.currentIndex.toString());
+        sharePanel.updateConfig('enableNeteaseMusicId', false);
+        sharePanel.updateConfig('playlistOrigin', settings.customSourceUrl || './discList.json');
+      }
     }
 
     sharePanel.updateConfig('seekTo', '');
