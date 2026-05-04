@@ -3,7 +3,7 @@ import { Search, Loader2, Play, Pause, Music, Heart, Trash2, Flame, TrendingUp, 
 import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, getHotSearchDetail, getSearchSuggestion, NeteaseSong, NeteaseSongDetail, NeteaseHotSearch, formatDuration } from '../../apis/netease';
 import { PlaylistItem } from '../../types';
 import { LazyImage, SongCard, SongCardData } from '../common';
-import { FavoriteSong, loadFavorites, saveFavorites, isSongFavorite, addFavorite, removeFavorite, dispatchFavoritesUpdate } from '../../utils/NEfavorites';
+import { FavoriteSong, loadFavorites, saveFavorites, isSongFavorite, addFavorite, removeFavorite, dispatchFavoritesUpdate, createFavoriteSong } from '../../utils/NEfavorites';
 
 export interface NeteasePanelRef {
   triggerSearch: (keyword: string, addToHistory?: boolean) => Promise<void>;
@@ -203,18 +203,8 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       });
     } else {
       const detail = songDetails[songId];
-      const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 200) : '';
-      
-      const newFavorite: FavoriteSong = {
-        id: songId,
-        name: song.name,
-        artist: song.artists.map(a => a.name).join(', '),
-        artistIds: song.artists.map(a => a.id).filter(id => id > 0),
-        album: song.album.name,
-        coverUrl,
-        duration: song.duration,
-        addedAt: Date.now(),
-      };
+      const songData = detail || song;
+      const newFavorite = createFavoriteSong(songData);
 
       setFavorites(prev => {
         const newFavorites = addFavorite(prev, newFavorite);

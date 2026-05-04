@@ -5,15 +5,12 @@ import { SharedSong } from '../../utils/songEncodingUtils';
 import { MobileBottomSheet } from '../layout';
 import { getSongDetail, getAlbumCoverUrl } from '../../apis/netease';
 import { SongCard, SongCardData } from '../common';
-import { FavoriteSong, loadFavorites, saveFavorites, isSongFavorite, addFavorite, removeFavorite, dispatchFavoritesUpdate } from '../../utils/NEfavorites';
+import { FavoriteSong, loadFavorites, saveFavorites, isSongFavorite, addFavorite, removeFavorite, dispatchFavoritesUpdate, createFavoriteSong, SongDataForFavorite } from '../../utils/NEfavorites';
 
 /**
  * 歌曲详情缓存接口
  */
-interface SongDetailCache {
-  coverUrl?: string;
-  duration?: number;
-}
+interface SongDetailCache extends SongDataForFavorite {}
 
 /**
  * SharePanel组件的Props接口
@@ -139,28 +136,19 @@ const SharePanel: React.FC<SharePanelProps> = memo(({
       });
     } else {
       const cachedDetail = songDetailsCache.get(songId);
-      const sharedSong = sharedSongs.find(s => s.id === songId);
       
-      const newFavorite: FavoriteSong = {
-        id: songId,
-        name: sharedSong?.name || '',
-        artist: sharedSong?.artist || '',
-        artistIds: [],
-        album: '',
-        coverUrl: cachedDetail?.coverUrl || '',
-        duration: cachedDetail?.duration || 0,
-        addedAt: Date.now(),
-      };
-
-      setFavorites(prev => {
-        const newFavorites = addFavorite(prev, newFavorite);
-        saveFavorites(newFavorites);
-        return newFavorites;
-      });
+      if (cachedDetail) {
+        const newFavorite = createFavoriteSong(cachedDetail);
+        setFavorites(prev => {
+          const newFavorites = addFavorite(prev, newFavorite);
+          saveFavorites(newFavorites);
+          return newFavorites;
+        });
+      }
     }
     
     dispatchFavoritesUpdate();
-  }, [isFavorite, songDetailsCache, sharedSongs]);
+  }, [isFavorite, songDetailsCache]);
 
   /**
    * 获取分享歌曲的详情（封面等）
@@ -176,7 +164,13 @@ const SharePanel: React.FC<SharePanelProps> = memo(({
         const newCache = new Map<number, SongDetailCache>();
         details.forEach(detail => {
           newCache.set(detail.id, {
-            coverUrl: detail.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 200) : undefined,
+            id: detail.id,
+            name: detail.name,
+            artists: detail.artists,
+            album: {
+              name: detail.album.name,
+              picUrl: detail.album.picUrl
+            },
             duration: detail.duration
           });
         });
@@ -253,8 +247,8 @@ const SharePanel: React.FC<SharePanelProps> = memo(({
               const songCardData: SongCardData = {
                 id: song.id,
                 name: song.name,
-                artist: song.artist,
-                coverUrl: cachedDetail?.coverUrl,
+                artist: cachedDetail?.artists?.map(a => a.name).join(', ') || song.artist,
+                coverUrl: cachedDetail?.album.picUrl ? getAlbumCoverUrl(cachedDetail.album.picUrl, 200) : undefined,
                 duration: cachedDetail?.duration
               };
 
