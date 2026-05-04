@@ -23,7 +23,8 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
   header,
 }) => {
   const hasHeader = header !== undefined;
-  const headerHeight = hasHeader ? 'auto' : (showCloseButton ? 80 : 40);
+  const handleHeight = 28;
+  const headerHeight = hasHeader ? 52 : (showCloseButton ? 80 : 40);
 
   return (
     <AnimatePresence>
@@ -72,7 +73,7 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
 
             <div 
               className="p-5 overflow-y-auto" 
-              style={{ maxHeight: hasHeader ? undefined : `calc(${maxHeight} - ${headerHeight}px)` }}
+              style={{ maxHeight: `calc(${maxHeight} - ${handleHeight + headerHeight}px)` }}
             >
               {children}
             </div>
