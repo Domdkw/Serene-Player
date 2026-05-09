@@ -48,6 +48,7 @@ interface MusicPlayerProps {
   onArtistClick?: (artistName: string) => void;
   isTogetherListenConnected?: boolean;
   onShareClick?: () => void;
+  isOpen?: boolean;
 }
 
 // 流光加载条组件
@@ -80,6 +81,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   onArtistClick,
   isTogetherListenConnected = false,
   onShareClick,
+  isOpen = false,
 }) => {
   const coverRef = useRef<HTMLDivElement>(null);
   
@@ -101,6 +103,10 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
       setArtistPictures([]);
       return;
     }
+
+    if (!isOpen) {
+      return;
+    }
     
     const fetchArtistPictures = async () => {
       setIsLoadingArtists(true);
@@ -117,7 +123,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     };
     
     fetchArtistPictures();
-  }, [artistIds]);
+  }, [artistIds, isOpen]);
 
   const handleCoverMouseMove = useCallback(
     throttle((e: React.MouseEvent<HTMLDivElement>) => {

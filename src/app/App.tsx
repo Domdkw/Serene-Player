@@ -630,6 +630,7 @@ const AppContent: React.FC = () => {
               onArtistClick={handleArtistClick}
               isTogetherListenConnected={isTogetherListenConnected}
               onShareClick={handleShareClick}
+              isOpen={showFullPlayer}
             />
           </Suspense>
         </div>
