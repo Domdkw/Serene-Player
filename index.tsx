@@ -13,7 +13,7 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 
-const App = isMobile() ? React.lazy(() => import('./mobile/App')) : React.lazy(() => import('./App'));
+const App = isMobile() ? React.lazy(() => import('./src/app/MobileApp')) : React.lazy(() => import('./src/app/App'));
 
 root.render(
   <React.StrictMode>

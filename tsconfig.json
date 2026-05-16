@@ -15,7 +15,7 @@
     ],
     "typeRoots": [
       "./node_modules/@types",
-      "./types"
+      "./src/types"
     ],
     "moduleResolution": "bundler",
     "isolatedModules": true,
@@ -24,7 +24,7 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": [
-        "./*"
+        "./src/*"
       ]
     },
     "allowImportingTsExtensions": true,
