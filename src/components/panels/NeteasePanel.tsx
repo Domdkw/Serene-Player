@@ -464,37 +464,6 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     }
   }, [neteasePlaylist, onTrackSelect]);
 
-  const handleAddToPlaylist = useCallback(async (song: NeteaseSong) => {
-    setLoadingSongId(song.id);
-
-    try {
-      const detail = songDetails[song.id];
-      const coverUrl = detail?.album.picUrl 
-        ? getAlbumCoverUrl(detail.album.picUrl, 800, true) 
-        : undefined;
-
-      const playlistItem = await loadNeteaseSong(
-        song.id,
-        song.name,
-        song.artists.map(a => a.name),
-        song.artists.map(a => a.id),
-        detail?.album.name || song.album.name,
-        coverUrl
-      );
-
-      if (!playlistItem) {
-        console.error('无法加载歌曲');
-        return;
-      }
-
-      onAddToPlaylist(playlistItem);
-    } catch (error) {
-      console.error('添加歌曲失败:', error);
-    } finally {
-      setLoadingSongId(null);
-    }
-  }, [onAddToPlaylist, songDetails]);
-
   useEffect(() => {
     if (activeTab === 'search' && searchInputRef.current) {
       searchInputRef.current.focus();
@@ -531,7 +500,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
           p => p.url === currentTrackUrl && p.name === song.name
         );
         const detail = songDetails[song.id];
-        const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 200) : undefined;
+        const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 50) : undefined;
 
         const songCardData: SongCardData = {
           id: song.id,

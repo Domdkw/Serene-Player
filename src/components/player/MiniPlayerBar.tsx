@@ -269,23 +269,14 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
               ref={discRef}
               onMouseEnter={() => setIsDiscHovered(true)}
               onMouseLeave={() => setIsDiscHovered(false)}
-              className={`relative flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${
+              className={`relative flex items-center justify-center w-6 h-6 transition-all duration-200 ${
                 hasTrack 
                   ? 'cursor-pointer hover:bg-white/10' 
                   : 'cursor-not-allowed opacity-30'
               }`}
               title={hasTrack ? '滚动鼠标快速调整播放进度' : ''}
             >
-              <Disc 
-                size={18} 
-                className={`transition-all duration-200 ${
-                  isDiscHovered && hasTrack ? 'text-white rotate-180' : 'text-white/50'
-                }`}
-                style={{
-                  transform: isDiscHovered && hasTrack ? 'rotate(180deg)' : `rotate(${duration ? (currentTime / duration) * 360 : 0}deg)`,
-                  transition: 'transform 0.3s ease-out'
-                }}
-              />
+              <Disc size={18} />
               {/* 悬停提示 */}
               {isDiscHovered && hasTrack && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 backdrop-blur-sm text-[10px] text-white rounded whitespace-nowrap pointer-events-none border border-white/10">

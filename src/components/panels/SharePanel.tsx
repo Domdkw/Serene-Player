@@ -248,7 +248,7 @@ const SharePanel: React.FC<SharePanelProps> = memo(({
                 id: song.id,
                 name: song.name,
                 artist: cachedDetail?.artists?.map(a => a.name).join(', ') || song.artist,
-                coverUrl: cachedDetail?.album.picUrl ? getAlbumCoverUrl(cachedDetail.album.picUrl, 200) : undefined,
+                coverUrl: cachedDetail?.album.picUrl ? getAlbumCoverUrl(cachedDetail.album.picUrl, 50) : undefined,
                 duration: cachedDetail?.duration
               };
 

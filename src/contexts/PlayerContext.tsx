@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 import { Track, PlaybackMode } from '../types';
 import { extractMetadata, parseLyrics, parseLyricsWithTranslation } from '../utils/metadata';
-import fetchInChunks from 'fetch-in-chunks';
 import { ErrorService } from '../utils/errorService';
 import { getLyricsType } from '../utils/lyricsUtils';
 
@@ -163,20 +162,18 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children }) => {
           ? item.url
           : encodeURI(item.url);
 
-        const blob = await fetchInChunks(encodedUrl, {
-          maxParallelRequests: options?.chunkCount || 4,
-          progressCallback: (downloaded, total) => {
-            if (total > 0) {
-              setLoadingProgress(Math.round((downloaded / total) * 100));
-            }
-          },
-          signal
-        });
+        const response = await fetch(encodedUrl, { signal });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
 
         if (signal.aborted) return;
 
-        file = new File([blob], item.name, { type: 'audio/mpeg' });
+        file = new File([blob], item.name, { type: blob.type || 'audio/mpeg' });
         objectUrl = URL.createObjectURL(blob);
+        setLoadingProgress(100);
       }
 
       const metadata = file ? await extractMetadata(file) : {

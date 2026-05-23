@@ -43,7 +43,7 @@ export const createFavoriteSong = (song: SongDataForFavorite): FavoriteSong => {
     artist: song.artists.map(a => a.name).join(', '),
     artistIds: song.artists.map(a => a.id).filter(id => id > 0),
     album: song.album.name,
-    coverUrl: song.album.picUrl ? getAlbumCoverUrl(song.album.picUrl, 200) : '',
+    coverUrl: song.album.picUrl ? getAlbumCoverUrl(song.album.picUrl, 50) : '',
     duration: song.duration,
     addedAt: Date.now(),
   };
