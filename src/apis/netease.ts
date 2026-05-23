@@ -85,7 +85,7 @@ export async function getSongDetail(ids: number | number[]): Promise<NeteaseSong
   }));
 }
 
-export function getAlbumCoverUrl(picUrl: string, size: number = 300, original: boolean = false): string {
+export function getAlbumCoverUrl(picUrl: string, size: number = 0, original: boolean = false): string {
   if (!picUrl) return '';
   
   if (original) {
@@ -93,7 +93,7 @@ export function getAlbumCoverUrl(picUrl: string, size: number = 300, original: b
   }
   
   const sizeParam = size >= 800 ? 800 : size >= 400 ? 400 : size;
-  return picUrl.replace(/\?param=\d+y\d+/, '') + `?param=${sizeParam}y${sizeParam}`;
+  return picUrl.replace(/\?param=\d+y\d+/, '') + (sizeParam===0 ? '' : `?param=${sizeParam}y${sizeParam}`);
 }
 
 export interface NeteaseLyric {
@@ -218,12 +218,18 @@ export interface NeteaseArtistDetail {
   followeds: number;
 }
 
+const artistDetailCache = new Map<number, NeteaseArtistDetail | null>();
+
 /**
  * 获取歌手详情
  * @param id 歌手ID
  * @returns 歌手详情信息，包含头像等
  */
 export async function getArtistDetail(id: number): Promise<NeteaseArtistDetail | null> {
+  if (artistDetailCache.has(id)) {
+    return artistDetailCache.get(id)!;
+  }
+
   const url = `${BASE_URL}/artist/detail?id=${id}`;
 
   const response = await fetch(url);
@@ -234,11 +240,12 @@ export async function getArtistDetail(id: number): Promise<NeteaseArtistDetail |
   const data = await response.json();
 
   if (data.code !== 200 || !data.data?.artist) {
+    artistDetailCache.set(id, null);
     return null;
   }
 
   const artist = data.data.artist;
-  return {
+  const result: NeteaseArtistDetail = {
     id: artist.id,
     name: artist.name,
     picUrl: artist.avatar || artist.cover || '',
@@ -248,4 +255,7 @@ export async function getArtistDetail(id: number): Promise<NeteaseArtistDetail |
     alias: artist.alias || [],
     followeds: artist.followeds || 0,
   };
+
+  artistDetailCache.set(id, result);
+  return result;
 }

@@ -208,7 +208,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
               {track.metadata.coverUrl ? (
                 <img
                   src={
-                    track.neteaseId ? getAlbumCoverUrl(track.metadata.coverUrl, 800) : track.metadata.coverUrl
+                    track.neteaseId ? getAlbumCoverUrl(track.metadata.coverUrl, 0) : track.metadata.coverUrl
                   }
                   alt="Cover"
                   className={`w-full h-full object-cover`}
