@@ -176,5 +176,4 @@ python main.py
 
 - [jsmediatags](https://github.com/aadsm/jsmediatags) 元数据提取功能
 - [pinyin-pro](https://github.com/zh-lx/pinyin-pro) 拼音支持
-- [fetch-in-chunks](https://github.com/AnthumChris/fetch-in-chunks) 分块加载支持
 - [Peerjs](https://github.com/peerjs/peerjs) P2P 播放支持

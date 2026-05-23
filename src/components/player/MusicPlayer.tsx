@@ -15,7 +15,7 @@ import {
 import { Track, LyricLine as ParsedLyric } from '../../types';
 import { getFontFamily } from '../../utils/fontUtils';
 import { getLyricsType } from '../../utils/lyricsUtils';
-import { getArtistDetail, NeteaseArtistDetail } from '../../apis/netease';
+import { getArtistDetail, NeteaseArtistDetail, getAlbumCoverUrl } from '../../apis/netease';
 import { useLyricsScrolling } from '../../hooks';
 import LyricLine from './LyricLine';
 
@@ -207,9 +207,11 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             >
               {track.metadata.coverUrl ? (
                 <img
-                  src={track.metadata.coverUrl}
+                  src={
+                    track.neteaseId ? getAlbumCoverUrl(track.metadata.coverUrl, 800) : track.metadata.coverUrl
+                  }
                   alt="Cover"
-                  className={`w-full h-full object-cover transition-transform duration-[5s] ease-linear ${isPlaying ? 'scale-125' : 'scale-100'}`}
+                  className={`w-full h-full object-cover`}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">

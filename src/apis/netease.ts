@@ -89,11 +89,11 @@ export function getAlbumCoverUrl(picUrl: string, size: number = 300, original: b
   if (!picUrl) return '';
   
   if (original) {
-    return picUrl.replace(/\?param=\d+/, '');
+    return picUrl.replace(/\?param=\d+y\d+/, '');
   }
   
-  const sizeParam = size >= 800 ? 800 : size >= 400 ? 400 : 300;
-  return picUrl.replace(/\?param=\d+/, '') + `?param=${sizeParam}y${sizeParam}`;
+  const sizeParam = size >= 800 ? 800 : size >= 400 ? 400 : size;
+  return picUrl.replace(/\?param=\d+y\d+/, '') + `?param=${sizeParam}y${sizeParam}`;
 }
 
 export interface NeteaseLyric {
