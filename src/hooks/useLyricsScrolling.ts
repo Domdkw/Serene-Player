@@ -49,13 +49,19 @@ export function useLyricsScrolling({
     if (activeLyricRef.current && lyricsContainerRef.current) {
       const container = lyricsContainerRef.current;
       const activeElement = activeLyricRef.current;
-      const containerHeight = container.clientHeight;
-      const elementTop = activeElement.offsetTop;
-      const elementHeight = activeElement.clientHeight;
-      const targetScroll = elementTop - containerHeight / 2 + elementHeight / 2;
-      container.scrollTo({
-        top: targetScroll,
-        behavior: 'smooth',
+      
+      requestAnimationFrame(() => {
+        const containerRect = container.getBoundingClientRect();
+        const activeRect = activeElement.getBoundingClientRect();
+        
+        const currentScrollTop = container.scrollTop;
+        const elementTop = activeRect.top - containerRect.top + currentScrollTop;
+        const targetScroll = elementTop - containerRect.height / 2 + activeRect.height / 2;
+        
+        container.scrollTo({
+          top: targetScroll,
+          behavior: 'smooth',
+        });
       });
     }
   }, [activeIndex, isManualScrolling]);

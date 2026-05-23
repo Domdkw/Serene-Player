@@ -73,10 +73,7 @@ export const LyricLine: React.FC<LyricLineProps> = ({
       className={`group relative py-2 md:py-4 cursor-pointer transition-all duration-700 text-center md:text-left ${
         isActive ? 'text-white' : 'text-white/20'
       }`}
-      style={{
-        marginBottom: isActive ? '2rem' : '1rem',
-        marginTop: isActive ? '2rem' : '1rem',
-      }}
+      style={{ marginBottom: '1rem', marginTop: '1rem' }}
     >
       {/* 时间标签 - 当前歌词激活或悬停时显示,位于歌词左侧水平居中 */}
       <div className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[calc(100%+18px)] flex items-center gap-1.5 text-[14px] text-white/80 font-mono px-2 py-1 rounded-lg z-20 transition-all duration-300 opacity-0 ${
@@ -88,12 +85,12 @@ export const LyricLine: React.FC<LyricLineProps> = ({
       {/* 歌词文本容器 */}
       <div className="flex flex-col gap-1">
         <p
-          className={`font-black leading-[1.1] md:leading-tight drop-shadow-2xl transition-all duration-700 select-none relative ${
+          className={`text-[26px] leading-[1.1] md:leading-tight drop-shadow-2xl transition-all duration-700 select-none relative ${
             isActive
-              ? 'text-2xl md:text-[3vw] lg:text-[32px] opacity-100 scale-100 origin-center md:origin-left'
+              ? 'opacity-100 origin-center md:origin-left'
               : isAdjacent
-                ? 'text-lg text-white/80 md:text-[2vw] lg:text-[28px] opacity-100 hover:text-white blur-0'
-                : 'text-lg md:text-[2vw] lg:text-[28px] opacity-80 blur-[0.5px] text-white/50 hover:opacity-100 hover:blur-0 hover:scale-105 hover:text-white'
+                ? 'text-white/80 opacity-100 blur-0 hover:text-white'
+                : 'text-white/50 opacity-80 blur-0 hover:opacity-100 hover:text-white'
           }`}
           style={textStyle}
         >
@@ -102,12 +99,12 @@ export const LyricLine: React.FC<LyricLineProps> = ({
         {/* 翻译文本 */}
         {showTranslation && line.translation && (
           <p
-            className={`font-medium transition-all duration-700 select-none ${
+            className={`text-sm font-medium transition-all duration-700 select-none ${
               isActive
-                ? 'text-sm md:text-base lg:text-lg text-white/70'
+                ? 'text-white/70'
                 : isAdjacent
-                  ? 'text-xs md:text-sm text-white/50'
-                  : 'text-xs md:text-sm text-white/30'
+                  ? 'text-white/50'
+                  : 'text-white/30'
             }`}
             style={translationStyle}
           >
@@ -116,9 +113,9 @@ export const LyricLine: React.FC<LyricLineProps> = ({
         )}
       </div>
 
-      {/* 逐行歌词进度条 */}
+      {/* 逐行歌词进度条 - 使用绝对定位避免影响高度 */}
       {isActive && nextLineTime && (
-        <div className="mt-2 w-full h-[2px] bg-white/20 relative overflow-hidden">
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/20 overflow-hidden">
           <div
             className="absolute top-0 left-0 h-full bg-white transition-all duration-100"
             style={{ width: `${lineProgress}%` }}
