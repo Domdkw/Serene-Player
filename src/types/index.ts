@@ -56,6 +56,9 @@ export type PlaylistFolders = Record<string, PlaylistItem[] | PlaylistFolder>;
 
 export type PlaybackMode = 'single' | 'list' | 'shuffle';
 
+export type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share' | 'plugins';
+
+
 // Global declaration for jsmediatags which is loaded via CDN
 declare global {
   interface Window {

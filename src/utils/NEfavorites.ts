@@ -3,7 +3,7 @@
  * 用于管理网易云音乐的"我喜欢"歌单
  */
 
-import { getAlbumCoverUrl } from '../apis/netease';
+import { getAlbumCoverUrl } from '@/apis/netease';
 
 /**
  * 喜欢的歌曲接口

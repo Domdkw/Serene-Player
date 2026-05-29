@@ -1,9 +1,8 @@
 import React, { memo } from 'react';
 import {
-  Music, Settings, User, ListMusic, Cable, Share2
+  Music, Settings, User, ListMusic, Cable, Share2, Container
 } from 'lucide-react';
-
-type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share';
+import { NavTab } from '@/types';
 
 interface SidebarItemProps {
   icon: React.ElementType | (() => React.ReactNode);
@@ -113,6 +112,12 @@ export const Sidebar: React.FC<SidebarProps> = memo(({
           label="分享"
           isActive={activeTab === 'share'}
           onClick={() => onTabChange('share')}
+        />
+        <SidebarItem
+          icon={Container}
+          label="插件"
+          isActive={activeTab === 'plugins'}
+          onClick={() => onTabChange('plugins')}
         />
         <SidebarItem
           icon={Settings}

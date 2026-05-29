@@ -1,9 +1,9 @@
 import React from 'react';
 import { ChevronLeft } from 'lucide-react';
-import { PlaylistItem } from '../../types';
+import { PlaylistItem } from '@/types';
 import { MusicLibrary } from './MusicLibrary';
-import { parseComposers } from '../../utils/composerUtils';
-import { createStopPropagationProps } from '../../utils/swipeUtils';
+import { parseComposers } from '@/utils/composerUtils';
+import { createStopPropagationProps } from '@/utils/swipeUtils';
 
 interface ArtistsViewProps {
   selectedArtist: string | null;

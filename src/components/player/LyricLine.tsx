@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Clock } from 'lucide-react';
-import { LyricLine as LyricLineType } from '../../types';
+import { LyricLine as LyricLineType } from '@/types';
 
 export type LyricsType = 'line' | 'none';
 

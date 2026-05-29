@@ -3,17 +3,17 @@ import {
   Music, Settings, ChevronLeft, ChevronRight, Download, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi, Share2, Languages
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '../contexts';
-import { useQueryParams, useArtists, useNetease, useSwipeGesture, usePageTitle, useSharePanel } from '../hooks';
-import { getFontFamily } from '../utils/fontUtils';
-import { MusicLibrary, ArtistsView } from '../components/library';
-import { SearchPanel, SettingsPanel, TogetherListenPanel, SharePanel } from '../components/panels';
-import { PlaybackControls, ProgressBar, CoverArt, LyricsDisplay, LyricLine } from '../components/player';
-import { ErrorBoundary } from '../components/common';
-import { ErrorService } from '../utils/errorService';
-import { SharedSong } from '../utils/songEncodingUtils';
+import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '@/contexts';
+import { useQueryParams, useArtists, useNetease, useSwipeGesture, usePageTitle, useSharePanel } from '@/hooks';
+import { getFontFamily } from '@/utils/fontUtils';
+import { MusicLibrary, ArtistsView } from '@/components/library';
+import { SearchPanel, SettingsPanel, TogetherListenPanel, SharePanel } from '@/components/panels';
+import { PlaybackControls, ProgressBar, CoverArt, LyricsDisplay, LyricLine } from '@/components/player';
+import { ErrorBoundary } from '@/components/common';
+import { ErrorService } from '@/utils/errorService';
+import { SharedSong } from '@/utils/songEncodingUtils';
 
-const NeteasePanel = lazy(() => import('../components/panels/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
+const NeteasePanel = lazy(() => import('@/components/panels/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-full">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X } from 'lucide-react';
-import { PlaylistItem } from '../../types';
+import { PlaylistItem } from '@/types';
 
 interface SearchPanelProps {
   isOpen: boolean;

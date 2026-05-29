@@ -1,6 +1,6 @@
 import React, { memo, useState, useCallback } from 'react';
 import { Plus, Search, Link2, X, RotateCcw } from 'lucide-react';
-import { PlaylistItem, PlaylistFolders } from '../../types';
+import { PlaylistItem, PlaylistFolders } from '@/types';
 import { MusicLibrary } from './MusicLibrary';
 import { SearchPanel } from '../panels/SearchPanel';
 import { FolderLoadingIndicator } from '../common/LoadingComponents';

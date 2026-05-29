@@ -1,11 +1,11 @@
 import React, { memo, useState, useCallback, useEffect, useMemo } from 'react';
 import { Copy, Check, RefreshCw, Clock, Link, AlertCircle, Music, Heart } from 'lucide-react';
-import { ShareConfig } from '../../hooks/useSharePanel';
-import { SharedSong } from '../../utils/songEncodingUtils';
+import { ShareConfig } from '@/hooks/useSharePanel';
+import { SharedSong } from '@/utils/songEncodingUtils';
 import { MobileBottomSheet } from '../layout';
-import { getSongDetail, getAlbumCoverUrl } from '../../apis/netease';
+import { getSongDetail, getAlbumCoverUrl } from '@/apis/netease';
 import { SongCard, SongCardData } from '../common';
-import { FavoriteSong, loadFavorites, saveFavorites, isSongFavorite, addFavorite, removeFavorite, dispatchFavoritesUpdate, createFavoriteSong, SongDataForFavorite } from '../../utils/NEfavorites';
+import { FavoriteSong, loadFavorites, saveFavorites, isSongFavorite, addFavorite, removeFavorite, dispatchFavoritesUpdate, createFavoriteSong, SongDataForFavorite } from '@/utils/NEfavorites';
 
 /**
  * 歌曲详情缓存接口

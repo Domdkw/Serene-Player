@@ -1,6 +1,6 @@
 import React, { memo, useCallback } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Repeat, Repeat1, Shuffle } from 'lucide-react';
-import { PlaybackMode } from '../../types';
+import { PlaybackMode } from '@/types';
 
 interface PlaybackControlsProps {
   isPlaying: boolean;

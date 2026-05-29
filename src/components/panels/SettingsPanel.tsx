@@ -14,7 +14,7 @@ import {
   X,
   SlidersHorizontal
 } from 'lucide-react';
-import { FONT_CONFIGS, getFontFamily } from '../../utils/fontUtils';
+import { FONT_CONFIGS, getFontFamily } from '@/utils/fontUtils';
 import { MobileBottomSheet } from '../layout';
 
 interface SettingsPanelProps {

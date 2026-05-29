@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createStopPropagationProps } from '../../utils/swipeUtils';
+import { createStopPropagationProps } from '@/utils/swipeUtils';
 
 interface MobileBottomSheetProps {
   isOpen: boolean;

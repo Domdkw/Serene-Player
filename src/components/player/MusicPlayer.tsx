@@ -12,11 +12,11 @@ import {
   Users,
   Share2
 } from 'lucide-react';
-import { Track, LyricLine as ParsedLyric } from '../../types';
-import { getFontFamily } from '../../utils/fontUtils';
-import { getLyricsType } from '../../utils/lyricsUtils';
-import { getArtistDetail, NeteaseArtistDetail, getAlbumCoverUrl } from '../../apis/netease';
-import { useLyricsScrolling } from '../../hooks';
+import { Track, LyricLine as ParsedLyric } from '@/types';
+import { getFontFamily } from '@/utils/fontUtils';
+import { getLyricsType } from '@/utils/lyricsUtils';
+import { getArtistDetail, NeteaseArtistDetail, getAlbumCoverUrl } from '@/apis/netease';
+import { useLyricsScrolling } from '@/hooks';
 import LyricLine from './LyricLine';
 
 function throttle<T extends (...args: any[]) => any>(func: T, limit: number): T {
