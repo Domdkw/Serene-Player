@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo, lazy, Suspense, useEffect, useRef } from 'react';
 import {
-  Upload, Music, Settings, ChevronLeft, ChevronRight, Download, FileAudio, FolderOpen, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi, Share2, Languages
+  Music, Settings, ChevronLeft, ChevronRight, Download, Plus, Link2, RotateCcw, Cloud, X, AlertCircle, Disc, User, Search, Repeat, Repeat1, Shuffle, Cable, Wifi, Share2, Languages
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '../contexts';
-import { useQueryParams, useArtists, useFileUpload, useNetease, useSwipeGesture, useMobileMenu, usePageTitle, useSharePanel } from '../hooks';
+import { useQueryParams, useArtists, useNetease, useSwipeGesture, usePageTitle, useSharePanel } from '../hooks';
 import { getFontFamily } from '../utils/fontUtils';
 import { MusicLibrary, ArtistsView } from '../components/library';
 import { SearchPanel, SettingsPanel, TogetherListenPanel, SharePanel } from '../components/panels';
@@ -100,9 +100,6 @@ const MobileAppContent: React.FC = () => {
     }
   }, [currentPage]);
 
-  const uploadMenu = useMobileMenu();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const isSwipingRef = useRef(false);
@@ -190,25 +187,6 @@ const MobileAppContent: React.FC = () => {
     neteasePlaylist: playlist.neteasePlaylist,
     setNeteaseCurrentIndex: playlist.setNeteaseCurrentIndex,
     updateNeteaseLikedIndexById: playlist.updateNeteaseLikedIndexById,
-  });
-
-  const addToPlaylistFolders = useCallback((name: string, items: any[]) => {
-    playlist.setPlaylistFolders(prev => ({
-      ...prev,
-      [name]: items,
-    }));
-  }, [playlist]);
-
-  const {
-    handleFileUpload,
-    handleFolderUpload,
-    triggerFileUpload,
-    triggerFolderUpload,
-  } = useFileUpload({
-    onTrackLoad: loadMusicFromUrl,
-    addToPlaylist: playlist.addMultipleToPlaylist,
-    addToPlaylistFolders,
-    currentIndex: playlist.currentIndex,
   });
 
   const loadPlaylistFromUrl = useCallback(async (url: string) => {
@@ -554,61 +532,6 @@ const MobileAppContent: React.FC = () => {
                   </button>
                 </>
               )}
-
-              <div className="relative" ref={uploadMenu.menuRef}>
-                <button
-                  ref={uploadMenu.buttonRef}
-                  onClick={uploadMenu.toggle}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-all cursor-pointer border border-white/10 active:scale-95"
-                >
-                  <Upload size={12} className="text-white" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Local</span>
-                </button>
-
-                {uploadMenu.isOpen && (
-                  <div className="absolute top-full right-0 mt-2 w-40 bg-black/90 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <button
-                      onClick={() => {
-                        triggerFileUpload();
-                        uploadMenu.close();
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors text-left"
-                    >
-                      <FileAudio size={16} className="text-white/80" />
-                      <span className="text-xs font-medium text-white/90">上传文件</span>
-                    </button>
-                    <div className="h-px bg-white/10 mx-2" />
-                    <button
-                      onClick={() => {
-                        triggerFolderUpload();
-                        uploadMenu.close();
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors text-left"
-                    >
-                      <FolderOpen size={16} className="text-white/80" />
-                      <span className="text-xs font-medium text-white/90">上传文件夹</span>
-                    </button>
-                  </div>
-                )}
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.wma,.ape,.opus,audio/*"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-                <input
-                  ref={folderInputRef}
-                  type="file"
-                  accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.wma,.ape,.opus,audio/*"
-                  className="hidden"
-                  webkitdirectory=""
-                  directory=""
-                  multiple
-                  onChange={handleFolderUpload}
-                />
-              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto hide-scrollbar pb-0">

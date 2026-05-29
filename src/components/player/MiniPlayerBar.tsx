@@ -126,7 +126,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
         onMouseLeave={handleProgressMouseLeave}
       >
         <div
-          className="h-full bg-white rounded-full transition-all"
+          className="h-full bg-white rounded-full"
           style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
         />
         {/* 悬停时间提示框 */}

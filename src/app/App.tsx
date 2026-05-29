@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspens
 import { AlertCircle } from 'lucide-react';
 import { Track, PlaylistItem, PlaybackMode } from '../types';
 import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '../contexts';
-import { useQueryParams, useArtists, useFileUpload, useNetease, usePageTitle, useSharePanel } from '../hooks';
+import { useQueryParams, useArtists, useNetease, usePageTitle, useSharePanel } from '../hooks';
 import { getFontFamily } from '../utils/fontUtils';
 import { ErrorService } from '../utils/errorService';
 import { ErrorBoundary, ShimmerLoadingBar } from '../components/common';
@@ -96,27 +96,6 @@ const AppContent: React.FC = () => {
     neteasePlaylist: playlist.neteasePlaylist,
     setNeteaseCurrentIndex: playlist.setNeteaseCurrentIndex,
     updateNeteaseLikedIndexById: playlist.updateNeteaseLikedIndexById
-  });
-
-  const addToPlaylistFolders = useCallback((name: string, items: PlaylistItem[]) => {
-    playlist.setPlaylistFolders(prev => ({
-      ...prev,
-      [name]: items
-    }));
-  }, [playlist]);
-
-  const {
-    fileInputRef,
-    folderInputRef,
-    handleFileUpload,
-    handleFolderUpload,
-    triggerFileUpload,
-    triggerFolderUpload
-  } = useFileUpload({
-    onTrackLoad: loadMusicFromUrl,
-    addToPlaylist: playlist.addMultipleToPlaylist,
-    addToPlaylistFolders,
-    currentIndex: playlist.currentIndex
   });
 
   const loadPlaylistFromUrl = useCallback(async (url: string) => {
@@ -484,13 +463,11 @@ const AppContent: React.FC = () => {
             onSetCurrentFolder={playlist.setCurrentFolder}
             onLoadLinkedFolder={playlist.loadLinkedFolder}
             onTrackSelect={loadMusicFromUrl}
-            onFileUpload={triggerFileUpload}
-            onFolderUpload={triggerFolderUpload}
             onSetCustomSourceUrl={settings.setCustomSourceUrl}
           />
         );
     }
-  }, [activeTab, selectedArtist, playlist, player, playerTime.isPlaying, player.loadingTrackUrl, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, triggerFileUpload, triggerFolderUpload, sharePanel]);
+  }, [activeTab, selectedArtist, playlist, player, playerTime.isPlaying, player.loadingTrackUrl, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, sharePanel]);
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(settings.selectedFont) }}>
@@ -507,23 +484,6 @@ const AppContent: React.FC = () => {
           showFullPlayer ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
       >
-        <input
-          type="file"
-          accept="audio/*"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        <input
-          type="file"
-          ref={folderInputRef}
-          onChange={handleFolderUpload}
-          className="hidden"
-          // @ts-ignore
-          webkitdirectory=""
-          directory=""
-        />
-
         {player.loadingProgress !== null && <ShimmerLoadingBar progress={player.loadingProgress} />}
 
         <Sidebar
