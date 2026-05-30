@@ -1,24 +1,23 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { Track, PlaylistItem, PlaybackMode } from '../types';
-import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '../contexts';
-import { useQueryParams, useArtists, useNetease, usePageTitle, useSharePanel } from '../hooks';
-import { getFontFamily } from '../utils/fontUtils';
-import { ErrorService } from '../utils/errorService';
-import { ErrorBoundary, ShimmerLoadingBar } from '../components/common';
-import { Sidebar, GlobalBackground } from '../components/layout';
-import { SongsView } from '../components/library';
-import { MiniPlayerBar } from '../components/player';
-import { SharedSong } from '../utils/songEncodingUtils';
+import { Track, PlaylistItem, PlaybackMode, NavTab } from '@/types';
+import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '@/contexts';
+import { useQueryParams, useArtists, useNetease, usePageTitle, useSharePanel } from '@/hooks';
+import { getFontFamily } from '@/utils/fontUtils';
+import { ErrorService } from '@/utils/errorService';
+import { ErrorBoundary, ShimmerLoadingBar } from '@/components/common';
+import { Sidebar, GlobalBackground } from '@/components/layout';
+import { SongsView } from '@/components/library';
+import { MiniPlayerBar } from '@/components/player';
+import { SharedSong } from '@/utils/songEncodingUtils';
 
-type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share';
-
-const ArtistsView = lazy(() => import('../components/library/ArtistsView').then(m => ({ default: m.ArtistsView })));
-const NeteasePanel = lazy(() => import('../components/panels/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
-const SettingsPanel = lazy(() => import('../components/panels/SettingsPanel'));
-const MusicPlayer = lazy(() => import('../components/player/MusicPlayer'));
-const TogetherListenPanel = lazy(() => import('../components/panels/TogetherListenPanel'));
-const SharePanel = lazy(() => import('../components/panels/SharePanel'));
+const ArtistsView = lazy(() => import('@/components/library/ArtistsView').then(m => ({ default: m.ArtistsView })));
+const NeteasePanel = lazy(() => import('@/components/panels/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
+const SettingsPanel = lazy(() => import('@/components/panels/SettingsPanel'));
+const MusicPlayer = lazy(() => import('@/components/player/MusicPlayer'));
+const TogetherListenPanel = lazy(() => import('@/components/panels/TogetherListenPanel'));
+const SharePanel = lazy(() => import('@/components/panels/SharePanel'));
+const PluginPanel = lazy(() => import('@/components/panels/PluginsPanel'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-full">
@@ -86,7 +85,7 @@ const AppContent: React.FC = () => {
         setDuration: playerTime.setDuration,
       }
     );
-  }, [player, playerTime, playlist, settings.streamingMode, settings.chunkCount]);
+  }, [player, playlist, settings.streamingMode, settings.chunkCount]);
 
   const {
     loadNeteaseMusic,
@@ -446,6 +445,19 @@ const AppContent: React.FC = () => {
               </div>
             </div>
           </Suspense>
+        );
+      case 'plugins':
+        return (
+          <div className="h-full flex flex-col">
+            <div className="p-6 border-b border-white/[0.05]">
+              <h2 className="text-2xl font-bold text-white drop-shadow-md">插件</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
+              <Suspense fallback={<LoadingFallback />}>
+                <PluginPanel loadMusicFromUrl={loadMusicFromUrl} />
+              </Suspense>
+            </div>
+          </div>
         );
       case 'songs':
       default:

@@ -179,7 +179,7 @@ const MiniPlayerBar: React.FC<MiniPlayerBarProps> = ({
             <div className="min-w-0">
               <p className={`font-medium text-sm truncate ${hasTrack ? 'text-white' : 'text-white/40'}`}>
                 {hasTrack
-                  ? (track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, ''))
+                  ? (track.metadata.title)
                   : ''}
               </p>
               <p className="text-white/50 text-xs truncate">

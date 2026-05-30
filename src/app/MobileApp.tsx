@@ -164,7 +164,6 @@ const MobileAppContent: React.FC = () => {
         translatedLyrics: item.translatedLyrics,
         neteaseId: item.neteaseId,
         artistIds: item.artistIds,
-        file: item.file,
       },
       index,
       {
