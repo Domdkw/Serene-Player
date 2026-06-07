@@ -1,10 +1,10 @@
 import React, { memo } from 'react';
 import { ChevronsLeftRightEllipsis } from 'lucide-react';
-import { LyricLine as LyricLineType } from '../../types';
+import { LyricLine as LyricLineType } from '@/types';
 import LyricLine from './LyricLine';
-import { getFontFamily } from '../../utils/fontUtils';
-import { getLyricsType } from '../../utils/lyricsUtils';
-import { useLyricsScrolling } from '../../hooks';
+import { getFontFamily } from '@/utils/fontUtils';
+import { getLyricsType } from '@/utils/lyricsUtils';
+import { useLyricsScrolling } from '@/hooks';
 
 interface LyricsDisplayProps {
   lyrics: LyricLineType[];

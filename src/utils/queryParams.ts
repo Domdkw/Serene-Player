@@ -25,7 +25,7 @@ export interface QueryParams {
   /** 歌曲在播放列表中的索引位置（从0开始） */
   track_index?: number;
   /** 分享的"我喜欢"歌单，base64编码的歌曲信息 */
-  liked_songs?: string;
+  shared_list?: string;
 }
 
 /**
@@ -175,10 +175,10 @@ export function parseQueryParams(): QueryParamsResult {
       }
     }
 
-    if (urlParams.has('liked_songs')) {
-      const value = urlParams.get('liked_songs');
+    if (urlParams.has('shared_list')) {
+      const value = urlParams.get('shared_list');
       if (value) {
-        params.liked_songs = value;
+        params.shared_list = value;
       }
     }
   } catch (error) {
@@ -295,8 +295,8 @@ export function buildUrlWithParams(baseUrl: string, params: QueryParams): string
   if (params.written_origin !== undefined) {
     url.searchParams.set('written_origin', params.written_origin.toString());
   }
-  if (params.liked_songs) {
-    url.searchParams.set('liked_songs', params.liked_songs);
+  if (params.shared_list) {
+    url.searchParams.set('shared_list', params.shared_list);
   }
   
   return url.toString();

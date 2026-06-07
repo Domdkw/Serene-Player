@@ -196,9 +196,9 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
       }
     }
 
-    if (params.liked_songs && handlers.onSharedSongs) {
+    if (params.shared_list && handlers.onSharedSongs) {
       console.log('[QueryParams] 处理分享的歌曲列表');
-      const songs = decompressBase64ToSongs(params.liked_songs);
+      const songs = decompressBase64ToSongs(params.shared_list);
       if (songs.length > 0) {
         handlers.onSharedSongs(songs);
       }

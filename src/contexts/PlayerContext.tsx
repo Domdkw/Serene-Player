@@ -130,7 +130,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children }) => {
     setLoadingProgress(0);
     callbacks?.setIsPlaying(false);
 
-    if (!item.url) {
+    if (!(item.url || item.file)) {
       ErrorService.handleError(new Error('Invalid track URL'), 'Load Track');
       setLoadingTrackUrl(null);
       setLyricsLoading(false);
@@ -143,38 +143,59 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children }) => {
       let file: File | undefined;
       let objectUrl: string;
 
-      if (shouldUseStreaming) {
-        objectUrl = item.url;
-        setLoadingProgress(100);
-        file = undefined;
-      } else if (item.file) {
+      if (item.file) {
         file = item.file;
-        objectUrl = item.url;
+        objectUrl = URL.createObjectURL(file);
         setLoadingProgress(100);
-      } else if (item.url.startsWith('blob:')) {
-        const response = await fetch(item.url);
-        const blob = await response.blob();
-        file = new File([blob], item.name, { type: blob.type || 'audio/mpeg' });
-        objectUrl = item.url;
-        setLoadingProgress(100);
-      } else {
-        const encodedUrl = item.url.startsWith('http://') || item.url.startsWith('https://')
-          ? item.url
-          : encodeURI(item.url);
+      }else {
+        if (shouldUseStreaming) {
+          objectUrl = item.url;
+          setLoadingProgress(100);
+          file = undefined;
+        } else {
+          const encodedUrl = item.url.startsWith('http://') || item.url.startsWith('https://')
+            ? item.url
+            : encodeURI(item.url);
+          //使用 XMLHttpRequest 下载文件，支持进度显示
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', encodedUrl, true);
+          xhr.responseType = 'blob';
 
-        const response = await fetch(encodedUrl, { signal });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const blob = await new Promise<Blob>((resolve, reject) => {
+            // 监听 AbortSignal，支持中断请求
+            signal.addEventListener('abort', () => {
+              xhr.abort();
+            });
+
+            xhr.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const percent = Math.round((event.loaded / event.total) * 100);
+                setLoadingProgress(percent);
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(xhr.response);
+              } else {
+                reject(new Error(`HTTP error! status: ${xhr.status}`));
+              }
+            };
+
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.onabort = () => reject(new Error('Aborted'));
+            xhr.send();
+          });
+
+          if (signal.aborted) return;
+
+          file = new File([blob], item.name, { type: blob.type || 'audio/mpeg' });
+          objectUrl = URL.createObjectURL(blob);
+          setLoadingProgress(100);
         }
-        
-        const blob = await response.blob();
-
-        if (signal.aborted) return;
-
-        file = new File([blob], item.name, { type: blob.type || 'audio/mpeg' });
-        objectUrl = URL.createObjectURL(blob);
-        setLoadingProgress(100);
       }
+
+      console.log(objectUrl);
 
       const metadata = file ? await extractMetadata(file) : {
         title: item.name,

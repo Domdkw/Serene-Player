@@ -1,6 +1,6 @@
 import React, { memo, useState, useCallback } from 'react';
-import { Plus, Search, Upload, FileAudio, FolderOpen, Link2, X, RotateCcw } from 'lucide-react';
-import { PlaylistItem, PlaylistFolders } from '../../types';
+import { Plus, Search, Link2, X, RotateCcw } from 'lucide-react';
+import { PlaylistItem, PlaylistFolders } from '@/types';
 import { MusicLibrary } from './MusicLibrary';
 import { SearchPanel } from '../panels/SearchPanel';
 import { FolderLoadingIndicator } from '../common/LoadingComponents';
@@ -13,11 +13,6 @@ interface SongsViewHeaderProps {
   hasCustomSource: boolean;
   onToggleSearch: () => void;
   isSearchOpen: boolean;
-  onToggleUploadMenu: () => void;
-  isUploadMenuOpen: boolean;
-  uploadMenuRef: React.RefObject<HTMLDivElement | null>;
-  onFileUpload: () => void;
-  onFolderUpload: () => void;
 }
 
 const SongsViewHeader: React.FC<SongsViewHeaderProps> = memo(({
@@ -27,12 +22,7 @@ const SongsViewHeader: React.FC<SongsViewHeaderProps> = memo(({
   onOpenCustomSource,
   hasCustomSource,
   onToggleSearch,
-  isSearchOpen,
-  onToggleUploadMenu,
-  isUploadMenuOpen,
-  uploadMenuRef,
-  onFileUpload,
-  onFolderUpload
+  isSearchOpen
 }) => {
   return (
     <div className="flex items-center justify-between p-6 border-b border-white/[0.05]">
@@ -59,35 +49,6 @@ const SongsViewHeader: React.FC<SongsViewHeaderProps> = memo(({
         >
           <Search size={18} />
         </button>
-
-        <div className="relative" ref={uploadMenuRef}>
-          <button
-            onClick={onToggleUploadMenu}
-            className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/[0.15] text-white/70 hover:text-white transition-all duration-200"
-            title="导入音乐"
-          >
-            <Upload size={18} />
-          </button>
-
-          {isUploadMenuOpen && (
-            <div className="absolute top-full right-0 mt-2 w-40 bg-[#1a1a1f] rounded-xl border border-white/[0.05] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-              <button
-                onClick={onFileUpload}
-                className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
-              >
-                <FileAudio size={16} />
-                导入文件
-              </button>
-              <button
-                onClick={onFolderUpload}
-                className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/[0.05] hover:text-white transition-colors text-left text-sm"
-              >
-                <FolderOpen size={16} />
-                导入文件夹
-              </button>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -201,8 +162,6 @@ interface SongsViewProps {
   onSetCurrentFolder: (folder: string | null) => void;
   onLoadLinkedFolder: (folderName: string, linkUrl: string) => Promise<void>;
   onTrackSelect: (item: PlaylistItem, index: number) => void;
-  onFileUpload: () => void;
-  onFolderUpload: () => void;
   onSetCustomSourceUrl: (url: string) => void;
 }
 
@@ -219,32 +178,11 @@ export const SongsView: React.FC<SongsViewProps> = memo(({
   onSetCurrentFolder,
   onLoadLinkedFolder,
   onTrackSelect,
-  onFileUpload,
-  onFolderUpload,
   onSetCustomSourceUrl
 }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false);
   const [isCustomSourceOpen, setIsCustomSourceOpen] = useState(false);
   const [sourceInputValue, setSourceInputValue] = useState('');
-
-  const uploadMenuRef = React.useRef<HTMLDivElement | null>(null);
-
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (uploadMenuRef.current && !uploadMenuRef.current.contains(event.target as Node)) {
-        setIsUploadMenuOpen(false);
-      }
-    };
-
-    if (isUploadMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isUploadMenuOpen]);
 
   const handleOpenCustomSource = useCallback(() => {
     setSourceInputValue(customSourceUrl);
@@ -272,11 +210,6 @@ export const SongsView: React.FC<SongsViewProps> = memo(({
         hasCustomSource={!!customSourceUrl}
         onToggleSearch={() => setIsSearchOpen(!isSearchOpen)}
         isSearchOpen={isSearchOpen}
-        onToggleUploadMenu={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
-        isUploadMenuOpen={isUploadMenuOpen}
-        uploadMenuRef={uploadMenuRef}
-        onFileUpload={onFileUpload}
-        onFolderUpload={onFolderUpload}
       />
 
       {folderLoading && (

@@ -33,7 +33,7 @@ export interface Track {
 
 export interface PlaylistItem {
   name: string;
-  artist: string;
+  artist?: string;
   themeColor?: string;
   url: string;
   link?: string;
@@ -55,6 +55,9 @@ export interface PlaylistFolder {
 export type PlaylistFolders = Record<string, PlaylistItem[] | PlaylistFolder>;
 
 export type PlaybackMode = 'single' | 'list' | 'shuffle';
+
+export type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share' | 'plugins';
+
 
 // Global declaration for jsmediatags which is loaded via CDN
 declare global {

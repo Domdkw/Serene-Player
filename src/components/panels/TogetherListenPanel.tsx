@@ -18,8 +18,8 @@ import {
 import {
   togetherListenManager,
   TogetherListenState,
-} from '../../utils/togetherListenManager';
-import { PlaylistItem } from '../../types';
+} from '@/utils/togetherListenManager';
+import { PlaylistItem } from '@/types';
 
 interface TogetherListenPanelProps {
   isPlaying: boolean;

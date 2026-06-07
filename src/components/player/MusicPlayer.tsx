@@ -12,11 +12,11 @@ import {
   Users,
   Share2
 } from 'lucide-react';
-import { Track, LyricLine as ParsedLyric } from '../../types';
-import { getFontFamily } from '../../utils/fontUtils';
-import { getLyricsType } from '../../utils/lyricsUtils';
-import { getArtistDetail, NeteaseArtistDetail, getAlbumCoverUrl } from '../../apis/netease';
-import { useLyricsScrolling } from '../../hooks';
+import { Track, LyricLine as ParsedLyric } from '@/types';
+import { getFontFamily } from '@/utils/fontUtils';
+import { getLyricsType } from '@/utils/lyricsUtils';
+import { getArtistDetail, NeteaseArtistDetail, getAlbumCoverUrl } from '@/apis/netease';
+import { useLyricsScrolling } from '@/hooks';
 import LyricLine from './LyricLine';
 
 function throttle<T extends (...args: any[]) => any>(func: T, limit: number): T {
@@ -223,7 +223,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           {/* Track Info - 移到封面下方 */}
           <div className="mt-8 text-center z-20 px-8">
             <h1 className="text-xl lg:text-2xl font-black text-white mb-2 tracking-tight">
-              {track.metadata.title || track.file?.name.replace(/\.[^/.]+$/, '')}
+              {track.metadata.title}
             </h1>
             {/* 歌手列表 - 头像与名称对应 */}
             <div className="flex items-center justify-center gap-3 mt-2 flex-wrap">

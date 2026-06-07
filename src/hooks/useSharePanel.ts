@@ -161,7 +161,7 @@ export function useSharePanel(): UseSharePanelReturn {
     }
 
     if (config.enableLikedSongs && likedSongsData) {
-      params.liked_songs = likedSongsData;
+      params.shared_list = likedSongsData;
     }
 
     const baseUrl = window.location.origin + window.location.pathname;
@@ -234,7 +234,7 @@ export function useSharePanel(): UseSharePanelReturn {
    */
   const parseSharedSongsFromUrl = useCallback((): SharedSong[] => {
     const urlParams = new URLSearchParams(window.location.search);
-    const likedSongsParam = urlParams.get('liked_songs');
+    const likedSongsParam = urlParams.get('shared_list');
     if (likedSongsParam) {
       const songs = decompressBase64ToSongs(likedSongsParam);
       setSharedSongs(songs);

@@ -1,24 +1,23 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { Track, PlaylistItem, PlaybackMode } from '../types';
-import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '../contexts';
-import { useQueryParams, useArtists, useFileUpload, useNetease, usePageTitle, useSharePanel } from '../hooks';
-import { getFontFamily } from '../utils/fontUtils';
-import { ErrorService } from '../utils/errorService';
-import { ErrorBoundary, ShimmerLoadingBar } from '../components/common';
-import { Sidebar, GlobalBackground } from '../components/layout';
-import { SongsView } from '../components/library';
-import { MiniPlayerBar } from '../components/player';
-import { SharedSong } from '../utils/songEncodingUtils';
+import { Track, PlaylistItem, PlaybackMode, NavTab } from '@/types';
+import { PlayerProvider, usePlayer, PlayerTimeProvider, usePlayerTime, PlaylistProvider, usePlaylist, SettingsProvider, useSettings } from '@/contexts';
+import { useQueryParams, useArtists, useNetease, usePageTitle, useSharePanel } from '@/hooks';
+import { getFontFamily } from '@/utils/fontUtils';
+import { ErrorService } from '@/utils/errorService';
+import { ErrorBoundary, ShimmerLoadingBar } from '@/components/common';
+import { Sidebar, GlobalBackground } from '@/components/layout';
+import { SongsView } from '@/components/library';
+import { MiniPlayerBar } from '@/components/player';
+import { SharedSong } from '@/utils/songEncodingUtils';
 
-type NavTab = 'songs' | 'artists' | 'netease' | 'together' | 'settings' | 'share';
-
-const ArtistsView = lazy(() => import('../components/library/ArtistsView').then(m => ({ default: m.ArtistsView })));
-const NeteasePanel = lazy(() => import('../components/panels/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
-const SettingsPanel = lazy(() => import('../components/panels/SettingsPanel'));
-const MusicPlayer = lazy(() => import('../components/player/MusicPlayer'));
-const TogetherListenPanel = lazy(() => import('../components/panels/TogetherListenPanel'));
-const SharePanel = lazy(() => import('../components/panels/SharePanel'));
+const ArtistsView = lazy(() => import('@/components/library/ArtistsView').then(m => ({ default: m.ArtistsView })));
+const NeteasePanel = lazy(() => import('@/components/panels/NeteasePanel').then(m => ({ default: m.NeteasePanel })));
+const SettingsPanel = lazy(() => import('@/components/panels/SettingsPanel'));
+const MusicPlayer = lazy(() => import('@/components/player/MusicPlayer'));
+const TogetherListenPanel = lazy(() => import('@/components/panels/TogetherListenPanel'));
+const SharePanel = lazy(() => import('@/components/panels/SharePanel'));
+const PluginPanel = lazy(() => import('@/components/panels/PluginsPanel'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-full">
@@ -86,7 +85,7 @@ const AppContent: React.FC = () => {
         setDuration: playerTime.setDuration,
       }
     );
-  }, [player, playerTime, playlist, settings.streamingMode, settings.chunkCount]);
+  }, [player, playlist, settings.streamingMode, settings.chunkCount]);
 
   const {
     loadNeteaseMusic,
@@ -96,27 +95,6 @@ const AppContent: React.FC = () => {
     neteasePlaylist: playlist.neteasePlaylist,
     setNeteaseCurrentIndex: playlist.setNeteaseCurrentIndex,
     updateNeteaseLikedIndexById: playlist.updateNeteaseLikedIndexById
-  });
-
-  const addToPlaylistFolders = useCallback((name: string, items: PlaylistItem[]) => {
-    playlist.setPlaylistFolders(prev => ({
-      ...prev,
-      [name]: items
-    }));
-  }, [playlist]);
-
-  const {
-    fileInputRef,
-    folderInputRef,
-    handleFileUpload,
-    handleFolderUpload,
-    triggerFileUpload,
-    triggerFolderUpload
-  } = useFileUpload({
-    onTrackLoad: loadMusicFromUrl,
-    addToPlaylist: playlist.addMultipleToPlaylist,
-    addToPlaylistFolders,
-    currentIndex: playlist.currentIndex
   });
 
   const loadPlaylistFromUrl = useCallback(async (url: string) => {
@@ -468,6 +446,19 @@ const AppContent: React.FC = () => {
             </div>
           </Suspense>
         );
+      case 'plugins':
+        return (
+          <div className="h-full flex flex-col">
+            <div className="p-6 border-b border-white/[0.05]">
+              <h2 className="text-2xl font-bold text-white drop-shadow-md">插件</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto playlist-scrollbar p-4">
+              <Suspense fallback={<LoadingFallback />}>
+                <PluginPanel loadMusicFromUrl={loadMusicFromUrl} />
+              </Suspense>
+            </div>
+          </div>
+        );
       case 'songs':
       default:
         return (
@@ -484,13 +475,11 @@ const AppContent: React.FC = () => {
             onSetCurrentFolder={playlist.setCurrentFolder}
             onLoadLinkedFolder={playlist.loadLinkedFolder}
             onTrackSelect={loadMusicFromUrl}
-            onFileUpload={triggerFileUpload}
-            onFolderUpload={triggerFolderUpload}
             onSetCustomSourceUrl={settings.setCustomSourceUrl}
           />
         );
     }
-  }, [activeTab, selectedArtist, playlist, player, playerTime.isPlaying, player.loadingTrackUrl, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, triggerFileUpload, triggerFolderUpload, sharePanel]);
+  }, [activeTab, selectedArtist, playlist, player, playerTime.isPlaying, player.loadingTrackUrl, settings, artistsByLetter, pinyinLoadError, loadMusicFromUrl, loadNeteaseMusic, sharePanel]);
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: getFontFamily(settings.selectedFont) }}>
@@ -507,23 +496,6 @@ const AppContent: React.FC = () => {
           showFullPlayer ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
       >
-        <input
-          type="file"
-          accept="audio/*"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        <input
-          type="file"
-          ref={folderInputRef}
-          onChange={handleFolderUpload}
-          className="hidden"
-          // @ts-ignore
-          webkitdirectory=""
-          directory=""
-        />
-
         {player.loadingProgress !== null && <ShimmerLoadingBar progress={player.loadingProgress} />}
 
         <Sidebar
