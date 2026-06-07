@@ -3,7 +3,7 @@
  * 用于在组件卸载后保持 WebRTC 连接
  */
 
-import { PeerConnection, SyncMessage, ConnectionState, ConnectionLog } from './webrtc';
+import { PeerConnection, SyncMessage, ConnectionState, ConnectionLog, validateRoomId, generateRoomId } from './webrtc';
 
 export interface TogetherListenState {
   mode: 'idle' | 'hosting' | 'joining' | 'connected';
@@ -260,8 +260,6 @@ class TogetherListenManager {
    * 创建房间
    */
   async createRoom(roomId: string): Promise<string> {
-    const { validateRoomId, generateRoomId } = await import('./webrtc');
-
     const validation = validateRoomId(roomId.trim());
     if (!validation.valid) {
       this.state = { ...this.state, error: validation.error || '房间号无效' };
@@ -307,8 +305,6 @@ class TogetherListenManager {
    * 加入房间
    */
   async joinRoom(roomId: string): Promise<void> {
-    const { validateRoomId } = await import('./webrtc');
-
     const validation = validateRoomId(roomId.trim());
     if (!validation.valid) {
       this.state = { ...this.state, error: validation.error || '房间号无效' };
