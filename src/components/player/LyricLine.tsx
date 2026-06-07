@@ -99,7 +99,7 @@ export const LyricLine: React.FC<LyricLineProps> = ({
         {/* 翻译文本 */}
         {showTranslation && line.translation && (
           <p
-            className={`text-sm font-medium transition-all duration-700 select-none ${
+            className={`text-[18px] font-medium select-none ${
               isActive
                 ? 'text-white/70'
                 : isAdjacent

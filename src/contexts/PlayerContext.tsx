@@ -156,13 +156,36 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children }) => {
           const encodedUrl = item.url.startsWith('http://') || item.url.startsWith('https://')
             ? item.url
             : encodeURI(item.url);
+          //使用 XMLHttpRequest 下载文件，支持进度显示
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', encodedUrl, true);
+          xhr.responseType = 'blob';
 
-          const response = await fetch(encodedUrl, { signal });
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          
-          const blob = await response.blob();
+          const blob = await new Promise<Blob>((resolve, reject) => {
+            // 监听 AbortSignal，支持中断请求
+            signal.addEventListener('abort', () => {
+              xhr.abort();
+            });
+
+            xhr.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const percent = Math.round((event.loaded / event.total) * 100);
+                setLoadingProgress(percent);
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(xhr.response);
+              } else {
+                reject(new Error(`HTTP error! status: ${xhr.status}`));
+              }
+            };
+
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.onabort = () => reject(new Error('Aborted'));
+            xhr.send();
+          });
 
           if (signal.aborted) return;
 
