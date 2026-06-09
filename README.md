@@ -16,7 +16,7 @@
 
 ---
 
-## 📸 应用截图
+## 应用截图
 
 <details>
 <summary>点击查看截图</summary>
@@ -103,9 +103,10 @@ npm run build
 </details>
 
 ### 网易云音乐功能
-使用第三方API[apis.netstart.cn](https://apis.netstart.cn/music/)和网易官方外链播放音乐
-1. 在线搜索和播放
-2. 收藏功能
+从2.12.3开始使用Netlify部署，[Hono](https://hono.dev/) 作为 API 服务端。
+<details>
+<summary>使用第三方API</summary>
+使用第三方API[apis.netstart.cn](https://apis.netstart.cn/music/)和网易官方外链播放音乐</details>
 
 
 #### 歌词显示
@@ -143,7 +144,7 @@ python main.py
 
 </details>
 
-## 📁 项目结构
+## 项目结构
 
 ```
 Serene-Player/
@@ -189,7 +190,7 @@ Serene-Player/
 - [x] 支持网易云音乐播放
 - [x] 歌单分享功能
 - [ ] 深色/浅色主题切换
-- [ ] 支持更多音乐平台
+- [ ] 支持更多音乐平台 (Working)
 - [x] 历史记录
 - [ ] 添加更多发现插件
 - [x] 播放列表导出/导入

@@ -19,7 +19,7 @@ export interface NeteaseSearchResult {
   songCount: number;
 }
 
-const BASE_URL = 'https://apis.netstart.cn/music';
+const BASE_URL = '/api/music';
 
 export async function searchNeteaseMusic(keywords: string, limit: number = 30, offset: number = 0): Promise<NeteaseSearchResult> {
   const url = `${BASE_URL}/search?keywords=${encodeURIComponent(keywords)}&limit=${limit}&offset=${offset}`;
@@ -74,14 +74,14 @@ export async function getSongDetail(ids: number | number[]): Promise<NeteaseSong
   return data.songs.map((song: any) => ({
     id: song.id,
     name: song.name,
-    artists: song.ar.map((artist: any) => ({ name: artist.name, id: artist.id })),
+    artists: (song.artists || []).map((artist: any) => ({ name: artist.name, id: artist.id })),
     album: {
-      name: song.al.name,
-      picUrl: song.al.picUrl,
-      id: song.al.id,
-      picUrl_str: song.al.picUrl_str,
+      name: song.album?.name || '',
+      picUrl: song.album?.picUrl || '',
+      id: song.album?.id || 0,
+      picUrl_str: song.album?.picUrl_str,
     },
-    duration: song.dt,
+    duration: song.duration || 0,
   }));
 }
 

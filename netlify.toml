@@ -1,6 +1,14 @@
 [build]
-  publish = "dist"
-  command = ""
+publish = "dist"
+command = ""
+edge_functions = "netlify/edge-functions"
 
 [build.processing]
-  skip_processing = true
+skip_processing = true
+
+[[edge_functions]]
+function = "index"
+path = "/api/*"
+
+[dev]
+port = 3000

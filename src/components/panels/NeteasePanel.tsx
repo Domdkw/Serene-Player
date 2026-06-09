@@ -235,7 +235,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     setShowSuggestions(false);
 
     try {
-      const result = await searchNeteaseMusic(searchWord.trim());
+      const result = await searchNeteaseMusic(searchWord.trim(), 30);
       setSearchResults(result.songs);
       
       if (addToHistory) {
@@ -301,24 +301,13 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     }
   }, [handleSearch]);
 
-  const handleHotSearchClick = useCallback((keyword: string) => {
+  const handleSearchBtnClick = useCallback((keyword: string) => {
     skipSuggestionRef.current = true;
     setSearchQuery(keyword);
     setShowSuggestions(false);
     handleSearch(keyword);
   }, [handleSearch]);
 
-  const handleSuggestionClick = useCallback((keyword: string) => {
-    skipSuggestionRef.current = true;
-    setSearchQuery(keyword);
-    setShowSuggestions(false);
-    handleSearch(keyword);
-    
-    // 重新聚焦到输入框
-    if (searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [handleSearch]);
 
   /**
    * 统一的歌曲加载函数
@@ -683,7 +672,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                   {suggestions.map((item, index) => (
                     <div
                       key={index}
-                      onClick={() => handleSuggestionClick(item.keyword)}
+                      onClick={() => handleSearchBtnClick(item.keyword)}
                       className="px-3 py-2.5 rounded-lg hover:bg-white/10 cursor-pointer flex items-center gap-2"
                     >
                       <Search size={14} className="text-white/40 flex-shrink-0" />
@@ -727,7 +716,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                     {searchHistory.map((keyword, index) => (
                       <button
                         key={index}
-                        onClick={() => handleSearch(keyword)}
+                        onClick={() => handleSearchBtnClick(keyword)}
                         className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/80 text-sm rounded-lg transition-colors border border-white/5"
                       >
                         {keyword}
@@ -745,7 +734,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
                 {hotSearchList.slice(0, 10).map((item, index) => (
                   <div
                     key={item.searchWord}
-                    onClick={() => handleHotSearchClick(item.searchWord)}
+                    onClick={() => handleSearchBtnClick(item.searchWord)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
                   >
                     <span className={`text-sm font-medium w-6 ${
