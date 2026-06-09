@@ -37,3 +37,6 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# Local Netlify folder
+.netlify
