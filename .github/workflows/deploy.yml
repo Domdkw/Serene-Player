@@ -1,7 +1,7 @@
 name: Deploy to Netlify
 on:
   push:
-    branches: [ main ]  # 你的主分支（是main就用main，是master就改master）
+    branches: [ main ]
 
 jobs:
   deploy:

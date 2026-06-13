@@ -1,7 +1,7 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './src/index.css';
+import '.index.css';
 
 const isMobile = () => {
   return window.innerWidth < 768 || /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -14,7 +14,7 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 
-const App = isMobile() ? React.lazy(() => import('./src/app/MobileApp')) : React.lazy(() => import('./src/app/App'));
+const App = isMobile() ? React.lazy(() => import('./MobileApp')) : React.lazy(() => import('./App'));
 
 root.render(
   <React.StrictMode>
