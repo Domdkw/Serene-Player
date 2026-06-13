@@ -15,7 +15,7 @@ import {
 import { Track, LyricLine as ParsedLyric } from '@/types';
 import { getFontFamily } from '@/utils/fontUtils';
 import { getLyricsType } from '@/utils/lyricsUtils';
-import { getArtistDetail, NeteaseArtistDetail, getAlbumCoverUrl } from '@/apis/netease';
+import { apiRouter, NeteaseArtistDetail } from '@/apis/apiRouter';
 import { useLyricsScrolling } from '@/hooks';
 import LyricLine from './LyricLine';
 
@@ -111,7 +111,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     const fetchArtistPictures = async () => {
       setIsLoadingArtists(true);
       try {
-        const promises = artistIds.map(id => getArtistDetail(id));
+        const promises = artistIds.map(id => apiRouter.getArtistDetail(id));
         const results = await Promise.all(promises);
         const validResults = results.filter((r): r is NeteaseArtistDetail => r !== null && r.picUrl !== '');
         setArtistPictures(validResults);
@@ -208,7 +208,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
               {track.metadata.coverUrl ? (
                 <img
                   src={
-                    track.neteaseId ? getAlbumCoverUrl(track.metadata.coverUrl, 0) : track.metadata.coverUrl
+                    track.neteaseId ? apiRouter.getAlbumCoverUrl(track.metadata.coverUrl, 0) : track.metadata.coverUrl
                   }
                   alt="Cover"
                   className={`w-full h-full object-cover`}

@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { Search, Loader2, Play, Pause, Music, Heart, Trash2, Flame, TrendingUp, ChevronLeft } from 'lucide-react';
-import { searchNeteaseMusic, getSongUrl, getSongDetail, getAlbumCoverUrl, getSongLyric, getHotSearchDetail, getSearchSuggestion, NeteaseSong, NeteaseSongDetail, NeteaseHotSearch, formatDuration } from '@/apis/netease';
+import { Search, Loader2, Music, Heart, Trash2, Flame, TrendingUp, ChevronLeft } from 'lucide-react';
+import { apiRouter } from '@/apis/apiRouter';
 import { PlaylistItem } from '@/types';
-import { LazyImage, SongCard, SongCardData } from '../common';
+import { SongCard, SongCardData } from '../common';
 import { FavoriteSong, loadFavorites, saveFavorites, isSongFavorite, addFavorite, removeFavorite, dispatchFavoritesUpdate, createFavoriteSong } from '@/utils/NEfavorites';
 
 export interface NeteasePanelRef {
@@ -14,12 +14,9 @@ interface NeteasePanelProps {
   onTrackSelect: (item: PlaylistItem, index: number) => void;
   currentTrackUrl: string | null;
   isPlaying: boolean;
-  onAddToPlaylist: (item: PlaylistItem) => void;
   neteasePlaylist: PlaylistItem[];
-  neteaseCurrentIndex: number;
   setNeteasePlaylist: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
-  setNeteaseCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
-  onSearchComplete?: (results: NeteaseSong[]) => void;
+  onSearchComplete?: (results: NetSong[]) => void;
 }
 
 interface LoadingStatus {
@@ -55,7 +52,7 @@ const addSearchHistory = (keyword: string) => {
 };
 
 interface HotSearchCache {
-  data: NeteaseHotSearch[];
+  data: NetHotSearch[];
   timestamp: number;
 }
 
@@ -78,7 +75,7 @@ const loadHotSearchCache = (): HotSearchCache | null => {
   }
 };
 
-const saveHotSearchCache = (data: NeteaseHotSearch[]) => {
+const saveHotSearchCache = (data: NetHotSearch[]) => {
   const cache: HotSearchCache = {
     data,
     timestamp: Date.now(),
@@ -90,24 +87,21 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   onTrackSelect,
   currentTrackUrl,
   isPlaying,
-  onAddToPlaylist,
   neteasePlaylist,
-  neteaseCurrentIndex,
   setNeteasePlaylist,
-  setNeteaseCurrentIndex,
   onSearchComplete,
   ref,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<NeteaseSong[]>([]);
-  const [songDetails, setSongDetails] = useState<Record<number, NeteaseSongDetail>>({});
+  const [searchResults, setSearchResults] = useState<NetSong[]>([]);
+  const [songDetails, setSongDetails] = useState<Record<number, NetSongDetail>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [loadingSongId, setLoadingSongId] = useState<number | null>(null);
   const [favorites, setFavorites] = useState<FavoriteSong[]>(() => loadFavorites());
   const [activeTab, setActiveTab] = useState<'search' | 'favorites'>('favorites');
   const [searchHistory, setSearchHistory] = useState<string[]>(() => loadSearchHistory());
-  const [hotSearchList, setHotSearchList] = useState<NeteaseHotSearch[]>([]);
+  const [hotSearchList, setHotSearchList] = useState<NetHotSearch[]>([]);
   const [suggestions, setSuggestions] = useState<{ keyword: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -116,16 +110,10 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchQueryRef = useRef(searchQuery);
 
-  /**
-   * 喜欢列表为空时，保持显示"我喜欢"界面
-   */
-
   // 更新 searchQueryRef
   useEffect(() => {
     searchQueryRef.current = searchQuery;
   }, [searchQuery]);
-
-
 
   /**
    * 加载热搜列表（仅在打开搜索界面时）
@@ -145,7 +133,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
 
       // 缓存不存在或已过期，从网络加载
       try {
-        const result = await getHotSearchDetail();
+        const result = await apiRouter.getHotSearchDetail();
         setHotSearchList(result);
         saveHotSearchCache(result);
       } catch (error) {
@@ -174,7 +162,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     const timer = setTimeout(async () => {
       setIsLoadingSuggestions(true);
       try {
-        const result = await getSearchSuggestion(searchQuery.trim());
+        const result = await apiRouter.getSearchSuggestion(searchQuery.trim());
         setSuggestions(result.allMatch);
         setShowSuggestions(true);
       } catch (error) {
@@ -191,7 +179,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     return isSongFavorite(favorites, songId);
   }, [favorites]);
 
-  const toggleFavorite = useCallback(async (song: NeteaseSong) => {
+  const toggleFavorite = useCallback(async (song: NetSong) => {
     const songId = song.id;
     const isAlreadyFavorite = isFavorite(songId);
 
@@ -235,7 +223,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     setShowSuggestions(false);
 
     try {
-      const result = await searchNeteaseMusic(searchWord.trim(), 30);
+      const result = await apiRouter.searchMusic(searchWord.trim(), 30);
       setSearchResults(result.songs);
       
       if (addToHistory) {
@@ -245,8 +233,8 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
 
       if (result.songs.length > 0) {
         const songIds = result.songs.map(song => song.id);
-        const details = await getSongDetail(songIds);
-        const detailsMap: Record<number, NeteaseSongDetail> = {};
+        const details = await apiRouter.getSongDetail(songIds);
+        const detailsMap: Record<number, NetSongDetail> = {};
         details.forEach(detail => {
           detailsMap[detail.id] = detail;
         });
@@ -325,10 +313,11 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     artistNames: string[],
     artistIds: number[],
     albumName: string,
-    coverUrl?: string
+    coverUrl?: string,
+    source?: string,
   ): Promise<PlaylistItem | null> => {
     try {
-      const songUrl = await getSongUrl(songId);
+      const songUrl = await apiRouter.getSongUrl(songId, source);
       if (!songUrl) {
         console.error('无法获取歌曲 URL');
         return null;
@@ -337,7 +326,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
       let lyrics: string | undefined;
       let translatedLyrics: string | undefined;
       try {
-        const lyricData = await getSongLyric(songId);
+        const lyricData = await apiRouter.getSongLyric(songId, source);
         if (lyricData) {
           lyrics = lyricData.lyric || undefined;
           translatedLyrics = lyricData.tlyric;
@@ -366,14 +355,14 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
     }
   };
 
-  const handlePlaySong = useCallback(async (song: NeteaseSong) => {
+  const handlePlaySong = useCallback(async (song: NetSong) => {
     setLoadingSongId(song.id);
     setLoadingStatus({ loading: true, error: false, songId: song.id });
 
     try {
       const detail = songDetails[song.id];
       const coverUrl = detail?.album.picUrl 
-        ? getAlbumCoverUrl(detail.album.picUrl, 800, true) 
+        ? apiRouter.getAlbumCoverUrl(detail.album.picUrl, 800, true) 
         : undefined;
 
       const playlistItem = await loadNeteaseSong(
@@ -423,7 +412,8 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
         [favorite.artist],
         favorite.artistIds || [],
         favorite.album,
-        favorite.coverUrl
+        favorite.coverUrl,
+        favorite.source || '163'
       );
 
       if (!playlistItem) {
@@ -489,7 +479,7 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
           p => p.url === currentTrackUrl && p.name === song.name
         );
         const detail = songDetails[song.id];
-        const coverUrl = detail?.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 50) : undefined;
+        const coverUrl = detail?.album.picUrl ? apiRouter.getAlbumCoverUrl(detail.album.picUrl, 50) : undefined;
 
         const songCardData: SongCardData = {
           id: song.id,
@@ -538,18 +528,19 @@ const NeteasePanelComponent: React.FC<NeteasePanelProps & { ref?: React.Ref<Nete
             name: favorite.name,
             artist: favorite.artist,
             coverUrl: favorite.coverUrl,
-            duration: favorite.duration
+            duration: favorite.duration,
+            source: favorite.source,
           };
 
           return (
             <SongCard
-              key={favorite.id}
+              key={JSON.stringify(favorite.id)}
               song={songCardData}
               isPlaying={isCurrentTrack && isPlaying}
               isLiked={true}
               isLoading={loadingSongId === favorite.id}
               onClick={() => handlePlayFavorite(favorite)}
-              onToggleLike={() => toggleFavorite({ id: favorite.id } as NeteaseSong)}
+              onToggleLike={() => toggleFavorite({ id: favorite.id } as NetSong)}
               showDuration={true}
             />
           );

@@ -3,7 +3,7 @@
  * 用于管理网易云音乐的"我喜欢"歌单
  */
 
-import { getAlbumCoverUrl } from '@/apis/netease';
+import { apiRouter } from '@/apis/apiRouter';
 
 /**
  * 喜欢的歌曲接口
@@ -17,6 +17,8 @@ export interface FavoriteSong {
   coverUrl: string;
   duration: number;
   addedAt: number;
+  /** 音乐来源平台 */
+  source?: string;
 }
 
 /**
@@ -29,23 +31,26 @@ export interface SongDataForFavorite {
   artists: { name: string; id: number }[];
   album: { name: string; picUrl: string };
   duration: number;
+  source?: string;
 }
 
 /**
  * 创建 FavoriteSong 对象
  * @param song 歌曲数据（兼容 NeteaseSong 和 NeteaseSongDetail）
+ * @param source 音乐来源平台（默认为 '163'）
  * @returns FavoriteSong 对象
  */
-export const createFavoriteSong = (song: SongDataForFavorite): FavoriteSong => {
+export const createFavoriteSong = (song: SongDataForFavorite, source: string = '163'): FavoriteSong => {
   return {
     id: song.id,
     name: song.name,
     artist: song.artists.map(a => a.name).join(', '),
     artistIds: song.artists.map(a => a.id).filter(id => id > 0),
     album: song.album.name,
-    coverUrl: song.album.picUrl ? getAlbumCoverUrl(song.album.picUrl, 50) : '',
+    coverUrl: song.album.picUrl ? apiRouter.getAlbumCoverUrl(song.album.picUrl, 50) : '',
     duration: song.duration,
     addedAt: Date.now(),
+    source: song.source || source,
   };
 };
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { PlaylistItem } from '../types';
 import { QueryParams } from '../utils/queryParams';
 import { parseQueryParams, getMusicByIndex, clearQueryParams } from '../utils/queryParams';
-import { getSongUrl, getSongDetail, getSongLyric, getAlbumCoverUrl } from '../apis/netease';
+import { apiRouter } from '../apis/apiRouter';
 import { decompressBase64ToSongs, SharedSong } from '../utils/songEncodingUtils';
 
 /**
@@ -64,7 +64,7 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
       }
 
       console.log('[QueryParams] 获取歌曲 URL...');
-      const songUrl = await getSongUrl(id);
+      const songUrl = await apiRouter.getSongUrl(id);
       if (!songUrl) {
         console.error('[QueryParams] 无法获取歌曲 URL');
         return;
@@ -72,19 +72,19 @@ export function useQueryParams(handlers: QueryParamsHandlers) {
       console.log('[QueryParams] 歌曲 URL:', songUrl);
 
       console.log('[QueryParams] 获取歌曲详情...');
-      const details = await getSongDetail(id);
+      const details = await apiRouter.getSongDetail(id);
       if (!details || details.length === 0) {
         console.error('[QueryParams] 无法获取歌曲详情');
         return;
       }
 
       const detail = details[0];
-      const coverUrl = detail.album.picUrl ? getAlbumCoverUrl(detail.album.picUrl, 800, true) : null;
+      const coverUrl = detail.album.picUrl ? apiRouter.getAlbumCoverUrl(detail.album.picUrl, 800, true) : null;
 
       let lyrics: string | undefined;
       let translatedLyrics: string | undefined;
       try {
-        const lyricData = await getSongLyric(id);
+        const lyricData = await apiRouter.getSongLyric(id);
         if (lyricData) {
           lyrics = lyricData.lyric || undefined;
           translatedLyrics = lyricData.tlyric;

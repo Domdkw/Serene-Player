@@ -1,261 +1,239 @@
-export interface NeteaseSong {
-  id: number;
-  name: string;
-  artists: { name: string; id: number }[];
-  album: { name: string; picUrl: string; id: number };
-  duration: number;
-}
-
-export interface NeteaseSongDetail {
-  id: number;
-  name: string;
-  artists: { name: string; id: number }[];
-  album: { name: string; picUrl: string; id: number; picUrl_str?: string };
-  duration: number;
-}
-
-export interface NeteaseSearchResult {
-  songs: NeteaseSong[];
-  songCount: number;
-}
-
 const BASE_URL = '/api/music';
 
-export async function searchNeteaseMusic(keywords: string, limit: number = 30, offset: number = 0): Promise<NeteaseSearchResult> {
-  const url = `${BASE_URL}/search?keywords=${encodeURIComponent(keywords)}&limit=${limit}&offset=${offset}`;
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`搜索失败: ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  if (data.code !== 200) {
-    throw new Error(`API错误: ${data.message || '未知错误'}`);
-  }
-
-  return {
-    songs: data.result.songs || [],
-    songCount: data.result.songCount || 0,
-  };
-}
-
-export function getNeteaseSongUrl(id: number): string {
-  return `https://music.163.com/song/media/outer/url?id=${id}.mp3`;
-}
-
-export async function getSongUrl(id: number): Promise<string | null> {
-  const url = getNeteaseSongUrl(id);
-  return url;
-}
-
-export function formatDuration(duration: number): string {
-  const minutes = Math.floor(duration / 60000);
-  const seconds = Math.floor((duration % 60000) / 1000);
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-export async function getSongDetail(ids: number | number[]): Promise<NeteaseSongDetail[]> {
-  const idsArray = Array.isArray(ids) ? ids : [ids];
-  const url = `${BASE_URL}/song/detail?ids=${idsArray.join(',')}`;
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`获取歌曲详情失败: ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  if (data.code !== 200 || !data.songs) {
-    return [];
-  }
-
-  return data.songs.map((song: any) => ({
-    id: song.id,
-    name: song.name,
-    artists: (song.artists || []).map((artist: any) => ({ name: artist.name, id: artist.id })),
-    album: {
-      name: song.album?.name || '',
-      picUrl: song.album?.picUrl || '',
-      id: song.album?.id || 0,
-      picUrl_str: song.album?.picUrl_str,
-    },
-    duration: song.duration || 0,
-  }));
-}
-
-export function getAlbumCoverUrl(picUrl: string, size: number = 0, original: boolean = false): string {
-  if (!picUrl) return '';
-  
-  if (original) {
-    return picUrl.replace(/\?param=\d+y\d+/, '');
-  }
-  
-  const sizeParam = size >= 800 ? 800 : size >= 400 ? 400 : size;
-  return picUrl.replace(/\?param=\d+y\d+/, '') + (sizeParam===0 ? '' : `?param=${sizeParam}y${sizeParam}`);
-}
-
-export interface NeteaseLyric {
-  lyric: string;
-  tlyric: string;
-}
-
-export interface NeteaseHotSearch {
-  searchWord: string;
-  score: number;
-  content: string;
-  source: number;
-  iconType: number;
-  iconUrl: string | null;
-  url: string;
-  alg: string;
-}
-
-export interface NeteaseSearchSuggestion {
-  allMatch: { keyword: string; type: number; alg: string; lastKeyword: string; feature: string }[];
-}
+/** 歌手详情缓存 */
+const artistDetailCache = new Map<number, NetArtistDetail | null>();
 
 /**
- * 获取歌曲歌词
- * @param id 歌曲ID
- * @returns 歌词对象，包含原文歌词和翻译歌词
+ * 网易云音乐 API 对象
  */
-export async function getSongLyric(id: number): Promise<NeteaseLyric | null> {
-  const url = `${BASE_URL}/lyric?id=${id}`;
+export const neteaseApi = {
+  /**
+   * 搜索歌曲
+   * @param keywords 搜索关键词
+   * @param limit 返回数量限制
+   * @param offset 偏移量
+   * @returns 搜索结果
+   */
+  async searchMusic(keywords: string, limit: number = 30, offset: number = 0): Promise<NetSearchResult> {
+    const url = `${BASE_URL}/search?keywords=${encodeURIComponent(keywords)}&limit=${limit}&offset=${offset}`;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`获取歌词失败: ${response.status}`);
-  }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`搜索失败: ${response.status}`);
+    }
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (data.code !== 200) {
-    return null;
-  }
+    if (data.code !== 200) {
+      throw new Error(`API错误: ${data.message || '未知错误'}`);
+    }
 
-  return {
-    lyric: data.lrc?.lyric || '',
-    tlyric: data.tlyric?.lyric || '',
-  };
-}
+    return {
+      songs: data.result.songs || [],
+      songCount: data.result.songCount || 0,
+    };
+  },
 
-/**
- * 获取热搜列表(简略)
- * @returns 热搜列表
- */
-export async function getHotSearchList(): Promise<NeteaseHotSearch[]> {
-  const url = `${BASE_URL}/search/hot`;
+  /**
+   * 获取歌曲播放 URL
+   * @param id 歌曲ID
+   * @returns 播放 URL
+   */
+  getSongUrl(id: number): string {
+    return `https://music.163.com/song/media/outer/url?id=${id}.mp3`;
+  },
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`获取热搜列表失败: ${response.status}`);
-  }
+  /**
+   * 格式化时长
+   * @param duration 时长（毫秒）
+   * @returns 格式化后的时长字符串
+   */
+  formatDuration(duration: number): string {
+    const minutes = Math.floor(duration / 60000);
+    const seconds = Math.floor((duration % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  },
 
-  const data = await response.json();
+  /**
+   * 获取歌曲详情
+   * @param ids 歌曲ID或ID数组
+   * @returns 歌曲详情数组
+   */
+  async getSongDetail(ids: number | number[]): Promise<NetSongDetail[]> {
+    const idsArray = Array.isArray(ids) ? ids : [ids];
+    const url = `${BASE_URL}/song/detail?ids=${idsArray.join(',')}`;
 
-  if (data.code !== 200) {
-    throw new Error(`API错误: ${data.message || '未知错误'}`);
-  }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`获取歌曲详情失败: ${response.status}`);
+    }
 
-  return data.result || [];
-}
+    const data = await response.json();
 
-/**
- * 获取热搜列表(详细)
- * @returns 详细热搜列表
- */
-export async function getHotSearchDetail(): Promise<NeteaseHotSearch[]> {
-  const url = `${BASE_URL}/search/hot/detail`;
+    if (data.code !== 200 || !data.songs) {
+      return [];
+    }
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`获取热搜详情失败: ${response.status}`);
-  }
+    return data.songs.map((song: any) => ({
+      id: song.id,
+      name: song.name,
+      artists: (song.artists || []).map((artist: any) => ({ name: artist.name, id: artist.id })),
+      album: {
+        name: song.album?.name || '',
+        picUrl: song.album?.picUrl || '',
+        id: song.album?.id || 0,
+        picUrl_str: song.album?.picUrl_str,
+      },
+      duration: song.duration || 0,
+    }));
+  },
 
-  const data = await response.json();
+  /**
+   * 获取专辑封面 URL
+   * @param picUrl 原始封面 URL
+   * @param size 尺寸
+   * @param original 是否获取原图
+   * @returns 处理后的封面 URL
+   */
+  getAlbumCoverUrl(picUrl: string, size: number = 0, original: boolean = false): string {
+    if (!picUrl) return '';
 
-  if (data.code !== 200) {
-    throw new Error(`API错误: ${data.message || '未知错误'}`);
-  }
+    if (original) {
+      return picUrl.replace(/\?param=\d+y\d+/, '');
+    }
 
-  return data.data || [];
-}
+    const sizeParam = size >= 800 ? 800 : size >= 400 ? 400 : size;
+    return picUrl.replace(/\?param=\d+y\d+/, '') + (sizeParam === 0 ? '' : `?param=${sizeParam}y${sizeParam}`);
+  },
 
-/**
- * 获取搜索建议
- * @param keywords 关键词
- * @returns 搜索建议
- */
-export async function getSearchSuggestion(keywords: string): Promise<NeteaseSearchSuggestion> {
-  const url = `${BASE_URL}/search/suggest?keywords=${encodeURIComponent(keywords)}&type=mobile`;
+  /**
+   * 获取歌曲歌词
+   * @param id 歌曲ID
+   * @returns 歌词对象
+   */
+  async getSongLyric(id: number): Promise<NetLyric | null> {
+    const url = `${BASE_URL}/lyric?id=${id}`;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`获取搜索建议失败: ${response.status}`);
-  }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`获取歌词失败: ${response.status}`);
+    }
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (data.code !== 200) {
-    throw new Error(`API错误: ${data.message || '未知错误'}`);
-  }
+    if (data.code !== 200) {
+      return null;
+    }
 
-  return {
-    allMatch: data.result.allMatch || [],
-  };
-}
+    return {
+      lyric: data.lrc?.lyric || '',
+      tlyric: data.tlyric?.lyric || '',
+    };
+  },
 
-export interface NeteaseArtistDetail {
-  id: number;
-  name: string;
-  picUrl: string;
-  albumSize: number;
-  musicSize: number;
-  briefDesc: string;
-  alias: string[];
-  followeds: number;
-}
+  /**
+   * 获取热搜列表（简略）
+   * @returns 热搜列表
+   */
+  async getHotSearchList(): Promise<NetHotSearch[]> {
+    const url = `${BASE_URL}/search/hot`;
 
-const artistDetailCache = new Map<number, NeteaseArtistDetail | null>();
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`获取热搜列表失败: ${response.status}`);
+    }
 
-/**
- * 获取歌手详情
- * @param id 歌手ID
- * @returns 歌手详情信息，包含头像等
- */
-export async function getArtistDetail(id: number): Promise<NeteaseArtistDetail | null> {
-  if (artistDetailCache.has(id)) {
-    return artistDetailCache.get(id)!;
-  }
+    const data = await response.json();
 
-  const url = `${BASE_URL}/artist/detail?id=${id}`;
+    if (data.code !== 200) {
+      throw new Error(`API错误: ${data.message || '未知错误'}`);
+    }
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`获取歌手详情失败: ${response.status}`);
-  }
+    return data.result || [];
+  },
 
-  const data = await response.json();
+  /**
+   * 获取热搜列表（详细）
+   * @returns 详细热搜列表
+   */
+  async getHotSearchDetail(): Promise<NetHotSearch[]> {
+    const url = `${BASE_URL}/search/hot/detail`;
 
-  if (data.code !== 200 || !data.data?.artist) {
-    artistDetailCache.set(id, null);
-    return null;
-  }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`获取热搜详情失败: ${response.status}`);
+    }
 
-  const artist = data.data.artist;
-  const result: NeteaseArtistDetail = {
-    id: artist.id,
-    name: artist.name,
-    picUrl: artist.avatar || artist.cover || '',
-    albumSize: artist.albumSize || 0,
-    musicSize: artist.musicSize || 0,
-    briefDesc: artist.briefDesc || '',
-    alias: artist.alias || [],
-    followeds: artist.followeds || 0,
-  };
+    const data = await response.json();
 
-  artistDetailCache.set(id, result);
-  return result;
-}
+    if (data.code !== 200) {
+      throw new Error(`API错误: ${data.message || '未知错误'}`);
+    }
+
+    return data.data || [];
+  },
+
+  /**
+   * 获取搜索建议
+   * @param keywords 关键词
+   * @returns 搜索建议
+   */
+  async getSearchSuggestion(keywords: string): Promise<NetSearchSuggestion> {
+    const url = `${BASE_URL}/search/suggest?keywords=${encodeURIComponent(keywords)}&type=mobile`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`获取搜索建议失败: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.code !== 200) {
+      throw new Error(`API错误: ${data.message || '未知错误'}`);
+    }
+
+    return {
+      allMatch: data.result.allMatch || [],
+    };
+  },
+
+  /**
+   * 获取歌手详情
+   * @param id 歌手ID
+   * @returns 歌手详情信息
+   */
+  async getArtistDetail(id: number): Promise<NetArtistDetail | null> {
+    if (artistDetailCache.has(id)) {
+      return artistDetailCache.get(id)!;
+    }
+
+    const url = `${BASE_URL}/artist/detail?id=${id}`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`获取歌手详情失败: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.code !== 200 || !data.data?.artist) {
+      artistDetailCache.set(id, null);
+      return null;
+    }
+
+    const artist = data.data.artist;
+    const result: NetArtistDetail = {
+      id: artist.id,
+      name: artist.name,
+      picUrl: artist.avatar || artist.cover || '',
+      albumSize: artist.albumSize || 0,
+      musicSize: artist.musicSize || 0,
+      briefDesc: artist.briefDesc || '',
+      alias: artist.alias || [],
+      followeds: artist.followeds || 0,
+    };
+
+    artistDetailCache.set(id, result);
+    return result;
+  },
+};

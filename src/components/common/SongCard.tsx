@@ -6,11 +6,13 @@ import { LazyImage } from '../common';
  * 歌曲卡片数据接口
  */
 export interface SongCardData {
-  id: number;
+  id: number | object;  // 26.6.13: {id:{163:0000}} 多音乐源支持
   name: string;
   artist: string;
   coverUrl?: string;
   duration?: number;
+  /** 音乐来源平台 */
+  source?: string;
 }
 
 /**

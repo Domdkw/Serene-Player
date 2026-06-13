@@ -3,7 +3,7 @@ import { Copy, Check, RefreshCw, Clock, Link, AlertCircle, Music, Heart } from '
 import { ShareConfig } from '@/hooks/useSharePanel';
 import { SharedSong } from '@/utils/songEncodingUtils';
 import { MobileBottomSheet } from '../layout';
-import { getSongDetail, getAlbumCoverUrl } from '@/apis/netease';
+import { apiRouter } from '@/apis/apiRouter';
 import { SongCard, SongCardData } from '../common';
 import { FavoriteSong, loadFavorites, saveFavorites, isSongFavorite, addFavorite, removeFavorite, dispatchFavoritesUpdate, createFavoriteSong, SongDataForFavorite } from '@/utils/NEfavorites';
 
@@ -160,7 +160,7 @@ const SharePanel: React.FC<SharePanelProps> = memo(({
       setIsLoadingDetails(true);
       try {
         const ids = sharedSongs.map(s => s.id);
-        const details = await getSongDetail(ids);
+        const details = await apiRouter.getSongDetail(ids);
         const newCache = new Map<number, SongDetailCache>();
         details.forEach(detail => {
           newCache.set(detail.id, {
@@ -248,7 +248,7 @@ const SharePanel: React.FC<SharePanelProps> = memo(({
                 id: song.id,
                 name: song.name,
                 artist: cachedDetail?.artists?.map(a => a.name).join(', ') || song.artist,
-                coverUrl: cachedDetail?.album.picUrl ? getAlbumCoverUrl(cachedDetail.album.picUrl, 50) : undefined,
+                coverUrl: cachedDetail?.album.picUrl ? apiRouter.getAlbumCoverUrl(cachedDetail.album.picUrl, 50) : undefined,
                 duration: cachedDetail?.duration
               };
 

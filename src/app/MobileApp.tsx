@@ -408,11 +408,8 @@ const MobileAppContent: React.FC = () => {
           onTrackSelect={loadNeteaseMusic}
           currentTrackUrl={player.track?.objectUrl || null}
           isPlaying={playerTime.isPlaying}
-          onAddToPlaylist={() => {}}
           neteasePlaylist={playlist.neteasePlaylist}
-          neteaseCurrentIndex={playlist.neteaseCurrentIndex}
           setNeteasePlaylist={playlist.setNeteasePlaylist}
-          setNeteaseCurrentIndex={playlist.setNeteaseCurrentIndex}
         />
       </Suspense>
     );

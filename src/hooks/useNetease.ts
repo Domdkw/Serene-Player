@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { PlaylistItem } from '../types';
-import { getSongUrl, getSongDetail, getSongLyric, getAlbumCoverUrl } from '../apis/netease';
+import { apiRouter } from '../apis/apiRouter';
 import { ErrorService } from '../utils/errorService';
 
 interface UseNeteaseOptions {
@@ -39,7 +39,7 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
    */
   const fetchLyricsOnly = useCallback(async (neteaseId: number): Promise<{ lyrics?: string; translatedLyrics?: string }> => {
     try {
-      const lyricData = await getSongLyric(neteaseId);
+      const lyricData = await apiRouter.getSongLyric(neteaseId);
       if (lyricData) {
         return {
           lyrics: lyricData.lyric || undefined,
@@ -59,7 +59,7 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
   const fetchSongDetailsById = useCallback(async (neteaseId: number): Promise<PlaylistItem | null> => {
     try {
       // 1. 获取歌曲详情
-      const songDetails = await getSongDetail(neteaseId);
+      const songDetails = await apiRouter.getSongDetail(neteaseId);
       if (!songDetails || songDetails.length === 0) {
         ErrorService.handleError(new Error('无法获取歌曲详情'), 'Netease API');
         return null;
@@ -67,7 +67,7 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
       const songDetail = songDetails[0];
 
       // 2. 获取播放链接
-      const songUrl = await getSongUrl(neteaseId);
+      const songUrl = await apiRouter.getSongUrl(neteaseId);
       if (!songUrl) {
         ErrorService.handleError(new Error('无法获取歌曲播放链接'), 'Netease API');
         return null;
@@ -78,7 +78,7 @@ export const useNetease = (options: UseNeteaseOptions): UseNeteaseReturn => {
 
       // 4. 获取封面
       const coverUrl = songDetail.album.picUrl
-        ? getAlbumCoverUrl(songDetail.album.picUrl, 800, true)
+        ? apiRouter.getAlbumCoverUrl(songDetail.album.picUrl, 800, true)
         : undefined;
 
       return {
